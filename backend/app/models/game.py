@@ -1,27 +1,53 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Table
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, DateTime, String, Float
 
 from app.database.base import Base
 
 
-game_teams = Table(
-    "game_teams",
-    Base.metadata,
-    Column("game_id", Integer, ForeignKey("games.id"), primary_key=True),
-    Column("team_id", Integer, ForeignKey("teams.id"), primary_key=True),
-)
-
-
 class Game(Base):
+
     __tablename__ = "games"
 
-    id = Column(Integer, primary_key=True, index=True)
-    external_id = Column(String, unique=True, index=True, nullable=True)
-    title = Column(String, nullable=False)
-    sport = Column(String, nullable=False)
-    status = Column(String, default="scheduled")
-    starts_at = Column(DateTime, nullable=True)
+    id = Column(
+        Integer,
+        primary_key=True
+    )
 
-    odds = relationship("Odds", back_populates="game")
-    nik_scores = relationship("NikScore", back_populates="game")
-    teams = relationship("Team", secondary="game_teams", back_populates="games")
+    sport = Column(
+        String,
+        nullable=False
+    )
+
+    league = Column(
+        String,
+        nullable=False
+    )
+
+    home_team = Column(
+        String,
+        nullable=False
+    )
+
+    away_team = Column(
+        String,
+        nullable=False
+    )
+
+    spread = Column(
+        Float
+    )
+
+    total = Column(
+        Float
+    )
+
+    home_score = Column(
+        Integer
+    )
+
+    away_score = Column(
+        Integer
+    )
+
+    result = Column(
+        String
+    )

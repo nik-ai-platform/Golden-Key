@@ -1,15 +1,37 @@
-from sqlalchemy import Column, Float, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Float, Integer, String
 
 from app.database.base import Base
 
 
 class Odds(Base):
+
     __tablename__ = "odds"
 
-    id = Column(Integer, primary_key=True, index=True)
-    game_id = Column(Integer, ForeignKey("games.id"), nullable=False)
-    market = Column(String, nullable=False)
-    odds_value = Column(Float, nullable=False)
+    id = Column(
+        Integer,
+        primary_key=True
+    )
 
-    game = relationship("Game", back_populates="odds")
+    game_id = Column(
+        Integer
+    )
+
+    spread = Column(
+        Float
+    )
+
+    moneyline_home = Column(
+        Integer
+    )
+
+    moneyline_away = Column(
+        Integer
+    )
+
+    total = Column(
+        Float
+    )
+
+    sportsbook = Column(
+        String
+    )
