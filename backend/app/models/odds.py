@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Float, Integer, String
+from sqlalchemy import Column, Float, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship
 
 from app.database.base import Base
 
@@ -13,7 +14,8 @@ class Odds(Base):
     )
 
     game_id = Column(
-        Integer
+        Integer,
+        ForeignKey("games.id")
     )
 
     spread = Column(
@@ -34,4 +36,9 @@ class Odds(Base):
 
     sportsbook = Column(
         String
+    )
+
+    game = relationship(
+        "Game",
+        back_populates="odds"
     )

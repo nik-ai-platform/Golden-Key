@@ -4,6 +4,7 @@ from app.core.config import settings
 from app.core.logging import setup_logging
 
 from app.api.v1 import teams
+from app.api.v1 import games
 
 
 setup_logging()
@@ -17,6 +18,11 @@ app = FastAPI(
 
 app.include_router(
     teams.router,
+    prefix="/api/v1"
+)
+
+app.include_router(
+    games.router,
     prefix="/api/v1"
 )
 

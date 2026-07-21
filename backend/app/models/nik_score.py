@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, Float, String
+from sqlalchemy import Column, Float, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship
 
 from app.database.base import Base
 
@@ -13,7 +14,8 @@ class NikScore(Base):
     )
 
     game_id = Column(
-        Integer
+        Integer,
+        ForeignKey("games.id")
     )
 
     ats_score = Column(
@@ -34,4 +36,9 @@ class NikScore(Base):
 
     recommendation = Column(
         String
+    )
+
+    game = relationship(
+        "Game",
+        back_populates="nik_scores"
     )
