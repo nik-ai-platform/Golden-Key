@@ -17,7 +17,10 @@ def create_game(
     game: GameCreate,
     db: Session = Depends(get_db)
 ):
-    return game_service.create_game(db, game)
+    try:
+        return game_service.create_game(db, game)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.get("/", response_model=list[GameResponse])
@@ -32,7 +35,7 @@ def get_game(
     id: int,
     db: Session = Depends(get_db)
 ):
-    game = game_service.get_game_by_id(db, id)
+    game = game_service.get_game(db, id)
 
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
@@ -46,12 +49,12 @@ def update_game(
     game: GameUpdate,
     db: Session = Depends(get_db)
 ):
-    db_game = game_service.get_game_by_id(db, id)
+    updated = game_service.update_game(db, id, game)
 
-    if not db_game:
+    if not updated:
         raise HTTPException(status_code=404, detail="Game not found")
 
-    return game_service.update_game(db, db_game, game)
+    return updated
 
 
 @router.delete("/{id}")
@@ -59,11 +62,9 @@ def delete_game(
     id: int,
     db: Session = Depends(get_db)
 ):
-    db_game = game_service.get_game_by_id(db, id)
+    deleted = game_service.delete_game(db, id)
 
-    if not db_game:
+    if not deleted:
         raise HTTPException(status_code=404, detail="Game not found")
-
-    game_service.delete_game(db, db_game)
 
     return {"detail": "Game deleted"}

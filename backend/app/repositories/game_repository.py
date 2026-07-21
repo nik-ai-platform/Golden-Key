@@ -54,3 +54,5 @@ def delete_game(
 ):
     db.delete(db_game)
     db.commit()
+
+    return db_game

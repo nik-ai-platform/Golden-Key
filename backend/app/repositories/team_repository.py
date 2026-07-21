@@ -27,3 +27,11 @@ def get_teams(
 ):
 
     return db.query(Team).all()
+
+
+def get_team(
+    db: Session,
+    team_id: int
+):
+
+    return db.query(Team).filter(Team.id == team_id).first()
