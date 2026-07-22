@@ -7,3 +7,4 @@ from app.services import feature_generator
 from app.services import feature_engine
 from app.services import analytics_service
 from app.services import performance_engine
+from app.services import nik_power_engine
