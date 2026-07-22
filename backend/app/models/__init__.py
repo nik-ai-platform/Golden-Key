@@ -3,3 +3,4 @@ from app.models.game import Game
 from app.models.odds import Odds
 from app.models.nik_score import NikScore
 from app.models.analytics_feature import AnalyticsFeature
+from app.models.team_performance import TeamPerformance

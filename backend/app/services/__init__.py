@@ -6,3 +6,4 @@ from app.services import odds_service
 from app.services import feature_generator
 from app.services import feature_engine
 from app.services import analytics_service
+from app.services import performance_engine

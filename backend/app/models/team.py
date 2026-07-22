@@ -45,3 +45,9 @@ class Team(Base):
         foreign_keys="Game.away_team_id",
         back_populates="away_team"
     )
+
+    performance = relationship(
+        "TeamPerformance",
+        back_populates="team",
+        uselist=False
+    )
