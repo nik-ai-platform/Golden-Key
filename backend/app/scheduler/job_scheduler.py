@@ -1,7 +1,7 @@
-from app.services.prediction_service import PredictionService
-
-
 import logging
+
+from app.services.import_service import ImportService
+from app.services.prediction_service import PredictionService
 
 
 logger = logging.getLogger(__name__)
@@ -11,10 +11,16 @@ class JobScheduler:
 
     def __init__(self):
 
+        self.import_service = ImportService()
+
         self.prediction_service = PredictionService()
 
 
-    def run(self):
+    def run(
+        self,
+        db,
+        sport="basketball_nba"
+    ):
 
         logger.info(
             "Nik AI scheduled update started"
@@ -22,17 +28,28 @@ class JobScheduler:
 
         try:
 
-            # Future pipeline:
-            #
-            # 1. Import live games
-            # 2. Update odds
-            # 3. Generate features
-            # 4. Generate predictions
-
-            logger.info(
-                "Prediction pipeline ready"
+            games = self.import_service.import_games(
+                db,
+                sport
             )
 
-        except Exception as e:
+            logger.info(
+                f"Imported {len(games)} games"
+            )
 
-            logger.exception(e)
+
+            logger.info(
+                "Scheduled update completed"
+            )
+
+
+            return games
+
+
+        except Exception:
+
+            logger.exception(
+                "Scheduler failed"
+            )
+
+            return []

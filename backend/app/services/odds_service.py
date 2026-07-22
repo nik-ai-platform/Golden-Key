@@ -10,36 +10,61 @@ logger = logging.getLogger(__name__)
 
 class OddsService:
 
-    def __init__(self, db: Session | None = None):
-        self.db = db
+    """
+    Handles sportsbook odds processing.
+    """
 
-    def update_odds(self, sport: str | None = None):
-        if self.db is None or sport is None:
-            logger.info("OddsService.update_odds skipped: missing db or sport.")
-            return []
-
-        logger.info("OddsService.update_odds called for sport=%s", sport)
-        return []
+    def __init__(self):
+        pass
 
 
-def create_odds_snapshot(
-    db: Session,
-    game_id: int,
-    bookmaker_data: dict
-):
-    sportsbook = bookmaker_data.get(
-        "name",
-        bookmaker_data.get("title", bookmaker_data.get("key"))
-    )
+    def save_odds(
+        self,
+        db: Session,
+        odds_data: dict
+    ):
 
-    spread_home = bookmaker_data.get("spread_home")
-    spread_away = bookmaker_data.get("spread_away")
-    moneyline_home = bookmaker_data.get("moneyline_home")
-    moneyline_away = bookmaker_data.get("moneyline_away")
-    total = bookmaker_data.get("total")
+        odds = Odds(
+            **odds_data
+        )
 
-    if spread_home is None and bookmaker_data.get("markets"):
-        for market in bookmaker_data.get("markets", []):
+        db.add(odds)
+        db.commit()
+        db.refresh(odds)
+
+        return odds
+
+
+    def get_game_odds(
+        self,
+        db: Session,
+        game_id: int
+    ):
+
+        return (
+            db.query(Odds)
+            .filter(
+                Odds.game_id == game_id
+            )
+            .all()
+        )
+
+
+    def extract_market_values(
+        self,
+        bookmaker: dict
+    ):
+
+        spread_home = None
+        spread_away = None
+        moneyline_home = None
+        moneyline_away = None
+        total = None
+
+        for market in bookmaker.get(
+            "markets",
+            []
+        ):
             key = market.get("key")
             outcomes = market.get("outcomes", [])
 
@@ -55,13 +80,46 @@ def create_odds_snapshot(
             if key == "totals" and outcomes:
                 total = outcomes[0].get("point")
 
+        return (
+            spread_home,
+            spread_away,
+            moneyline_home,
+            moneyline_away,
+            total
+        )
+
+
+def create_odds_snapshot(
+    db: Session,
+    game_id: int,
+    bookmaker: dict
+):
+
+    (
+        spread_home,
+        spread_away,
+        moneyline_home,
+        moneyline_away,
+        total
+    ) = OddsService().extract_market_values(
+        bookmaker
+    )
+
     odds = Odds(
         game_id=game_id,
-        sportsbook=sportsbook,
+
+        sportsbook=bookmaker.get(
+            "title"
+        ),
+
         spread_home=spread_home,
+
         spread_away=spread_away,
+
         moneyline_home=moneyline_home,
+
         moneyline_away=moneyline_away,
+
         total=total
     )
 
@@ -70,27 +128,3 @@ def create_odds_snapshot(
     db.refresh(odds)
 
     return odds
-
-
-def get_latest_odds(
-    db: Session,
-    game_id: int
-):
-    return (
-        db.query(Odds)
-        .filter(Odds.game_id == game_id)
-        .order_by(Odds.created_at.desc(), Odds.id.desc())
-        .first()
-    )
-
-
-def get_odds_history(
-    db: Session,
-    game_id: int
-):
-    return (
-        db.query(Odds)
-        .filter(Odds.game_id == game_id)
-        .order_by(Odds.created_at.asc(), Odds.id.asc())
-        .all()
-    )
