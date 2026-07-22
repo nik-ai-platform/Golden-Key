@@ -5,6 +5,9 @@ from app.core.logging import setup_logging
 
 from app.api.v1 import teams
 from app.api.v1 import games
+from app.api.v1 import live
+from app.api.v1 import imports
+from app.api.v1 import odds
 
 
 setup_logging()
@@ -23,6 +26,21 @@ app.include_router(
 
 app.include_router(
     games.router,
+    prefix="/api/v1"
+)
+
+app.include_router(
+    live.router,
+    prefix="/api/v1"
+)
+
+app.include_router(
+    imports.router,
+    prefix="/api/v1"
+)
+
+app.include_router(
+    odds.router,
     prefix="/api/v1"
 )
 

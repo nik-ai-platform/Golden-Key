@@ -1,6 +1,5 @@
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
 
 from app.database.base import Base
 
@@ -28,6 +27,13 @@ class Game(Base):
         Integer
     )
 
+    provider_game_id = Column(
+        String,
+        unique=True,
+        nullable=True,
+        index=True
+    )
+
     home_team_id = Column(
         Integer,
         ForeignKey("teams.id"),
@@ -43,24 +49,6 @@ class Game(Base):
     game_date = Column(
         DateTime,
         nullable=False
-    )
-
-    status = Column(
-        String,
-        nullable=False
-    )
-
-    created_at = Column(
-        DateTime,
-        nullable=False,
-        server_default=func.now()
-    )
-
-    updated_at = Column(
-        DateTime,
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now()
     )
 
     home_team = relationship(
@@ -83,4 +71,11 @@ class Game(Base):
     nik_scores = relationship(
         "NikScore",
         back_populates="game"
+    )
+
+    analytics = relationship(
+        "AnalyticsFeature",
+        back_populates="game"
+        ,
+        uselist=False
     )

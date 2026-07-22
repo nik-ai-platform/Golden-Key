@@ -6,11 +6,9 @@ from pydantic import BaseModel
 class GameBase(BaseModel):
     sport: str
     league: str
-    season: str
+    season: int
 
     game_date: datetime
-
-    status: str = "scheduled"
 
     home_team_id: int
     away_team_id: int
@@ -23,11 +21,9 @@ class GameCreate(GameBase):
 class GameUpdate(BaseModel):
     sport: str | None = None
     league: str | None = None
-    season: str | None = None
+    season: int | None = None
 
     game_date: datetime | None = None
-
-    status: str | None = None
 
     home_team_id: int | None = None
     away_team_id: int | None = None

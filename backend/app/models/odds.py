@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Float, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 from app.database.base import Base
 
@@ -18,7 +19,15 @@ class Odds(Base):
         ForeignKey("games.id")
     )
 
-    spread = Column(
+    sportsbook = Column(
+        String
+    )
+
+    spread_home = Column(
+        Float
+    )
+
+    spread_away = Column(
         Float
     )
 
@@ -34,8 +43,10 @@ class Odds(Base):
         Float
     )
 
-    sportsbook = Column(
-        String
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        server_default=func.now()
     )
 
     game = relationship(
