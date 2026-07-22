@@ -1,6 +1,25 @@
+import logging
+
 from sqlalchemy.orm import Session
 
 from app.models.odds import Odds
+
+
+logger = logging.getLogger(__name__)
+
+
+class OddsService:
+
+    def __init__(self, db: Session | None = None):
+        self.db = db
+
+    def update_odds(self, sport: str | None = None):
+        if self.db is None or sport is None:
+            logger.info("OddsService.update_odds skipped: missing db or sport.")
+            return []
+
+        logger.info("OddsService.update_odds called for sport=%s", sport)
+        return []
 
 
 def create_odds_snapshot(
