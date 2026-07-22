@@ -1,27 +1,80 @@
-from app.models.analytics_feature import AnalyticsFeature
+from typing import Optional
 
 
 class FeatureEngine:
 
-    def generate(
+    """
+    Calculates analytical features used by Nik AI models.
+    """
+
+    def american_to_probability(
         self,
-        game,
-        latest_odds
-    ) -> AnalyticsFeature:
+        odds: Optional[int]
+    ) -> float | None:
 
-        return AnalyticsFeature(
-            game_id=game.id,
+        if odds is None:
+            return None
 
-            home_rest_days=0,
-            away_rest_days=0,
+        if odds < 0:
+            probability = (
+                abs(odds) /
+                (abs(odds) + 100)
+            )
 
-            line_movement=0.0,
+        else:
+            probability = (
+                100 /
+                (odds + 100)
+            )
 
-            implied_home_probability=0.0,
-            implied_away_probability=0.0,
+        return round(
+            probability,
+            4
+        )
 
-            favorite_is_home=True,
+    def calculate_moneyline_features(
+        self,
+        home_moneyline: int,
+        away_moneyline: int
+    ):
 
-            home_back_to_back=False,
-            away_back_to_back=False
+        home_probability = (
+            self.american_to_probability(
+                home_moneyline
+            )
+        )
+
+        away_probability = (
+            self.american_to_probability(
+                away_moneyline
+            )
+        )
+
+        favorite_is_home = (
+            home_moneyline < away_moneyline
+        )
+
+        return {
+            "implied_home_probability":
+                home_probability,
+
+            "implied_away_probability":
+                away_probability,
+
+            "favorite_is_home":
+                favorite_is_home
+        }
+
+    def calculate_line_movement(
+        self,
+        opening_line: float,
+        current_line: float
+    ):
+
+        if opening_line is None or current_line is None:
+            return None
+
+        return round(
+            current_line - opening_line,
+            2
         )
