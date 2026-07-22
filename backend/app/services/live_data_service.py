@@ -1,31 +1,36 @@
-from app.providers.factory import (
-    get_odds_provider,
-    get_sports_data_provider,
-)
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class LiveDataService:
 
-    def fetch_games(self, sport: str):
-        return get_live_odds(sport)
+    """
+    Handles importing live sports data.
+    """
 
-    def fetch_odds(self, sport: str):
-        return get_live_odds(sport)
-
-    def fetch_scores(self, sport: str):
-        return get_live_scores(sport)
+    def __init__(self):
+        pass
 
 
-def get_live_games(sport: str):
-    provider = get_sports_data_provider()
-    return provider.get_games(sport)
+    def fetch_games(self, sport: str | None = None):
+
+        logger.info(
+            "Fetching live games"
+        )
+
+        # API connection will be added here
+
+        return []
 
 
-def get_live_odds(sport: str):
-    provider = get_odds_provider()
-    return provider.get_odds(sport)
+    def update_games(self):
 
+        games = self.fetch_games()
 
-def get_live_scores(sport: str):
-    provider = get_sports_data_provider()
-    return provider.get_scores(sport)
+        logger.info(
+            f"Received {len(games)} games"
+        )
+
+        return games
