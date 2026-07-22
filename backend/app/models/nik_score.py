@@ -34,6 +34,27 @@ class NikScore(Base):
         Float
     )
 
+    home_score = Column(
+        Float
+    )
+
+    away_score = Column(
+        Float
+    )
+
+    confidence = Column(
+        Float
+    )
+
+    confidence_level = Column(
+        String
+    )
+
+    model_version = Column(
+        String,
+        default="NPI-v1"
+    )
+
     recommendation = Column(
         String
     )

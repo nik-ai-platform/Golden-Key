@@ -8,6 +8,7 @@ from app.api.v1 import games
 from app.api.v1 import live
 from app.api.v1 import imports
 from app.api.v1 import odds
+from app.api.v1 import predictions
 
 
 setup_logging()
@@ -41,6 +42,11 @@ app.include_router(
 
 app.include_router(
     odds.router,
+    prefix="/api/v1"
+)
+
+app.include_router(
+    predictions.router,
     prefix="/api/v1"
 )
 
