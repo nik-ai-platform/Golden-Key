@@ -1,0 +1,12 @@
+{
+	email owner@goldenkeysports.com
+}
+
+goldenkeysports.com,
+www.goldenkeysports.com {
+	reverse_proxy frontend:80
+}
+
+api.goldenkeysports.com {
+	reverse_proxy backend:8000
+}

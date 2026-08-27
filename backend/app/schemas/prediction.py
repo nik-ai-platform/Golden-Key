@@ -1,0 +1,30 @@
+from datetime import datetime
+
+from pydantic import BaseModel
+
+
+class PredictionBase(BaseModel):
+    game_id: int
+    market: str
+    selection: str
+
+
+class PredictionCreate(PredictionBase):
+    model_version: str
+    npi_score: float
+    win_probability: float | None = None
+    simulation_probability: float | None = None
+    simulation_runs: int | None = None
+    simulation_margin: float | None = None
+    confidence_score: float | None = None
+    projected_edge: float | None = None
+    risk_level: str | None = None
+    reasoning: str | None = None
+
+
+class PredictionResponse(PredictionCreate):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

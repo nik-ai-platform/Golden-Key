@@ -1,13 +1,17 @@
 from sqlalchemy.orm import Session
 
 from app.models.analytics_feature import AnalyticsFeature
+from app.repositories import analytics_repository
 from app.services.feature_engine import FeatureEngine
 
 
 class AnalyticsService:
 
-    def __init__(self):
-        self.engine = FeatureEngine()
+    def __init__(
+        self,
+        engine=None,
+    ):
+        self.engine = engine or FeatureEngine()
 
     def create_game_features(
         self,
@@ -17,11 +21,10 @@ class AnalyticsService:
     ):
 
         existing = (
-            db.query(AnalyticsFeature)
-            .filter(
-                AnalyticsFeature.game_id == game.id
+            analytics_repository.get_by_game(
+                db,
+                game.id
             )
-            .first()
         )
 
         if existing:

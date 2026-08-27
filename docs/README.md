@@ -15,3 +15,4 @@ Comprehensive documentation for the nik-ai-platform project.
 - [API Docs](./api/)
 - [Architecture](./architecture/)
 - [Setup Guide](./setup/)
+- [Production Rollout](./PRODUCTION_ROLLOUT.md)

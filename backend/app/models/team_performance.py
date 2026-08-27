@@ -3,6 +3,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer
 )
 from sqlalchemy.orm import relationship
@@ -41,28 +42,32 @@ class TeamPerformance(Base):
         default=0
     )
 
-    win_percentage = Column(
+    points_for_avg = Column(
         Float
     )
 
-    avg_points_for = Column(
+    points_against_avg = Column(
         Float
     )
 
-    avg_points_against = Column(
+    recent_form = Column(
         Float
     )
 
-    home_win_percentage = Column(
+    home_record = Column(
         Float
     )
 
-    away_win_percentage = Column(
+    away_record = Column(
         Float
     )
 
-    current_streak = Column(
-        Integer
+    offensive_rating = Column(
+        Float
+    )
+
+    defensive_rating = Column(
+        Float
     )
 
     updated_at = Column(
@@ -76,3 +81,9 @@ class TeamPerformance(Base):
         "Team",
         back_populates="performance"
     )
+
+
+Index(
+    "ix_team_performance_team_id",
+    TeamPerformance.team_id,
+)

@@ -1,36 +1,90 @@
-import logging
+import requests
 
-
-logger = logging.getLogger(__name__)
+from app.core.config import settings
+from app.services.monitoring_service import MonitoringService
 
 
 class LiveDataService:
-
     """
-    Handles importing live sports data.
+    Handles importing live sports data from The Odds API.
     """
 
-    def __init__(self):
-        pass
+    BASE_URL = "https://api.the-odds-api.com/v4/sports"
 
+    def update_game_state(self, game_data):
+        if not game_data:
+            return None
 
-    def fetch_games(self, sport: str | None = None):
+        if game_data.get("game_id") is None:
+            return None
 
-        logger.info(
-            "Fetching live games"
-        )
+        return {
+            "game_id": game_data.get("game_id"),
+            "home_score": game_data.get("home_score", 0),
+            "away_score": game_data.get("away_score", 0),
+            "quarter_period": game_data.get("quarter_period", "Q1"),
+            "clock": game_data.get("clock", "00:00"),
+            "possession": game_data.get("possession", "HOME"),
+            "momentum_score": game_data.get("momentum_score", 0),
+        }
 
-        # API connection will be added here
-
+    def get_live_games(self):
         return []
 
+    def process_event(self, event):
+        if not event:
+            return None
 
-    def update_games(self):
+        return {
+            "event_type": event.get("event_type", "GAME_STATE_CHANGE"),
+            "game_id": event.get("game_id"),
+            "message": event.get("message", "Game state updated"),
+        }
 
-        games = self.fetch_games()
+    def __init__(
+        self,
+        monitor=None,
+    ):
+        self.monitor = monitor or MonitoringService()
 
-        logger.info(
-            f"Received {len(games)} games"
+
+    def fetch_games(
+        self,
+        sport: str
+    ):
+
+        self.monitor.log_import(
+            "Fetching games",
+            sport=sport
+        )
+
+        response = requests.get(
+            f"{self.BASE_URL}/{sport}/odds",
+            params={
+                "apiKey": settings.ODDS_API_KEY,
+                "regions": "us",
+                "markets": "h2h,spreads,totals",
+                "oddsFormat": "american",
+            },
+            timeout=15,
+        )
+
+        response.raise_for_status()
+
+        return response.json()
+
+
+    def update_games(
+        self,
+        sport: str
+    ):
+
+        games = self.fetch_games(sport)
+
+        self.monitor.log_import(
+            "Received games",
+            count=len(games),
+            sport=sport
         )
 
         return games

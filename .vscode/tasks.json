@@ -1,0 +1,12 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Backend: Uvicorn (Scoped Reload)",
+			"type": "shell",
+			"command": "Set-Location backend; py -m uvicorn app.main:app --reload --reload-dir app --host 127.0.0.1 --port 8000",
+			"isBackground": true,
+			"group": "build"
+		}
+	]
+}

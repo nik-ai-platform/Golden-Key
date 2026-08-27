@@ -1,0 +1,1 @@
+export { PersonalAIPanel } from "./PersonalAIPanel";

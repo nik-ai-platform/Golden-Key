@@ -1,0 +1,7 @@
+{
+  "prediction_generation_ms_per_game": 100,
+  "dashboard_load_ms": 500,
+  "scheduler_run_ms_by_league": "measured",
+  "api_response_ms_typical": 250,
+  "database_query_count": "minimize"
+}

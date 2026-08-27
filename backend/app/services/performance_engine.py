@@ -1,51 +1,92 @@
+from sqlalchemy.orm import Session
+
+from app.models.prediction_result import (
+    PredictionResult
+)
+
+
 class PerformanceEngine:
 
-    def calculate_win_percentage(
+    def calculate_metrics(
         self,
-        wins,
-        losses
+        db: Session
     ):
 
-        total = wins + losses
+        results = (
+
+            db.query(
+                PredictionResult
+            )
+
+            .all()
+
+        )
+
+        total = len(results)
 
         if total == 0:
-            return 0
 
-        return round(
-            wins / total,
-            4
+            return {
+
+                "total_predictions": 0,
+
+                "accuracy": 0,
+
+                "wins": 0,
+
+                "losses": 0
+
+            }
+
+        wins = len(
+
+            [
+
+                value for value in results
+
+                if value.outcome == "WIN"
+
+            ]
+
         )
 
-    def calculate_average(
-        self,
-        total,
-        games
-    ):
+        losses = len(
 
-        if games == 0:
-            return 0
+            [
 
-        return round(
-            total / games,
-            2
+                value for value in results
+
+                if value.outcome == "LOSS"
+
+            ]
+
         )
 
-    def calculate_team_strength(
-        self,
-        performance
-    ):
+        accuracy = (
 
-        offensive = (
-            performance.avg_points_for
-            or 0
-        )
+            wins / total
 
-        defense = (
-            performance.avg_points_against
-            or 0
-        )
+        ) * 100
 
-        return round(
-            offensive - defense,
-            2
-        )
+        return {
+
+            "total_predictions":
+
+                total,
+
+            "wins":
+
+                wins,
+
+            "losses":
+
+                losses,
+
+            "accuracy":
+
+                round(
+                    accuracy,
+                    2
+                )
+
+        }

@@ -16,6 +16,66 @@ All API requests require authentication using a Bearer token:
 Authorization: Bearer YOUR_API_TOKEN
 ```
 
+### Swagger/OpenAPI Login Flow
+
+- Token endpoint: `POST /api/v1/auth/login`
+- After login, include access token in `Authorization: Bearer <token>` for protected routes.
+
+### Role-Based Authorization (RBAC)
+
+Authorization denials return a stable, non-revealing response:
+
+```json
+{
+  "detail": "Insufficient permissions"
+}
+```
+
+Dependency guard mapping:
+
+| Dependency | Allowed Roles | Typical Use |
+| --- | --- | --- |
+| `require_viewer` | `viewer`, `analyst`, `admin` | Read-only dashboard and analytics routes |
+| `require_analyst` | `analyst`, `admin` | Prediction and import routes |
+| `require_admin` | `admin` | Administrative/user-management routes |
+
+Permission matrix for current and planned endpoints:
+
+| Endpoint | Viewer | Analyst | Admin |
+| --- | --- | --- | --- |
+| `GET /api/v1/dashboard` | ✅ | ✅ | ✅ |
+| `GET /api/v1/predictions/{game_id}` | ❌ | ✅ | ✅ |
+| `POST /api/v1/imports/{sport}` | ❌ | ✅ | ✅ |
+| `GET /api/v1/backtests/*` (planned) | ❌ | ✅ | ✅ |
+| `GET /api/v1/users/*` (planned) | ❌ | ❌ | ✅ |
+
+## Predictions Endpoint Behavior
+
+`GET /api/v1/predictions/{game_id}` returns a prediction snapshot for a single game.
+
+- It is not a real-time analytics stream.
+- It returns the latest saved prediction when available, otherwise it generates one on demand.
+- Score-like fields are model outputs (NPI-style scoring), not live scoreboard values.
+
+Current response shape example:
+
+```json
+{
+  "game_id": 6,
+  "game_date": "2026-07-24T18:00:00Z",
+  "home_team": "Dallas Wings",
+  "away_team": "Phoenix Mercury",
+  "winner": "Dallas Wings",
+  "confidence": 62.4,
+  "nik_power_index": 58.9,
+  "home_npi": 58.9,
+  "away_npi": 54.1,
+  "model_version": "NPI-v2"
+}
+```
+
+For aggregated/historical analysis (accuracy trends, confidence buckets, backtesting), use analytics routes under `/api/v1/analytics/*`.
+
 ## Endpoints
 
 ### Users

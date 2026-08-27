@@ -1,11 +1,8 @@
-import logging
-
 from sqlalchemy.orm import Session
 
 from app.models.odds import Odds
-
-
-logger = logging.getLogger(__name__)
+from app.repositories import odds_repository
+from app.services.monitoring_service import MonitoringService
 
 
 class OddsService:
@@ -14,9 +11,11 @@ class OddsService:
     Handles sportsbook odds processing.
     """
 
-    def __init__(self):
-        pass
-
+    def __init__(
+        self,
+        monitor=None,
+    ):
+        self.monitor = monitor or MonitoringService()
 
     def save_odds(
         self,
@@ -28,11 +27,7 @@ class OddsService:
             **odds_data
         )
 
-        db.add(odds)
-        db.commit()
-        db.refresh(odds)
-
-        return odds
+        return odds_repository.save_odds(db, odds)
 
 
     def get_game_odds(
@@ -40,14 +35,7 @@ class OddsService:
         db: Session,
         game_id: int
     ):
-
-        return (
-            db.query(Odds)
-            .filter(
-                Odds.game_id == game_id
-            )
-            .all()
-        )
+        return odds_repository.get_game_odds(db, game_id)
 
 
     def extract_market_values(
@@ -92,8 +80,13 @@ class OddsService:
 def create_odds_snapshot(
     db: Session,
     game_id: int,
-    bookmaker: dict
+    bookmaker: dict,
+    odds_service=None,
+    monitor=None,
 ):
+
+    service = odds_service or OddsService()
+    monitor = monitor or service.monitor
 
     (
         spread_home,
@@ -101,7 +94,7 @@ def create_odds_snapshot(
         moneyline_home,
         moneyline_away,
         total
-    ) = OddsService().extract_market_values(
+    ) = service.extract_market_values(
         bookmaker
     )
 
@@ -123,8 +116,26 @@ def create_odds_snapshot(
         total=total
     )
 
-    db.add(odds)
-    db.commit()
-    db.refresh(odds)
+    monitor.log_import(
+        "Saved odds snapshot",
+        game_id=game_id,
+        sportsbook=bookmaker.get("title"),
+    )
 
-    return odds
+    return odds_repository.save_odds(db, odds)
+
+
+def get_latest_odds(
+    db: Session,
+    game_id: int
+):
+
+    return odds_repository.get_latest_odds(db, game_id)
+
+
+def get_odds_history(
+    db: Session,
+    game_id: int
+):
+
+    return odds_repository.get_odds_history(db, game_id)

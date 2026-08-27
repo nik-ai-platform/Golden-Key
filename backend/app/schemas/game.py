@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class GameBase(BaseModel):
@@ -31,6 +31,7 @@ class GameUpdate(BaseModel):
 
 class GameResponse(GameBase):
     id: int
-
-    class Config:
-        from_attributes = True
+    home_score: float | None = None
+    away_score: float | None = None
+    winner_team_id: int | None = None
+    model_config = ConfigDict(from_attributes=True)

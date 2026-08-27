@@ -15,8 +15,11 @@ SPORT_KEY_MAP = {
 
 class OddsAPIProvider(SportsDataProvider):
 
-    def __init__(self):
-        self.client = httpx.Client(
+    def __init__(
+        self,
+        client=None,
+    ):
+        self.client = client or httpx.Client(
             base_url=settings.ODDS_API_BASE_URL,
             timeout=30
         )

@@ -2,13 +2,15 @@ from fastapi import APIRouter, Depends
 
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import require_analyst
 from app.database.session import get_db
 from app.services.import_service import import_sport_games
 
 
 router = APIRouter(
     prefix="/imports",
-    tags=["Imports"]
+    tags=["Imports"],
+    dependencies=[Depends(require_analyst)],
 )
 
 
@@ -20,7 +22,7 @@ def import_games(
 
     games = import_sport_games(
         db,
-        sport.upper()
+        sport.lower()
     )
 
     return {

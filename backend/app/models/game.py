@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.database.base import Base
@@ -51,6 +51,22 @@ class Game(Base):
         nullable=False
     )
 
+    home_score = Column(
+        Float,
+        nullable=True
+    )
+
+    away_score = Column(
+        Float,
+        nullable=True
+    )
+
+    winner_team_id = Column(
+        Integer,
+        ForeignKey("teams.id"),
+        nullable=True
+    )
+
     home_team = relationship(
         "Team",
         foreign_keys=[home_team_id],
@@ -73,9 +89,34 @@ class Game(Base):
         back_populates="game"
     )
 
+    outcomes = relationship(
+        "PredictionOutcome",
+        back_populates="game"
+    )
+
     analytics = relationship(
         "AnalyticsFeature",
         back_populates="game"
         ,
         uselist=False
     )
+
+
+Index(
+    "idx_game_sport_date",
+    Game.sport,
+    Game.game_date
+)
+
+
+Index(
+    "ix_games_game_date",
+    Game.game_date,
+)
+
+
+Index(
+    "idx_game_teams",
+    Game.home_team_id,
+    Game.away_team_id
+)

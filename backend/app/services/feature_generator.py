@@ -1,14 +1,20 @@
 from app.models.analytics_feature import AnalyticsFeature
-import logging
-
-
-logger = logging.getLogger(__name__)
+from app.services.monitoring_service import MonitoringService
 
 
 class FeatureGenerator:
 
+    def __init__(
+        self,
+        monitor=None,
+    ):
+        self.monitor = monitor or MonitoringService()
+
     def generate_features(self):
-        logger.info("FeatureGenerator.generate_features skipped: no job context provided.")
+        self.monitor.log_scheduler(
+            "Feature generation skipped",
+            reason="no_job_context"
+        )
         return []
 
     def generate(

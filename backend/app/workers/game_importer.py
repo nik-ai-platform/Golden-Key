@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.services.live_data_service import LiveDataService
+from app.services.monitoring_service import MonitoringService
 from app.services.odds_service import create_odds_snapshot
 from app.models.team import Team
 from app.models.game import Game
@@ -12,10 +13,15 @@ class GameOddsImporter:
 
     def __init__(
         self,
-        db: Session
+        db: Session,
+        live_data_service=None,
+        monitor=None,
     ):
         self.db = db
-        self.live_data = LiveDataService()
+        self.live_data = (
+            live_data_service or LiveDataService()
+        )
+        self.monitor = monitor or MonitoringService()
 
     def import_games(
         self,
@@ -61,6 +67,12 @@ class GameOddsImporter:
             )
 
             imported.append(game)
+
+        self.monitor.log_import(
+            "Imported games",
+            count=len(imported),
+            sport=sport
+        )
 
         return imported
 
@@ -110,6 +122,12 @@ class GameOddsImporter:
             )
 
         self.db.commit()
+
+        self.monitor.log_import(
+            "Imported odds",
+            game_id=game.id,
+            count=len(game_data.get("bookmakers", [])),
+        )
 
     def _parse_game_time(
         self,

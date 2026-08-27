@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class TeamBase(BaseModel):
@@ -14,6 +14,4 @@ class TeamCreate(TeamBase):
 
 class TeamResponse(TeamBase):
     id: int
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

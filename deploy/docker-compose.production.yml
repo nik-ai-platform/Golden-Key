@@ -1,0 +1,169 @@
+services:
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:?VITE_API_BASE_URL is required}
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DEBUG: ${DEBUG:-false}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required}
+      SPORTSBOOK_API_KEYS: ${SPORTSBOOK_API_KEYS:?SPORTSBOOK_API_KEYS is required}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      SMTP_SETTINGS: ${SMTP_SETTINGS:?SMTP_SETTINGS is required}
+      AUTH_DEMO_EMAIL: ${AUTH_DEMO_EMAIL:?AUTH_DEMO_EMAIL is required}
+      AUTH_DEMO_PASSWORD: ${AUTH_DEMO_PASSWORD:?AUTH_DEMO_PASSWORD is required}
+      OBJECT_STORAGE_ENDPOINT: ${OBJECT_STORAGE_ENDPOINT:-http://minio:9000}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-golden-key-prod}
+      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+      OBJECT_STORAGE_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY:?OBJECT_STORAGE_ACCESS_KEY is required}
+      OBJECT_STORAGE_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY:?OBJECT_STORAGE_SECRET_KEY is required}
+      REQUEST_TIMEOUT_SECONDS: ${REQUEST_TIMEOUT_SECONDS:-20}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-120}
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    ports:
+      - "8000:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/system', timeout=2)"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required}
+      SPORTSBOOK_API_KEYS: ${SPORTSBOOK_API_KEYS:?SPORTSBOOK_API_KEYS is required}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      SMTP_SETTINGS: ${SMTP_SETTINGS:?SMTP_SETTINGS is required}
+      AUTH_DEMO_EMAIL: ${AUTH_DEMO_EMAIL:?AUTH_DEMO_EMAIL is required}
+      AUTH_DEMO_PASSWORD: ${AUTH_DEMO_PASSWORD:?AUTH_DEMO_PASSWORD is required}
+      RUNTIME_MODE: worker
+      WORKER_INTERVAL_SECONDS: ${WORKER_INTERVAL_SECONDS:-300}
+    command: ["python", "-m", "app.workers.runtime"]
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  scheduler:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required}
+      SPORTSBOOK_API_KEYS: ${SPORTSBOOK_API_KEYS:?SPORTSBOOK_API_KEYS is required}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      SMTP_SETTINGS: ${SMTP_SETTINGS:?SMTP_SETTINGS is required}
+      AUTH_DEMO_EMAIL: ${AUTH_DEMO_EMAIL:?AUTH_DEMO_EMAIL is required}
+      AUTH_DEMO_PASSWORD: ${AUTH_DEMO_PASSWORD:?AUTH_DEMO_PASSWORD is required}
+      RUNTIME_MODE: scheduler
+      WORKER_INTERVAL_SECONDS: ${SCHEDULER_INTERVAL_SECONDS:-300}
+    command: ["python", "-m", "app.workers.runtime"]
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  database:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-goldenkey}
+      POSTGRES_USER: ${POSTGRES_USER:-goldenkey}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-goldenkey} -d ${POSTGRES_DB:-goldenkey}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
+    volumes:
+      - redis_prod_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${OBJECT_STORAGE_ACCESS_KEY:?OBJECT_STORAGE_ACCESS_KEY is required}
+      MINIO_ROOT_PASSWORD: ${OBJECT_STORAGE_SECRET_KEY:?OBJECT_STORAGE_SECRET_KEY is required}
+    command: ["server", "/data", "--console-address", ":9001"]
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_prod_data:/data
+
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    volumes:
+      - ../infra/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
+    ports:
+      - "3003:3000"
+    volumes:
+      - grafana_prod_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_started
+
+volumes:
+  postgres_prod_data:
+  redis_prod_data:
+  minio_prod_data:
+  grafana_prod_data:

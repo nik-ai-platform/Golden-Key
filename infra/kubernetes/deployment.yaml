@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: golden-key-backend
+  labels:
+    app: golden-key-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: golden-key-backend
+  template:
+    metadata:
+      labels:
+        app: golden-key-backend
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/example/golden-key-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          env:
+            - name: ENVIRONMENT
+              value: "production"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: golden-key-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: golden-key-secrets
+                  key: redis-url
+            - name: STORAGE_BACKEND
+              value: "s3"
+            - name: STORAGE_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: golden-key-secrets
+                  key: storage-bucket
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: golden-key-secrets
+                  key: secret-key
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: golden-key-secrets
+                  key: jwt-secret-key
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"

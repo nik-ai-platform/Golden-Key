@@ -1,0 +1,24 @@
+{
+  "goals": {
+    "prediction_generation_ms_per_game": 100,
+    "dashboard_load_ms": 500,
+    "api_response_ms_typical": 250,
+    "database_query_count": "minimize"
+  },
+  "metrics": {
+    "prediction_generation_ms_per_game": 97.7,
+    "prediction_generation_query_count": 11,
+    "dashboard_load_ms": 38.21,
+    "dashboard_status_code": 200,
+    "dashboard_query_count": 12,
+    "api_response_ms_typical": 10.85,
+    "api_typical_status_code": 200,
+    "api_typical_query_count": 4,
+    "scheduler_run_ms_by_league": {
+      "basketball_nba": 132.42
+    },
+    "scheduler_query_count": 3
+  },
+  "notes": [],
+  "source": "postgres"
+}

@@ -1,0 +1,93 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - backend/**
+      - .github/workflows/backend.yml
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - backend/**
+      - .github/workflows/backend.yml
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: goldenkey
+          POSTGRES_USER: goldenkey
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U goldenkey -d goldenkey"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://goldenkey:password@localhost:5432/goldenkey' }}
+      SECRET_KEY: ${{ secrets.SECRET_KEY || 'ci-secret-key-for-validation-only' }}
+      ODDS_API_KEY: ${{ secrets.API_KEYS || 'ci-dummy-key' }}
+      JWT_SECRET_KEY: ${{ secrets.SECRET_KEY || 'ci-secret-key-for-validation-only' }}
+      AUTH_DEMO_EMAIL: admin@nik.ai
+      AUTH_DEMO_PASSWORD: admin123
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest-cov ruff
+
+      - name: Ensure migration files exist
+        run: |
+          ls -1 migrations/versions/*.py
+
+      - name: Validate migrations apply
+        run: alembic upgrade head
+
+      - name: Validate schema and models are in sync
+        run: alembic check
+
+      - name: Lint backend
+        run: ruff check app tests
+
+      - name: Run tests with coverage
+        run: |
+          pytest \
+            --cov=app/services/prediction_service.py \
+            --cov=app/services/confidence_service.py \
+            --cov=app/services/nik_power_engine.py \
+            --cov=app/services/team_intelligence_service.py \
+            --cov=app/services/historical_trend_service.py \
+            --cov=app/auth/service.py \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-fail-under=60
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-xml
+          path: backend/coverage.xml
+
+      - name: Compile application
+        run: python -m compileall app

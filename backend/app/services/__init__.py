@@ -6,6 +6,13 @@ from app.services import odds_service
 from app.services import feature_generator
 from app.services import feature_engine
 from app.services import analytics_service
+from app.services import accuracy_service
+from app.services.calibration_service import CalibrationService
 from app.services import performance_engine
 from app.services import nik_power_engine
 from app.services import prediction_service
+from app.services.confidence_service import ConfidenceService
+from app.services.feature_importance_service import FeatureImportanceService
+from app.services.model_evaluation_service import ModelEvaluationService
+from app.services.training_dataset_service import TrainingDatasetService
+from app.services.model_training_service import ModelTrainingService

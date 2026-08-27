@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Float, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, JSON, String
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 from app.database.base import Base
 
@@ -59,7 +60,34 @@ class NikScore(Base):
         String
     )
 
+    explanation = Column(
+        JSON
+    )
+
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        server_default=func.now(),
+    )
+
     game = relationship(
         "Game",
         back_populates="nik_scores"
     )
+
+    outcomes = relationship(
+        "PredictionOutcome",
+        back_populates="prediction"
+    )
+
+
+Index(
+    "ix_nik_scores_game_id",
+    NikScore.game_id,
+)
+
+
+Index(
+    "ix_nik_scores_created_at",
+    NikScore.created_at,
+)

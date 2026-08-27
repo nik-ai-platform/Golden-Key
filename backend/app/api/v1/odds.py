@@ -2,13 +2,15 @@ from fastapi import APIRouter, Depends
 
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import require_viewer
 from app.database.session import get_db
 from app.services.odds_service import get_latest_odds, get_odds_history
 
 
 router = APIRouter(
     prefix="/odds",
-    tags=["Odds"]
+    tags=["Odds"],
+    dependencies=[Depends(require_viewer)],
 )
 
 
