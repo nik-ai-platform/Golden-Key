@@ -185,6 +185,18 @@ def test_one_ncaaf_event_persists_complete_odds_and_three_predictions():
         db=db,
         live_data_service=live_data,
     ).import_games("NCAAF")[0]
+    db.add(
+        Odds(
+            game_id=game.id,
+            sportsbook="Incomplete Sportsbook",
+            spread_home=-7.0,
+            spread_away=7.0,
+            moneyline_home=None,
+            moneyline_away=None,
+            total=53.0,
+        )
+    )
+    db.commit()
 
     engine = PredictionEngine()
     engine.model_runtime = MagicMock()
@@ -205,7 +217,18 @@ def test_one_ncaaf_event_persists_complete_odds_and_three_predictions():
     )
 
     stored_game = db.query(Game).filter(Game.id == game.id).one()
-    stored_odds = db.query(Odds).filter(Odds.game_id == game.id).one()
+    stored_odds = (
+        db.query(Odds)
+        .filter(
+            Odds.game_id == game.id,
+            Odds.spread_home.is_not(None),
+            Odds.spread_away.is_not(None),
+            Odds.moneyline_home.is_not(None),
+            Odds.moneyline_away.is_not(None),
+            Odds.total.is_not(None),
+        )
+        .one()
+    )
     stored_predictions = (
         db.query(Prediction)
         .filter(Prediction.game_id == game.id)

@@ -118,7 +118,12 @@ class PredictionEngine:
         odds = (
             db.query(Odds)
             .filter(
-                Odds.game_id == game_id
+                Odds.game_id == game_id,
+                Odds.spread_home.is_not(None),
+                Odds.spread_away.is_not(None),
+                Odds.moneyline_home.is_not(None),
+                Odds.moneyline_away.is_not(None),
+                Odds.total.is_not(None),
             )
             .order_by(Odds.id.desc())
             .first()
