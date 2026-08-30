@@ -10,7 +10,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { Link as RouterLink } from "react-router-dom";
 
 import type { Prediction } from "../types/product";
 import { SavePickButton } from "./SavePickButton";
@@ -54,19 +54,33 @@ function marketOrder(market: string): number {
   return 99;
 }
 
-export function ProductGameCard({ predictions }: ProductGameCardProps) {
-  const navigate = useNavigate();
+function nullableDescending(left: number | null, right: number | null): number {
+  return (right ?? Number.NEGATIVE_INFINITY) -
+    (left ?? Number.NEGATIVE_INFINITY);
+}
 
+function rankPredictions(left: Prediction, right: Prediction): number {
+  return (
+    right.npi_score - left.npi_score ||
+    nullableDescending(left.confidence_score, right.confidence_score) ||
+    nullableDescending(left.projected_edge, right.projected_edge)
+  );
+}
+
+export function ProductGameCard({ predictions }: ProductGameCardProps) {
   const sortedPredictions = [...predictions].sort(
     (a, b) => marketOrder(a.market) - marketOrder(b.market),
   );
 
   const game = sortedPredictions[0];
+  const bestPrediction = [...predictions].sort(rankPredictions)[0];
 
   if (!game) return null;
 
   return (
     <Card
+      data-testid="game-card"
+      data-game-id={game.game_id}
       variant="outlined"
       sx={{
         borderRadius: 3,
@@ -96,25 +110,18 @@ export function ProductGameCard({ predictions }: ProductGameCardProps) {
               </Stack>
 
               <Typography variant="h5" fontWeight={700}>
-                {game.away_team}
-              </Typography>
-
-              <Typography variant="body2" color="text.secondary" sx={{ my: 0.25 }}>
-                at
-              </Typography>
-
-              <Typography variant="h5" fontWeight={700}>
-                {game.home_team}
+                {game.away_team} @ {game.home_team}
               </Typography>
             </Box>
 
             <Button
+              component={RouterLink}
+              to={`/games/${game.game_id}`}
               variant="outlined"
               startIcon={<InsightsOutlinedIcon />}
-              onClick={() => navigate(`/games/${game.game_id}`)}
               sx={{ alignSelf: { xs: "stretch", sm: "flex-start" } }}
             >
-              Game analysis
+              View Game Analysis
             </Button>
           </Stack>
 
@@ -155,6 +162,15 @@ export function ProductGameCard({ predictions }: ProductGameCardProps) {
                     >
                       {marketLabel(prediction.market)}
                     </Typography>
+
+                    {prediction.prediction_id === bestPrediction?.prediction_id ? (
+                      <Chip
+                        label="Golden Key Best Pick"
+                        color="primary"
+                        size="small"
+                        sx={{ alignSelf: "flex-start" }}
+                      />
+                    ) : null}
 
                     <Typography variant="h6" fontWeight={700}>
                       {prediction.display_selection}

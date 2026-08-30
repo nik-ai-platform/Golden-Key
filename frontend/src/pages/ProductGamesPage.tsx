@@ -45,7 +45,7 @@ export function ProductGamesPage() {
     return (
       <ErrorState
         kind="network"
-        detail="Games could not be loaded."
+        detail="Unable to load games right now."
         onRetry={() => void query.refetch()}
       />
     );
@@ -99,12 +99,7 @@ export function ProductGamesPage() {
         </Stack>
       ) : (
         <EmptyState
-          title="No games available"
-          description={
-            sport
-              ? `Golden Key currently has no ${sport} predictions for the upcoming slate.`
-              : "Golden Key currently has no predictions for the upcoming slate."
-          }
+          title="No upcoming games are currently available."
         />
       )}
     </Stack>
