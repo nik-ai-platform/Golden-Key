@@ -25,6 +25,7 @@ service = V1ReadService()
 @router.get(
     "/predictions/today",
     response_model=TodayPredictionsResponse,
+    dependencies=[Depends(get_current_user)],
 )
 def today_predictions(
     sport: str | None = None,
@@ -41,6 +42,7 @@ def today_predictions(
 @router.get(
     "/games/{game_id}",
     response_model=GameDetailResponse,
+    dependencies=[Depends(get_current_user)],
 )
 def game_detail(
     game_id: int,
@@ -80,6 +82,7 @@ def saved_picks(
 @router.get(
     "/performance",
     response_model=PerformanceResponse,
+    dependencies=[Depends(get_current_user)],
 )
 def performance(
     db: Session = Depends(get_db),
