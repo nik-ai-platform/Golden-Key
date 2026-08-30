@@ -13,8 +13,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link as RouterLink } from "react-router-dom";
 
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
@@ -34,16 +33,6 @@ function marketLabel(market: string): string {
   return market;
 }
 
-function marketOrder(market: string): number {
-  const value = market.toLowerCase();
-
-  if (value === "spread") return 1;
-  if (value === "moneyline") return 2;
-  if (value === "total") return 3;
-
-  return 99;
-}
-
 function formatGameDate(gameDate: string): string {
   return new Intl.DateTimeFormat(undefined, {
     weekday: "short",
@@ -54,30 +43,27 @@ function formatGameDate(gameDate: string): string {
   }).format(new Date(gameDate));
 }
 
-function outcomeLabel(outcome: string | null): string {
-  if (!outcome) return "Pending";
-
-  const value = outcome.toLowerCase();
-
-  if (value === "win") return "Win";
-  if (value === "loss") return "Loss";
-  if (value === "push") return "Push";
-
-  return outcome;
+function isSettled(pick: SavedPick): boolean {
+  return ["WIN", "LOSS", "PUSH"].includes(pick.outcome?.toUpperCase() ?? "");
 }
 
 function outcomeColor(
-  outcome: string | null,
-): "success" | "error" | "warning" | "default" {
-  if (!outcome) return "default";
+  outcome: string,
+): "success" | "error" | "warning" {
+  const value = outcome.toUpperCase();
 
-  const value = outcome.toLowerCase();
+  if (value === "WIN") return "success";
+  if (value === "LOSS") return "error";
 
-  if (value === "win") return "success";
-  if (value === "loss") return "error";
-  if (value === "push") return "warning";
+  return "warning";
+}
 
-  return "default";
+function formatOdds(odds: number): string {
+  return odds > 0 ? `+${odds}` : String(odds);
+}
+
+function formatScore(score: number): string {
+  return Number.isInteger(score) ? score.toFixed(0) : String(score);
 }
 
 function RemovePickButton({ predictionId }: { predictionId: number }) {
@@ -120,33 +106,139 @@ function RemovePickButton({ predictionId }: { predictionId: number }) {
   );
 }
 
-export function ProductSavedPicksPage() {
-  const navigate = useNavigate();
+function SavedPickCard({ pick }: { pick: SavedPick }) {
+  const settled = isSettled(pick);
+  const hasFinalScore = pick.away_score != null && pick.home_score != null;
 
+  return (
+    <Card
+      data-testid="saved-pick-card"
+      data-prediction-id={pick.prediction_id}
+      variant="outlined"
+      sx={{ borderRadius: 2, minWidth: 0 }}
+    >
+      <CardContent
+        sx={{
+          p: { xs: 2, md: 3 },
+          "&:last-child": { pb: { xs: 2, md: 3 } },
+        }}
+      >
+        <Stack spacing={2.5} sx={{ minWidth: 0 }}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            justifyContent="space-between"
+            alignItems={{ sm: "flex-start" }}
+            spacing={1.5}
+          >
+            <Box sx={{ minWidth: 0 }}>
+              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                <Chip label={pick.sport} size="small" variant="outlined" />
+                {settled && pick.outcome ? (
+                  <Chip
+                    label={pick.outcome.toUpperCase()}
+                    size="small"
+                    color={outcomeColor(pick.outcome)}
+                  />
+                ) : null}
+              </Stack>
+
+              <Typography
+                variant="h6"
+                fontWeight={700}
+                sx={{ mt: 1, overflowWrap: "anywhere" }}
+              >
+                {pick.away_team} @ {pick.home_team}
+              </Typography>
+
+              <Typography variant="body2" color="text.secondary">
+                {formatGameDate(pick.game_date)}
+              </Typography>
+
+              {settled && hasFinalScore ? (
+                <Typography variant="body2" fontWeight={700} sx={{ mt: 0.5 }}>
+                  Final: {formatScore(pick.away_score!)} -{" "}
+                  {formatScore(pick.home_score!)}
+                </Typography>
+              ) : null}
+            </Box>
+
+            <Button
+              component={RouterLink}
+              to={`/games/${pick.game_id}`}
+              variant="outlined"
+              endIcon={<ArrowForwardOutlinedIcon />}
+              sx={{ alignSelf: { xs: "stretch", sm: "flex-start" } }}
+            >
+              View Game Analysis
+            </Button>
+          </Stack>
+
+          <Divider />
+
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <Typography variant="caption" color="text.secondary">
+                Market
+              </Typography>
+              <Typography fontWeight={700}>{marketLabel(pick.market)}</Typography>
+            </Grid>
+
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <Typography variant="caption" color="text.secondary">
+                Pick
+              </Typography>
+              <Typography fontWeight={700} sx={{ overflowWrap: "anywhere" }}>
+                {pick.display_selection}
+              </Typography>
+              {pick.american_odds != null ? (
+                <Typography variant="body2" color="text.secondary">
+                  Odds {formatOdds(pick.american_odds)}
+                </Typography>
+              ) : null}
+            </Grid>
+
+            <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+              <Typography variant="caption" color="text.secondary">
+                NPI
+              </Typography>
+              <Typography fontWeight={700}>
+                {pick.npi_score.toFixed(0)} / 200
+              </Typography>
+            </Grid>
+
+            <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+              <Typography variant="caption" color="text.secondary">
+                Confidence
+              </Typography>
+              <Typography fontWeight={700}>
+                {pick.confidence_score == null
+                  ? "Not rated"
+                  : `${pick.confidence_score.toFixed(1)}%`}
+              </Typography>
+            </Grid>
+
+            {!settled && pick.risk_level ? (
+              <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Risk
+                </Typography>
+                <Typography fontWeight={700}>{pick.risk_level}</Typography>
+              </Grid>
+            ) : null}
+          </Grid>
+
+          <RemovePickButton predictionId={pick.prediction_id} />
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function ProductSavedPicksPage() {
   const query = useQuery({
     queryKey: savedPicksQueryKey,
     queryFn: getSavedPicks,
   });
-
-  const games = useMemo(() => {
-    const grouped = new Map<number, SavedPick[]>();
-
-    for (const pick of query.data?.picks ?? []) {
-      const existing = grouped.get(pick.game_id) ?? [];
-      existing.push(pick);
-      grouped.set(pick.game_id, existing);
-    }
-
-    return Array.from(grouped.entries())
-      .map(([gameId, picks]) => ({
-        gameId,
-        game: picks[0],
-        picks: [...picks].sort(
-          (a, b) => marketOrder(a.market) - marketOrder(b.market),
-        ),
-      }))
-      .sort((a, b) => b.gameId - a.gameId);
-  }, [query.data?.picks]);
 
   if (query.isLoading) {
     return <LoadingState message="Loading saved picks..." />;
@@ -156,21 +248,25 @@ export function ProductSavedPicksPage() {
     return (
       <ErrorState
         kind="generic"
-        detail="Unable to load saved picks."
+        detail="Unable to load saved picks right now."
         onRetry={() => void query.refetch()}
       />
     );
   }
 
   const picks = query.data?.picks ?? [];
-
-  const pendingCount = picks.filter((pick) => !pick.outcome).length;
-  const winCount = picks.filter(
-    (pick) => pick.outcome?.toLowerCase() === "win",
-  ).length;
-  const lossCount = picks.filter(
-    (pick) => pick.outcome?.toLowerCase() === "loss",
-  ).length;
+  const pendingPicks = picks
+    .filter((pick) => !isSettled(pick))
+    .sort(
+      (left, right) =>
+        new Date(left.game_date).getTime() - new Date(right.game_date).getTime(),
+    );
+  const settledPicks = picks
+    .filter(isSettled)
+    .sort(
+      (left, right) =>
+        new Date(right.game_date).getTime() - new Date(left.game_date).getTime(),
+    );
 
   return (
     <Stack spacing={3}>
@@ -184,196 +280,62 @@ export function ProductSavedPicksPage() {
         </Typography>
       </Box>
 
-      {picks.length ? (
-        <>
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, sm: 4 }}>
-              <Card variant="outlined" sx={{ borderRadius: 2 }}>
-                <CardContent>
-                  <Typography variant="body2" color="text.secondary">
-                    Saved
-                  </Typography>
-
-                  <Typography variant="h4" fontWeight={700} sx={{ mt: 0.5 }}>
-                    {picks.length}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid size={{ xs: 12, sm: 4 }}>
-              <Card variant="outlined" sx={{ borderRadius: 2 }}>
-                <CardContent>
-                  <Typography variant="body2" color="text.secondary">
-                    Pending
-                  </Typography>
-
-                  <Typography variant="h4" fontWeight={700} sx={{ mt: 0.5 }}>
-                    {pendingCount}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid size={{ xs: 12, sm: 4 }}>
-              <Card variant="outlined" sx={{ borderRadius: 2 }}>
-                <CardContent>
-                  <Typography variant="body2" color="text.secondary">
-                    Record
-                  </Typography>
-
-                  <Typography variant="h4" fontWeight={700} sx={{ mt: 0.5 }}>
-                    {winCount}-{lossCount}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-
-          <Stack spacing={2}>
-            {games.map(({ gameId, game, picks: gamePicks }) => (
-              <Card
-                key={gameId}
-                variant="outlined"
-                sx={{
-                  borderRadius: 3,
-                  overflow: "hidden",
-                }}
-              >
-                <CardContent
-                  sx={{
-                    p: { xs: 2, md: 3 },
-                    "&:last-child": {
-                      pb: { xs: 2, md: 3 },
-                    },
-                  }}
+      <Grid container spacing={2}>
+        {[
+          ["Saved Picks", picks.length, "saved-count"],
+          ["Pending", pendingPicks.length, "pending-count"],
+          ["Settled", settledPicks.length, "settled-count"],
+        ].map(([label, count, testId]) => (
+          <Grid key={label} size={{ xs: 12, sm: 4 }}>
+            <Card variant="outlined" sx={{ borderRadius: 2 }}>
+              <CardContent>
+                <Typography variant="body2" color="text.secondary">
+                  {label}
+                </Typography>
+                <Typography
+                  data-testid={testId}
+                  variant="h4"
+                  fontWeight={700}
+                  sx={{ mt: 0.5 }}
                 >
-                  <Stack spacing={2.5}>
-                    <Stack
-                      direction={{ xs: "column", sm: "row" }}
-                      justifyContent="space-between"
-                      alignItems={{ sm: "center" }}
-                      spacing={1.5}
-                    >
-                      <Box>
-                        <Typography variant="overline" color="text.secondary">
-                          Saved matchup
-                        </Typography>
+                  {count}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
 
-                        <Typography variant="h6" fontWeight={700}>
-                          {game.matchup}
-                        </Typography>
+      {!picks.length ? (
+        <EmptyState title="You have no saved picks yet." />
+      ) : (
+        <>
+          <Stack component="section" aria-labelledby="pending-picks-heading" spacing={2}>
+            <Typography id="pending-picks-heading" variant="h5" fontWeight={700}>
+              Pending Picks
+            </Typography>
+            {pendingPicks.length ? (
+              pendingPicks.map((pick) => (
+                <SavedPickCard key={pick.saved_pick_id} pick={pick} />
+              ))
+            ) : (
+              <EmptyState title="No pending saved picks." />
+            )}
+          </Stack>
 
-                        <Typography variant="body2" color="text.secondary">
-                          {formatGameDate(game.game_date)}
-                        </Typography>
-
-                        <Typography variant="body2" color="text.secondary">
-                          {game.sport}
-                        </Typography>
-                      </Box>
-
-                      <Button
-                        variant="outlined"
-                        endIcon={<ArrowForwardOutlinedIcon />}
-                        onClick={() => navigate(`/games/${gameId}`)}
-                      >
-                        View Game
-                      </Button>
-                    </Stack>
-
-                    <Divider />
-
-                    <Grid container spacing={2}>
-                      {gamePicks.map((pick) => (
-                        <Grid
-                          key={pick.saved_pick_id}
-                          size={{ xs: 12, md: 4 }}
-                        >
-                          <Box
-                            sx={{
-                              border: "1px solid",
-                              borderColor: "divider",
-                              borderRadius: 2,
-                              p: 2,
-                              height: "100%",
-                            }}
-                          >
-                            <Stack spacing={1.5}>
-                              <Stack
-                                direction="row"
-                                justifyContent="space-between"
-                                alignItems="center"
-                                spacing={1}
-                              >
-                                <Typography
-                                  variant="overline"
-                                  color="text.secondary"
-                                  fontWeight={700}
-                                >
-                                  {marketLabel(pick.market)}
-                                </Typography>
-
-                                <Chip
-                                  size="small"
-                                  color={outcomeColor(pick.outcome)}
-                                  label={outcomeLabel(pick.outcome)}
-                                />
-                              </Stack>
-
-                              <Typography variant="h6" fontWeight={700}>
-                                {pick.display_selection}
-                              </Typography>
-
-                              <Stack direction="row" spacing={3}>
-                                <Box>
-                                  <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                  >
-                                    NPI
-                                  </Typography>
-
-                                  <Typography fontWeight={700}>
-                                    {pick.npi_score.toFixed(0)}
-                                  </Typography>
-                                </Box>
-
-                                <Box>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
-                                  Confidence
-                                </Typography>
-
-                                <Typography fontWeight={700}>
-                                  {pick.confidence_score == null
-                                    ? "Not rated"
-                                    : `${pick.confidence_score.toFixed(1)}%`}
-                                </Typography>
-                                </Box>
-                              </Stack>
-
-                              <RemovePickButton
-                                predictionId={pick.prediction_id}
-                              />
-                            </Stack>
-                          </Box>
-                        </Grid>
-                      ))}
-                    </Grid>
-                  </Stack>
-                </CardContent>
-              </Card>
-            ))}
+          <Stack component="section" aria-labelledby="settled-picks-heading" spacing={2}>
+            <Typography id="settled-picks-heading" variant="h5" fontWeight={700}>
+              Settled Picks
+            </Typography>
+            {settledPicks.length ? (
+              settledPicks.map((pick) => (
+                <SavedPickCard key={pick.saved_pick_id} pick={pick} />
+              ))
+            ) : (
+              <EmptyState title="No settled saved picks yet." />
+            )}
           </Stack>
         </>
-      ) : (
-        <EmptyState
-          title="No saved picks"
-          description="Choose a Spread, Moneyline, or Total prediction from Games and save it to track the result here."
-        />
       )}
     </Stack>
   );

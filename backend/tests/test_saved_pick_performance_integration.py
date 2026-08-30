@@ -160,6 +160,11 @@ def test_saved_pick_exposes_authoritative_prediction_result_and_is_user_scoped()
         assert saved["line_value"] == -6.5
         assert saved["american_odds"] == -110
         assert saved["npi_score"] == 150.0
+        assert saved["confidence_score"] == 80.0
+        assert saved["risk_level"] == "LOW"
+        assert saved["outcome"] == "WIN"
+        assert saved["away_score"] == 21
+        assert saved["home_score"] == 31
         assert saved["display_selection"] == (
             "Rutgers Scarlet Knights -6.5"
         )

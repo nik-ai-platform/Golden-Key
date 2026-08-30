@@ -53,7 +53,10 @@ export interface SavedPick {
   american_odds: number | null;
   npi_score: number;
   confidence_score: number | null;
+  risk_level: string | null;
   outcome: string | null;
+  home_score: number | null;
+  away_score: number | null;
 }
 
 export interface SavedPicksResponse {

@@ -56,7 +56,10 @@ class SavedPickItem(BaseModel):
     american_odds: int | None = None
     npi_score: float
     confidence_score: float | None = None
+    risk_level: str | None = None
     outcome: str | None = None
+    home_score: float | None = None
+    away_score: float | None = None
 
 
 class SavedPicksResponse(BaseModel):

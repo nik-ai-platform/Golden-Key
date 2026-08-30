@@ -234,7 +234,10 @@ class V1ReadService:
                     "american_odds": prediction.american_odds,
                     "npi_score": float(prediction.npi_score),
                     "confidence_score": prediction.confidence_score,
+                    "risk_level": prediction.risk_level,
                     "outcome": result.outcome if result else None,
+                    "home_score": game.home_score,
+                    "away_score": game.away_score,
                 }
             )
         return {
