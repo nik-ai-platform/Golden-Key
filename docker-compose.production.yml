@@ -51,6 +51,37 @@ services:
     networks:
       - golden_key_network
 
+  final-score-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["python", "-m", "app.workers.final_score_worker"]
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      SPORTSBOOK_API_KEYS: '${SPORTSBOOK_API_KEYS:-{}}'
+      ODDS_API_KEY: ${ODDS_API_KEY:?ODDS_API_KEY is required}
+      ODDS_API_BASE_URL: ${ODDS_API_BASE_URL:-https://api.the-odds-api.com/v4}
+      REDIS_URL: ${REDIS_URL:-}
+      SMTP_SETTINGS: '${SMTP_SETTINGS:-{}}'
+      AUTH_DEMO_EMAIL: ${AUTH_DEMO_EMAIL:?AUTH_DEMO_EMAIL is required}
+      AUTH_DEMO_PASSWORD: ${AUTH_DEMO_PASSWORD:?AUTH_DEMO_PASSWORD is required}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+      FINAL_SCORE_SPORTS: ${FINAL_SCORE_SPORTS:-NFL,NBA,NCAAF,NCAAB,WNBA}
+      FINAL_SCORE_POLL_SECONDS: ${FINAL_SCORE_POLL_SECONDS:-900}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - golden_key_network
+
   frontend:
     build:
       context: ./frontend
