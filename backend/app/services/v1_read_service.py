@@ -167,17 +167,28 @@ class V1ReadService:
         db: Session,
         user_id: int,
     ) -> dict:
+        home_team = aliased(Team)
+        away_team = aliased(Team)
         rows = (
-            db.query(UserPrediction, Prediction)
+            db.query(
+                UserPrediction,
+                Prediction,
+                Game,
+                home_team,
+                away_team,
+            )
             .join(
                 Prediction,
                 Prediction.id == UserPrediction.prediction_id,
             )
+            .join(Game, Game.id == Prediction.game_id)
+            .join(home_team, home_team.id == Game.home_team_id)
+            .join(away_team, away_team.id == Game.away_team_id)
             .filter(UserPrediction.user_id == user_id)
             .all()
         )
         picks = []
-        for saved, prediction in rows:
+        for saved, prediction, game, home, away in rows:
             result = (
                 db.query(PredictionResult)
                 .filter(PredictionResult.prediction_id == prediction.id)
@@ -188,8 +199,21 @@ class V1ReadService:
                     "saved_pick_id": saved.id,
                     "prediction_id": prediction.id,
                     "game_id": prediction.game_id,
+                    "sport": game.sport,
+                    "game_date": _utc_iso(game.game_date),
+                    "home_team": home.name,
+                    "away_team": away.name,
+                    "matchup": f"{away.name} @ {home.name}",
                     "market": prediction.market,
                     "selection": prediction.selection,
+                    "display_selection": self._display_selection(
+                        prediction,
+                        home,
+                        away,
+                    ),
+                    "line_value": prediction.line_value,
+                    "american_odds": prediction.american_odds,
+                    "npi_score": float(prediction.npi_score),
                     "confidence_score": prediction.confidence_score,
                     "outcome": result.outcome if result else None,
                 }
@@ -257,7 +281,8 @@ class V1ReadService:
         if prediction.selection == "PASS":
             return "PASS"
         if prediction.market == "spread":
-            return f"{prediction.selection} {prediction.line_value:+g}"
+            team = home_team if prediction.selection == "HOME" else away_team
+            return f"{team.name} {prediction.line_value:+g}"
         if prediction.market == "moneyline":
             team = home_team if prediction.selection == "HOME" else away_team
             return f"{team.name} ML"

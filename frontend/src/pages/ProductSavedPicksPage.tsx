@@ -40,6 +40,16 @@ function marketOrder(market: string): number {
   return 99;
 }
 
+function formatGameDate(gameDate: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(gameDate));
+}
+
 function outcomeLabel(outcome: string | null): string {
   if (!outcome) return "Pending";
 
@@ -86,6 +96,7 @@ export function ProductSavedPicksPage() {
     return Array.from(grouped.entries())
       .map(([gameId, picks]) => ({
         gameId,
+        game: picks[0],
         picks: [...picks].sort(
           (a, b) => marketOrder(a.market) - marketOrder(b.market),
         ),
@@ -176,7 +187,7 @@ export function ProductSavedPicksPage() {
           </Grid>
 
           <Stack spacing={2}>
-            {games.map(({ gameId, picks: gamePicks }) => (
+            {games.map(({ gameId, game, picks: gamePicks }) => (
               <Card
                 key={gameId}
                 variant="outlined"
@@ -206,12 +217,15 @@ export function ProductSavedPicksPage() {
                         </Typography>
 
                         <Typography variant="h6" fontWeight={700}>
-                          Game #{gameId}
+                          {game.matchup}
                         </Typography>
 
                         <Typography variant="body2" color="text.secondary">
-                          {gamePicks.length} saved{" "}
-                          {gamePicks.length === 1 ? "market" : "markets"}
+                          {formatGameDate(game.game_date)}
+                        </Typography>
+
+                        <Typography variant="body2" color="text.secondary">
+                          {game.sport}
                         </Typography>
                       </Box>
 
@@ -264,10 +278,24 @@ export function ProductSavedPicksPage() {
                               </Stack>
 
                               <Typography variant="h6" fontWeight={700}>
-                                {pick.selection}
+                                {pick.display_selection}
                               </Typography>
 
-                              <Box>
+                              <Stack direction="row" spacing={3}>
+                                <Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
+                                    NPI
+                                  </Typography>
+
+                                  <Typography fontWeight={700}>
+                                    {pick.npi_score.toFixed(0)}
+                                  </Typography>
+                                </Box>
+
+                                <Box>
                                 <Typography
                                   variant="caption"
                                   color="text.secondary"
@@ -280,7 +308,8 @@ export function ProductSavedPicksPage() {
                                     ? "Not rated"
                                     : `${pick.confidence_score.toFixed(1)}%`}
                                 </Typography>
-                              </Box>
+                                </Box>
+                              </Stack>
                             </Stack>
                           </Box>
                         </Grid>

@@ -148,6 +148,21 @@ def test_saved_pick_exposes_authoritative_prediction_result_and_is_user_scoped()
         saved = _dump(owner_picks["picks"][0])
 
         assert saved["prediction_id"] == prediction.id
+        assert saved["game_id"] == game.id
+        assert saved["home_team"] == "Rutgers Scarlet Knights"
+        assert saved["away_team"] == "UMass Minutemen"
+        assert saved["matchup"] == (
+            "UMass Minutemen @ Rutgers Scarlet Knights"
+        )
+        assert saved["sport"] == "NCAAF"
+        assert saved["game_date"].endswith("Z")
+        assert "+00:00" not in saved["game_date"]
+        assert saved["line_value"] == -6.5
+        assert saved["american_odds"] == -110
+        assert saved["npi_score"] == 150.0
+        assert saved["display_selection"] == (
+            "Rutgers Scarlet Knights -6.5"
+        )
 
         serialized = str(saved).upper()
 

@@ -38,8 +38,17 @@ export interface SavedPick {
   saved_pick_id: number;
   prediction_id: number;
   game_id: number;
+  sport: string;
+  game_date: string;
+  home_team: string;
+  away_team: string;
+  matchup: string;
   market: string;
   selection: string;
+  display_selection: string;
+  line_value: number | null;
+  american_odds: number | null;
+  npi_score: number;
   confidence_score: number | null;
   outcome: string | null;
 }
