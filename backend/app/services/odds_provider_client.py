@@ -42,3 +42,29 @@ class OddsProviderClient:
             raise ValueError("Unexpected odds provider response")
 
         return payload
+
+    def get_scores(
+        self,
+        sport_key: str,
+        *,
+        days_from: int = 3,
+    ) -> list[dict[str, Any]]:
+        if not self.api_key or self.api_key == "your_actual_key":
+            raise ValueError("ODDS_API_KEY is not configured")
+
+        url = f"{self.base_url}/sports/{sport_key}/scores/"
+        response = requests.get(
+            url,
+            params={
+                "daysFrom": days_from,
+                "apiKey": self.api_key,
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+
+        payload = response.json()
+        if not isinstance(payload, list):
+            raise ValueError("Odds API scores response must be a list")
+
+        return payload
