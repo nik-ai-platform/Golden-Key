@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
+from app.auth.persistent_user import resolve_persistent_user_id
 from app.auth.schemas import AuthUser
 from app.database.session import get_db
 from app.schemas.api_contract import (
@@ -65,9 +66,14 @@ def saved_picks(
     current_user: AuthUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    user_id = resolve_persistent_user_id(
+        db,
+        current_user,
+    )
+
     return service.get_saved_picks(
         db=db,
-        user_id=current_user.id,
+        user_id=user_id,
     )
 
 

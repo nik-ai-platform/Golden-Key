@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 
 from sqlalchemy.orm import Session, aliased
 
@@ -7,6 +7,22 @@ from app.models.prediction_record import Prediction
 from app.models.prediction_result import PredictionResult
 from app.models.team import Team
 from app.models.user_prediction import UserPrediction
+
+
+def _utc_iso(value: datetime) -> str:
+    """
+    Serialize game timestamps as explicit UTC.
+
+    Golden Key stores game_date as naive UTC in Postgres.
+    Adding the UTC timezone before serialization prevents browsers
+    from interpreting the stored UTC clock time as local time.
+    """
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    else:
+        value = value.astimezone(UTC)
+
+    return value.isoformat().replace("+00:00", "Z")
 
 
 class V1ReadService:
@@ -133,7 +149,7 @@ class V1ReadService:
             "away_team": (
                 away_team.name if away_team else str(game.away_team_id)
             ),
-            "game_date": game.game_date.isoformat(),
+            "game_date": _utc_iso(game.game_date),
             "predictions": [
                 self._prediction_item(
                     latest_by_market[market],
@@ -213,7 +229,7 @@ class V1ReadService:
             "sport": game.sport,
             "home_team": home_team.name,
             "away_team": away_team.name,
-            "game_date": game.game_date.isoformat(),
+            "game_date": _utc_iso(game.game_date),
             "market": prediction.market,
             "selection": prediction.selection,
             "display_selection": self._display_selection(

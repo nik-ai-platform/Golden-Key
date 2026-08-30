@@ -57,6 +57,11 @@ def test_login_and_me_flow():
 
 def test_login_token_authenticates_users_me_route(monkeypatch):
     monkeypatch.setattr(
+        product,
+        "resolve_persistent_user_id",
+        lambda *_: 1,
+    )
+    monkeypatch.setattr(
         product.service,
         "get_saved_picks",
         lambda **_: {"count": 0, "picks": []},
