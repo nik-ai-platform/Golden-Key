@@ -1,14 +1,13 @@
 from sqlalchemy.orm import Session
 
+from app.auth.hashing import HashingService
 from app.models.user import User
 from app.services.subscription_service import (
     create_free_subscription
 )
 
-from app.core.security import (
-    hash_password,
-    verify_password
-)
+
+hashing_service = HashingService()
 
 
 def create_user(
@@ -25,7 +24,7 @@ def create_user(
         username=username,
 
         hashed_password=
-            hash_password(password)
+            hashing_service.hash_password(password)
 
     )
 
@@ -61,6 +60,24 @@ def get_user_by_email(
     )
 
 
+def get_user_by_username(
+    db: Session,
+    username: str
+):
+
+    return (
+
+        db.query(User)
+
+        .filter(
+            User.username == username
+        )
+
+        .first()
+
+    )
+
+
 def authenticate_user(
     db: Session,
     email: str,
@@ -76,7 +93,7 @@ def authenticate_user(
 
         return None
 
-    if not verify_password(
+    if not hashing_service.verify_password(
         password,
         user.hashed_password
     ):

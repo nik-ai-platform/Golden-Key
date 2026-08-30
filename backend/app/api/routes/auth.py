@@ -17,7 +17,7 @@ from app.auth.schemas import (
 from app.auth.service import AuthenticationService
 from app.database.session import get_db
 from app.schemas.user import UserCreate, UserResponse
-from app.services.user_service import create_user, get_user_by_email
+from app.services.user_service import create_user, get_user_by_email, get_user_by_username
 
 
 router = APIRouter(
@@ -35,6 +35,11 @@ def register(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered",
+        )
+    if get_user_by_username(db, payload.username):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already registered",
         )
     return create_user(
         db,
