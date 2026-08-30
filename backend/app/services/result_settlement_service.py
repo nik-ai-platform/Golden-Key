@@ -3,7 +3,6 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.models.game import Game
-from app.models.odds import Odds
 from app.models.prediction_record import Prediction
 from app.models.prediction_result import PredictionResult
 
@@ -11,6 +10,8 @@ from app.models.prediction_result import PredictionResult
 class ResultSettlementService:
 
     DEFAULT_STAKE = 100.0
+    TIE_CAPABLE_SPORTS = {"SOCCER", "RUGBY"}
+    TIE_CAPABLE_LEAGUES = {"NFL"}
 
     def settle_game(
         self,
@@ -70,6 +71,7 @@ class ResultSettlementService:
                 {
                     "prediction_id": prediction.id,
                     "market": prediction.market,
+                    "result": graded["outcome"],
                     "outcome": graded["outcome"],
                     "profit_loss": graded["profit_loss"],
                 }
@@ -93,25 +95,27 @@ class ResultSettlementService:
     ) -> dict:
         market = (prediction.market or "").lower()
         if market in {"spread", "ats"}:
-            return self._grade_spread(db, game, prediction)
+            return self._grade_spread(game, prediction)
         if market in {"moneyline", "ml"}:
-            return self._grade_moneyline(db, game, prediction)
+            return self._grade_moneyline(game, prediction)
         if market in {"total", "totals", "over_under"}:
-            return self._grade_total(db, game, prediction)
+            return self._grade_total(game, prediction)
         raise ValueError(f"Unsupported market: {prediction.market}")
 
     def _grade_moneyline(
         self,
-        db: Session,
         game: Game,
         prediction: Prediction,
     ) -> dict:
         home_score = float(game.home_score)
         away_score = float(game.away_score)
         selection = (prediction.selection or "").upper()
-        odds = self._get_odds(db, game.id)
 
         if home_score == away_score:
+            if not self._game_allows_tie(game):
+                raise ValueError(
+                    f"Game {game.id} cannot have a tied moneyline result"
+                )
             outcome = "PUSH"
         elif selection == "HOME":
             outcome = "WIN" if home_score > away_score else "LOSS"
@@ -123,15 +127,7 @@ class ResultSettlementService:
                 f"{prediction.selection}"
             )
 
-        american_odds = None
-        if getattr(prediction, "american_odds", None) is not None:
-            american_odds = prediction.american_odds
-        elif odds:
-            american_odds = (
-                odds.moneyline_home
-                if selection == "HOME"
-                else odds.moneyline_away
-            )
+        american_odds = self._snapshot_price(prediction)
         return {
             "predicted_result": selection,
             "actual_result": (
@@ -150,14 +146,9 @@ class ResultSettlementService:
 
     def _grade_spread(
         self,
-        db: Session,
         game: Game,
         prediction: Prediction,
     ) -> dict:
-        odds = self._get_odds(db, game.id)
-        if not odds:
-            raise ValueError(f"No odds found for game {game.id}")
-
         selection = (prediction.selection or "").upper()
         if selection == "PASS":
             return {
@@ -166,25 +157,21 @@ class ResultSettlementService:
                 "outcome": "PUSH",
                 "profit_loss": 0.0,
             }
+        spread = getattr(prediction, "line_value", None)
+        if spread is None:
+            raise ValueError(
+                f"Prediction {prediction.id} has no spread line snapshot"
+            )
         if selection == "HOME":
-            spread = getattr(prediction, "line_value", None)
-            if spread is None:
-                spread = odds.spread_home
             selected_score = float(game.home_score)
             opponent_score = float(game.away_score)
         elif selection == "AWAY":
-            spread = getattr(prediction, "line_value", None)
-            if spread is None:
-                spread = odds.spread_away
             selected_score = float(game.away_score)
             opponent_score = float(game.home_score)
         else:
             raise ValueError(
                 f"Unsupported spread selection: {prediction.selection}"
             )
-        if spread is None:
-            raise ValueError(f"No spread found for game {game.id}")
-
         spread = float(spread)
         adjusted_score = selected_score + spread
         outcome = (
@@ -200,25 +187,21 @@ class ResultSettlementService:
             "outcome": outcome,
             "profit_loss": self.calculate_profit_loss(
                 outcome=outcome,
-                american_odds=-110,
+                american_odds=self._snapshot_price(prediction),
             ),
         }
 
     def _grade_total(
         self,
-        db: Session,
         game: Game,
         prediction: Prediction,
     ) -> dict:
-        odds = self._get_odds(db, game.id)
-        if not odds or odds.total is None:
-            raise ValueError(f"No total found for game {game.id}")
-
-        total_line = float(
-            getattr(prediction, "line_value", None)
-            if getattr(prediction, "line_value", None) is not None
-            else odds.total
-        )
+        line_value = getattr(prediction, "line_value", None)
+        if line_value is None:
+            raise ValueError(
+                f"Prediction {prediction.id} has no total line snapshot"
+            )
+        total_line = float(line_value)
         final_total = float(game.home_score) + float(game.away_score)
         selection = (prediction.selection or "").upper()
         if selection == "OVER":
@@ -248,20 +231,27 @@ class ResultSettlementService:
             "outcome": outcome,
             "profit_loss": self.calculate_profit_loss(
                 outcome=outcome,
-                american_odds=-110,
+                american_odds=self._snapshot_price(prediction),
             ),
         }
 
-    def _get_odds(
+    def _snapshot_price(
         self,
-        db: Session,
-        game_id: int,
-    ) -> Odds | None:
+        prediction: Prediction,
+    ) -> int:
+        american_odds = getattr(prediction, "american_odds", None)
+        if american_odds is None:
+            raise ValueError(
+                f"Prediction {prediction.id} has no American odds snapshot"
+            )
+        return int(american_odds)
+
+    def _game_allows_tie(self, game: Game) -> bool:
+        sport = str(getattr(game, "sport", "") or "").upper()
+        league = str(getattr(game, "league", "") or "").upper()
         return (
-            db.query(Odds)
-            .filter(Odds.game_id == game_id)
-            .order_by(Odds.id.desc())
-            .first()
+            sport in self.TIE_CAPABLE_SPORTS
+            or league in self.TIE_CAPABLE_LEAGUES
         )
 
     def calculate_profit_loss(
