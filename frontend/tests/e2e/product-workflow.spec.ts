@@ -24,7 +24,7 @@ async function mockProductApi(page: import("@playwright/test").Page) {
   await page.route("**/api/v1/auth/login", (route) => route.fulfill({ json: { access_token: "test-token", token_type: "bearer" } }));
   await page.route("**/api/v1/users/me", (route) => route.fulfill({ json: { id: 1, username: "tester", email: "tester@example.com", premium: false } }));
   await page.route("**/api/v1/version", (route) => route.fulfill({ json: { api_version: "v1" } }));
-  await page.route("**/api/v1/product/performance", (route) => route.fulfill({ json: { total_predictions: 20, wins: 14, losses: 5, pushes: 1, accuracy: 70, profit_loss: 125.5 } }));
+  await page.route("**/api/v1/product/performance", (route) => route.fulfill({ json: { total_predictions: 20, wins: 14, losses: 5, pushes: 1, accuracy: 73.68, profit_loss: 125.5, market_performance: [], sport_performance: [], recent_results: [] } }));
   await page.route("**/api/v1/product/predictions/today**", (route) => route.fulfill({ json: { sport: null, count: 1, predictions: [prediction] } }));
   await page.route("**/api/v1/product/games/101", (route) => route.fulfill({ json: { game_id: 101, sport: "WNBA", home_team: prediction.home_team, away_team: prediction.away_team, game_date: prediction.game_date, predictions: [prediction] } }));
   await page.route("**/api/v1/users/save-prediction", (route) => {
@@ -59,7 +59,7 @@ test("completes the authenticated product workflow", async ({ page }) => {
 
   await page.goto("/performance");
   await expect(page.getByRole("heading", { name: "Performance" })).toBeVisible();
-  await expect(page.getByText("70.00%")).toBeVisible();
+  await expect(page.getByText("73.7%")).toBeVisible();
 
   await page.goto("/profile");
   await expect(page.getByText("tester@example.com")).toBeVisible();

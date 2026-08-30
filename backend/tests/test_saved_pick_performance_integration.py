@@ -266,5 +266,45 @@ def test_performance_uses_prediction_results_and_excludes_pushes_from_accuracy()
 
         assert data["profit_loss"] == pytest.approx(-0.09)
 
+        markets = {
+            item["name"]: item
+            for item in data["market_performance"]
+        }
+        assert markets["spread"] == {
+            "name": "spread",
+            "settled": 1,
+            "wins": 1,
+            "losses": 0,
+            "pushes": 0,
+            "win_rate": 100.0,
+        }
+        assert markets["moneyline"]["win_rate"] == 0.0
+        assert markets["total"]["pushes"] == 1
+        assert markets["total"]["win_rate"] is None
+
+        assert data["sport_performance"] == [
+            {
+                "name": "NCAAF",
+                "settled": 3,
+                "wins": 1,
+                "losses": 1,
+                "pushes": 1,
+                "win_rate": 50.0,
+            }
+        ]
+
+        recent = data["recent_results"]
+        assert [item["outcome"] for item in recent] == [
+            "PUSH",
+            "LOSS",
+            "WIN",
+        ]
+        assert recent[0]["display_selection"] == "OVER 52"
+        assert recent[0]["npi_score"] == 150.0
+        assert recent[0]["away_team"] == "UMass Minutemen"
+        assert recent[0]["home_team"] == "Rutgers Scarlet Knights"
+        assert recent[0]["away_score"] == 21
+        assert recent[0]["home_score"] == 31
+
     finally:
         db.close()

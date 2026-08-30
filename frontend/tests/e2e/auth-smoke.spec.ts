@@ -36,7 +36,7 @@ test("login success redirects to dashboard", async ({ page }) => {
     json: { sport: null, count: 0, predictions: [] },
   }));
   await page.route("**/api/v1/product/performance", (route) => route.fulfill({
-    json: { total_predictions: 34, wins: 25, losses: 8, pushes: 1, accuracy: 72.5, profit_loss: 48.25 },
+    json: { total_predictions: 34, wins: 25, losses: 8, pushes: 1, accuracy: 75.76, profit_loss: 48.25, market_performance: [], sport_performance: [], recent_results: [] },
   }));
 
   await page.route("**/api/v1/dashboard", async (route) => {
@@ -115,7 +115,7 @@ test("dashboard renders expected metrics after authenticated bootstrap", async (
     json: { sport: null, count: 0, predictions: [] },
   }));
   await page.route("**/api/v1/product/performance", (route) => route.fulfill({
-    json: { total_predictions: 128, wins: 104, losses: 23, pushes: 1, accuracy: 81.25, profit_loss: 96.4 },
+    json: { total_predictions: 128, wins: 104, losses: 23, pushes: 1, accuracy: 81.89, profit_loss: 96.4, market_performance: [], sport_performance: [], recent_results: [] },
   }));
 
   await page.route("**/api/v1/dashboard", async (route) => {

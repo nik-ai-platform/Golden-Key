@@ -246,20 +246,96 @@ class V1ReadService:
         }
 
     def get_performance(self, db: Session) -> dict:
-        results = db.query(PredictionResult).all()
-        wins = sum(row.outcome == "WIN" for row in results)
-        losses = sum(row.outcome == "LOSS" for row in results)
-        pushes = sum(row.outcome == "PUSH" for row in results)
+        home_team = aliased(Team)
+        away_team = aliased(Team)
+        rows = (
+            db.query(
+                PredictionResult,
+                Prediction,
+                Game,
+                home_team,
+                away_team,
+            )
+            .join(
+                Prediction,
+                Prediction.id == PredictionResult.prediction_id,
+            )
+            .join(Game, Game.id == Prediction.game_id)
+            .join(home_team, home_team.id == Game.home_team_id)
+            .join(away_team, away_team.id == Game.away_team_id)
+            .filter(PredictionResult.outcome.in_(("WIN", "LOSS", "PUSH")))
+            .order_by(Game.game_date.desc(), PredictionResult.id.desc())
+            .all()
+        )
+        wins = sum(result.outcome == "WIN" for result, *_ in rows)
+        losses = sum(result.outcome == "LOSS" for result, *_ in rows)
+        pushes = sum(result.outcome == "PUSH" for result, *_ in rows)
         graded = wins + losses
         accuracy = wins / graded * 100 if graded else 0.0
-        profit_loss = sum(float(row.profit_loss or 0) for row in results)
+        profit_loss = sum(float(result.profit_loss or 0) for result, *_ in rows)
+
+        def breakdown(group_by_market: bool) -> list[dict]:
+            grouped: dict[str, list[PredictionResult]] = {}
+            for result, prediction, game, *_ in rows:
+                name = (
+                    prediction.market.lower()
+                    if group_by_market
+                    else game.sport.upper()
+                )
+                grouped.setdefault(name, []).append(result)
+
+            items = []
+            for name, group in grouped.items():
+                group_wins = sum(result.outcome == "WIN" for result in group)
+                group_losses = sum(result.outcome == "LOSS" for result in group)
+                group_pushes = sum(result.outcome == "PUSH" for result in group)
+                decisions = group_wins + group_losses
+                items.append(
+                    {
+                        "name": name,
+                        "settled": len(group),
+                        "wins": group_wins,
+                        "losses": group_losses,
+                        "pushes": group_pushes,
+                        "win_rate": (
+                            round(group_wins / decisions * 100, 2)
+                            if decisions
+                            else None
+                        ),
+                    }
+                )
+            return items
+
         return {
-            "total_predictions": len(results),
+            "total_predictions": len(rows),
             "wins": wins,
             "losses": losses,
             "pushes": pushes,
             "accuracy": round(accuracy, 2),
             "profit_loss": round(profit_loss, 2),
+            "market_performance": breakdown(True),
+            "sport_performance": breakdown(False),
+            "recent_results": [
+                {
+                    "prediction_id": prediction.id,
+                    "game_id": game.id,
+                    "sport": game.sport,
+                    "game_date": _utc_iso(game.game_date),
+                    "home_team": home.name,
+                    "away_team": away.name,
+                    "market": prediction.market,
+                    "display_selection": self._display_selection(
+                        prediction,
+                        home,
+                        away,
+                    ),
+                    "npi_score": float(prediction.npi_score),
+                    "outcome": result.outcome,
+                    "home_score": game.home_score,
+                    "away_score": game.away_score,
+                }
+                for result, prediction, game, home, away in rows[:10]
+            ],
         }
 
     def _prediction_item(
@@ -304,10 +380,14 @@ class V1ReadService:
             return "PASS"
         if prediction.market == "spread":
             team = home_team if prediction.selection == "HOME" else away_team
+            if prediction.line_value is None:
+                return team.name
             return f"{team.name} {prediction.line_value:+g}"
         if prediction.market == "moneyline":
             team = home_team if prediction.selection == "HOME" else away_team
             return f"{team.name} ML"
         if prediction.market == "total":
+            if prediction.line_value is None:
+                return prediction.selection
             return f"{prediction.selection} {prediction.line_value:g}"
         return prediction.selection

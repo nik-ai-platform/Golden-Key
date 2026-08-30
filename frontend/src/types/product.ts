@@ -69,6 +69,30 @@ export interface RemoveSavedPredictionResponse {
   prediction_id: number;
 }
 
+export interface PerformanceBreakdown {
+  name: string;
+  settled: number;
+  wins: number;
+  losses: number;
+  pushes: number;
+  win_rate: number | null;
+}
+
+export interface RecentPerformanceResult {
+  prediction_id: number;
+  game_id: number;
+  sport: string;
+  game_date: string;
+  home_team: string;
+  away_team: string;
+  market: string;
+  display_selection: string;
+  npi_score: number;
+  outcome: "WIN" | "LOSS" | "PUSH";
+  home_score: number | null;
+  away_score: number | null;
+}
+
 export interface Performance {
   total_predictions: number;
   wins: number;
@@ -76,6 +100,9 @@ export interface Performance {
   pushes: number;
   accuracy: number;
   profit_loss: number;
+  market_performance: PerformanceBreakdown[];
+  sport_performance: PerformanceBreakdown[];
+  recent_results: RecentPerformanceResult[];
 }
 
 export interface UserProfile {
