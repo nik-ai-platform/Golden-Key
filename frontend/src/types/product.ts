@@ -17,6 +17,7 @@ export interface Prediction {
   projected_edge: number | null;
   risk_level: string | null;
   reasoning: string | null;
+  outcome?: string | null;
 }
 
 export interface TodayPredictionsResponse {
@@ -31,6 +32,8 @@ export interface GameDetail {
   home_team: string;
   away_team: string;
   game_date: string;
+  home_score: number | null;
+  away_score: number | null;
   predictions: Prediction[];
 }
 

@@ -140,6 +140,21 @@ class V1ReadService:
         latest_by_market = {}
         for prediction in prediction_rows:
             latest_by_market.setdefault(prediction.market, prediction)
+        selected_predictions = [
+            latest_by_market[market]
+            for market in ("spread", "moneyline", "total")
+            if market in latest_by_market
+        ]
+        outcomes = {
+            result.prediction_id: result.outcome
+            for result in db.query(PredictionResult)
+            .filter(
+                PredictionResult.prediction_id.in_(
+                    [prediction.id for prediction in selected_predictions]
+                )
+            )
+            .all()
+        } if selected_predictions else {}
         return {
             "game_id": game.id,
             "sport": game.sport,
@@ -150,15 +165,19 @@ class V1ReadService:
                 away_team.name if away_team else str(game.away_team_id)
             ),
             "game_date": _utc_iso(game.game_date),
+            "home_score": game.home_score,
+            "away_score": game.away_score,
             "predictions": [
-                self._prediction_item(
-                    latest_by_market[market],
-                    game,
-                    home_team,
-                    away_team,
-                )
-                for market in ("spread", "moneyline", "total")
-                if market in latest_by_market
+                {
+                    **self._prediction_item(
+                        prediction,
+                        game,
+                        home_team,
+                        away_team,
+                    ),
+                    "outcome": outcomes.get(prediction.id),
+                }
+                for prediction in selected_predictions
             ],
         }
 

@@ -20,6 +20,7 @@ class TodayPredictionItem(BaseModel):
     projected_edge: float | None = None
     risk_level: str | None = None
     reasoning: str | None = None
+    outcome: str | None = None
 
 
 class TodayPredictionsResponse(BaseModel):
@@ -34,6 +35,8 @@ class GameDetailResponse(BaseModel):
     home_team: str
     away_team: str
     game_date: str
+    home_score: float | None = None
+    away_score: float | None = None
     predictions: list[TodayPredictionItem]
 
 
