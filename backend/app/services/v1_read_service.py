@@ -37,21 +37,49 @@ class V1ReadService:
             .join(Game, Game.id == Prediction.game_id)
             .join(home_team, home_team.id == Game.home_team_id)
             .join(away_team, away_team.id == Game.away_team_id)
-            .filter(
-                Game.game_date >= day_start,
-                Game.game_date <= day_end,
-            )
         )
         if sport:
             query = query.filter(Game.sport == sport.upper())
         if not include_passes:
             query = query.filter(Prediction.selection != "PASS")
 
-        rows = query.order_by(
+        rows = query.filter(
+            Game.game_date >= day_start,
+            Game.game_date <= day_end,
+        ).order_by(
             Prediction.id.desc(),
             Prediction.confidence_score.desc(),
             Prediction.npi_score.desc(),
         ).all()
+        if not rows and sport:
+            first_upcoming = query.filter(
+                Game.game_date > day_end,
+            ).order_by(
+                Game.game_date.asc(),
+                Prediction.id.desc(),
+            ).first()
+            if first_upcoming:
+                upcoming_date = first_upcoming[1].game_date
+                upcoming_start = upcoming_date.replace(
+                    hour=0,
+                    minute=0,
+                    second=0,
+                    microsecond=0,
+                )
+                upcoming_end = upcoming_start.replace(
+                    hour=23,
+                    minute=59,
+                    second=59,
+                    microsecond=999999,
+                )
+                rows = query.filter(
+                    Game.game_date >= upcoming_start,
+                    Game.game_date <= upcoming_end,
+                ).order_by(
+                    Prediction.id.desc(),
+                    Prediction.confidence_score.desc(),
+                    Prediction.npi_score.desc(),
+                ).all()
         latest_by_game_market = {}
         for prediction, game, home, away in rows:
             latest_by_game_market.setdefault(

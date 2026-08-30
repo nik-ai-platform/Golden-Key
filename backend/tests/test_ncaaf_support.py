@@ -13,6 +13,7 @@ from app.models.team import Team  # noqa: F401
 from app.services.live_data_service import LiveDataService
 from app.services.npi_engine import NPIEngine
 from app.services.prediction_engine import PredictionEngine
+from app.services.v1_read_service import V1ReadService
 from app.workers.game_importer import GameOddsImporter
 
 
@@ -250,3 +251,16 @@ def test_one_ncaaf_event_persists_complete_odds_and_three_predictions():
     ]
     assert len(stored_predictions) == 3
     assert all(0 <= prediction.npi_score <= 200 for prediction in predictions)
+
+    feed = V1ReadService().get_today_predictions(
+        db=db,
+        sport="NCAAF",
+        include_passes=True,
+    )
+    assert feed["sport"] == "NCAAF"
+    assert feed["count"] == 3
+    assert {item["market"] for item in feed["predictions"]} == {
+        "spread",
+        "moneyline",
+        "total",
+    }
