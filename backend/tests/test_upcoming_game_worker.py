@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
+from app.services.odds_service import NoCompleteOddsSnapshotError
 from app.workers import upcoming_game_worker
 
 
@@ -94,12 +95,14 @@ def test_run_once_imports_and_predicts_with_session_per_sport(monkeypatch):
             "sport": "NCAAF",
             "imported": 2,
             "predictions_generated": 6,
+            "predictions_skipped_no_odds": 0,
             "prediction_errors": 0,
         },
         "NFL": {
             "sport": "NFL",
             "imported": 1,
             "predictions_generated": 3,
+            "predictions_skipped_no_odds": 0,
             "prediction_errors": 0,
         },
     }
@@ -150,7 +153,62 @@ def test_prediction_failure_does_not_stop_next_game(monkeypatch):
         "sport": "NFL",
         "imported": 2,
         "predictions_generated": 3,
+        "predictions_skipped_no_odds": 0,
         "prediction_errors": 1,
+    }
+
+
+@pytest.mark.parametrize(
+    "unavailable_reason",
+    ["no bookmakers", "incomplete bookmaker markets"],
+)
+def test_unusable_odds_are_skipped_without_stopping_later_games(
+    monkeypatch,
+    unavailable_reason,
+):
+    monkeypatch.setenv("UPCOMING_GAME_SPORTS", "NCAAF")
+    db = MagicMock()
+    importer = MagicMock()
+    importer.import_games.return_value = [
+        SimpleNamespace(id=1),
+        SimpleNamespace(id=2),
+    ]
+    engine = MagicMock()
+    engine.analyze_markets.side_effect = [
+        NoCompleteOddsSnapshotError(unavailable_reason),
+        [MagicMock(), MagicMock(), MagicMock()],
+    ]
+
+    with (
+        patch.object(
+            upcoming_game_worker,
+            "SessionLocal",
+            return_value=db,
+        ),
+        patch.object(
+            upcoming_game_worker,
+            "GameOddsImporter",
+            return_value=importer,
+        ),
+        patch.object(
+            upcoming_game_worker,
+            "PredictionEngine",
+            return_value=engine,
+        ),
+    ):
+        results = upcoming_game_worker.run_once()
+
+    assert engine.analyze_markets.call_args_list == [
+        call(db=db, game_id=1, persist=True),
+        call(db=db, game_id=2, persist=True),
+    ]
+    db.rollback.assert_not_called()
+    assert results["NCAAF"] == {
+        "sport": "NCAAF",
+        "imported": 2,
+        "predictions_generated": 3,
+        "predictions_skipped_no_odds": 1,
+        "prediction_errors": 0,
     }
 
 
@@ -202,6 +260,7 @@ def test_sport_failure_does_not_stop_next_sport(monkeypatch):
         "sport": "NBA",
         "imported": 0,
         "predictions_generated": 0,
+        "predictions_skipped_no_odds": 0,
         "prediction_errors": 0,
     }
     assert results["WNBA"]["predictions_generated"] == 3

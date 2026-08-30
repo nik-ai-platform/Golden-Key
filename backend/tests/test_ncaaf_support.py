@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -12,6 +13,7 @@ from app.models.prediction_record import Prediction
 from app.models.team import Team  # noqa: F401
 from app.services.live_data_service import LiveDataService
 from app.services.npi_engine import NPIEngine
+from app.services.odds_service import NoCompleteOddsSnapshotError
 from app.services.prediction_engine import PredictionEngine
 from app.services.v1_read_service import V1ReadService
 from app.workers.game_importer import GameOddsImporter
@@ -115,6 +117,66 @@ def test_ncaaf_import_is_idempotent_by_provider_game_id():
     assert first[0].id == second[0].id == games[0].id
     assert games[0].provider_game_id == "ncaaf-provider-game-1"
     assert games[0].sport == "NCAAF"
+
+
+def test_incomplete_bookmaker_snapshot_is_not_persisted():
+    event = _event(with_odds=True)
+    event["bookmakers"][0]["markets"] = [
+        market
+        for market in event["bookmakers"][0]["markets"]
+        if market["key"] != "h2h"
+    ]
+    db = _session()
+    live_data = MagicMock()
+    live_data.fetch_games.return_value = [event]
+
+    game = GameOddsImporter(
+        db=db,
+        live_data_service=live_data,
+    ).import_games("NCAAF")[0]
+
+    assert db.query(Game).filter(Game.id == game.id).one()
+    assert db.query(Odds).filter(Odds.game_id == game.id).all() == []
+
+
+@pytest.mark.parametrize("with_incomplete_history", [False, True])
+def test_engine_reports_no_complete_snapshot_semantically(
+    with_incomplete_history,
+):
+    db = _session()
+    live_data = MagicMock()
+    live_data.fetch_games.return_value = [_event()]
+    game = GameOddsImporter(
+        db=db,
+        live_data_service=live_data,
+    ).import_games("NCAAF")[0]
+
+    if with_incomplete_history:
+        db.add(
+            Odds(
+                game_id=game.id,
+                sportsbook="Historical Incomplete Book",
+                spread_home=-7.5,
+                spread_away=7.5,
+                moneyline_home=None,
+                moneyline_away=None,
+                total=52.5,
+            )
+        )
+        db.commit()
+
+    engine = PredictionEngine()
+    engine.model_runtime = MagicMock()
+    engine.model_runtime.resolve.side_effect = ValueError(
+        "No production model configured for sport: NCAAF"
+    )
+
+    with pytest.raises(NoCompleteOddsSnapshotError):
+        engine.analyze_markets(
+            db=db,
+            game_id=game.id,
+            persist=True,
+        )
 
 
 def test_ncaaf_uses_default_npi_profile_and_stays_on_200_point_scale(

@@ -132,22 +132,25 @@ class GameOddsImporter:
         game_data
     ):
 
+        imported_count = 0
         for bookmaker in game_data.get(
             "bookmakers",
             []
         ):
-            create_odds_snapshot(
+            odds = create_odds_snapshot(
                 self.db,
                 game.id,
                 bookmaker
             )
+            if odds is not None:
+                imported_count += 1
 
         self.db.commit()
 
         self.monitor.log_import(
             "Imported odds",
             game_id=game.id,
-            count=len(game_data.get("bookmakers", [])),
+            count=imported_count,
         )
 
     def _parse_game_time(

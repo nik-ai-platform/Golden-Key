@@ -5,6 +5,7 @@ import os
 import time
 
 from app.database.session import SessionLocal
+from app.services.odds_service import NoCompleteOddsSnapshotError
 from app.services.prediction_engine import PredictionEngine
 from app.workers.game_importer import GameOddsImporter
 
@@ -58,6 +59,7 @@ def run_once() -> dict[str, dict[str, int | str]]:
         db = None
         imported_count = 0
         predictions_generated = 0
+        predictions_skipped_no_odds = 0
         prediction_errors = 0
 
         try:
@@ -75,6 +77,16 @@ def run_once() -> dict[str, dict[str, int | str]]:
                         persist=True,
                     )
                     predictions_generated += len(predictions)
+                except NoCompleteOddsSnapshotError:
+                    predictions_skipped_no_odds += 1
+                    logger.info(
+                        (
+                            "Prediction skipped: no complete odds snapshot "
+                            "sport=%s game_id=%s"
+                        ),
+                        sport,
+                        game.id,
+                    )
                 except Exception:
                     db.rollback()
                     prediction_errors += 1
@@ -101,17 +113,20 @@ def run_once() -> dict[str, dict[str, int | str]]:
             "sport": sport,
             "imported": imported_count,
             "predictions_generated": predictions_generated,
+            "predictions_skipped_no_odds": predictions_skipped_no_odds,
             "prediction_errors": prediction_errors,
         }
 
         logger.info(
             (
                 "Upcoming game sync sport=%s imported=%s "
-                "predictions_generated=%s prediction_errors=%s"
+                "predictions_generated=%s predictions_skipped_no_odds=%s "
+                "prediction_errors=%s"
             ),
             sport,
             imported_count,
             predictions_generated,
+            predictions_skipped_no_odds,
             prediction_errors,
         )
 

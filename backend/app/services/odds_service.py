@@ -5,6 +5,10 @@ from app.repositories import odds_repository
 from app.services.monitoring_service import MonitoringService
 
 
+class NoCompleteOddsSnapshotError(ValueError):
+    pass
+
+
 class OddsService:
 
     """
@@ -97,6 +101,21 @@ def create_odds_snapshot(
     ) = service.extract_market_values(
         bookmaker
     )
+
+    required_values = (
+        spread_home,
+        spread_away,
+        moneyline_home,
+        moneyline_away,
+        total,
+    )
+    if any(value is None for value in required_values):
+        monitor.log_import(
+            "Skipped incomplete odds snapshot",
+            game_id=game_id,
+            sportsbook=bookmaker.get("title"),
+        )
+        return None
 
     odds = Odds(
         game_id=game_id,

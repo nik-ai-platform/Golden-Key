@@ -10,6 +10,7 @@ from app.services.ai_analysis_engine import (
 from app.services import ai_analysis_service
 from app.services.npi_engine import NPIEngine
 from app.services.model_runtime_service import ModelRuntimeService
+from app.services.odds_service import NoCompleteOddsSnapshotError
 from app.services.simulation_engine import SimulationEngine
 from app.services import prediction_service
 from app.services.model_evaluation import (
@@ -130,8 +131,8 @@ class PredictionEngine:
         )
 
         if not odds:
-            raise ValueError(
-                "Odds not found"
+            raise NoCompleteOddsSnapshotError(
+                "No complete odds snapshot"
             )
 
         required_odds = (
