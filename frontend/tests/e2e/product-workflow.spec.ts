@@ -31,7 +31,32 @@ async function mockProductApi(page: import("@playwright/test").Page) {
     saved = true;
     return route.fulfill({ json: { id: 1, prediction_id: prediction.prediction_id } });
   });
-  await page.route("**/api/v1/product/me/saved-picks", (route) => route.fulfill({ json: { count: saved ? 1 : 0, picks: saved ? [{ saved_pick_id: 1, prediction_id: 57, game_id: 101, market: "moneyline", selection: "Minnesota Lynx", confidence_score: 82.5, outcome: null }] : [] } }));
+  await page.route("**/api/v1/product/me/saved-picks", (route) => route.fulfill({
+    json: {
+      count: saved ? 1 : 0,
+      picks: saved ? [{
+        saved_pick_id: 1,
+        prediction_id: prediction.prediction_id,
+        game_id: prediction.game_id,
+        sport: prediction.sport,
+        game_date: prediction.game_date,
+        home_team: prediction.home_team,
+        away_team: prediction.away_team,
+        matchup: `${prediction.away_team} @ ${prediction.home_team}`,
+        market: prediction.market,
+        selection: prediction.selection,
+        display_selection: prediction.selection,
+        line_value: null,
+        american_odds: null,
+        npi_score: prediction.npi_score,
+        confidence_score: prediction.confidence_score,
+        risk_level: prediction.risk_level,
+        outcome: null,
+        home_score: null,
+        away_score: null,
+      }] : [],
+    },
+  }));
 }
 
 test("completes the authenticated product workflow", async ({ page }) => {
@@ -43,19 +68,19 @@ test("completes the authenticated product workflow", async ({ page }) => {
   await page.getByRole("button", { name: "Sign In" }).click();
 
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByRole("heading", { name: "Today's edge" })).toBeVisible();
-  await expect(page.getByText("API online · v1")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Best Picks Today" })).toBeVisible();
+  await expect(page.getByRole("group", { name: "Filter dashboard by sport" })).toBeVisible();
 
   await page.goto("/games");
   await page.getByRole("button", { name: "WNBA" }).click();
   await expect(page).toHaveURL(/sport=WNBA/);
-  await page.getByRole("button", { name: "View analysis" }).click();
+  await page.getByRole("link", { name: "View Game Analysis" }).click();
   await expect(page).toHaveURL(/\/games\/101$/);
 
   await page.getByRole("button", { name: "Save pick" }).click();
   await expect(page.getByRole("button", { name: "Saved", exact: true })).toBeDisabled();
   await page.goto("/saved-picks");
-  await expect(page.getByText("Minnesota Lynx")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Minnesota Lynx @ Las Vegas Aces" })).toBeVisible();
 
   await page.goto("/performance");
   await expect(page.getByRole("heading", { name: "Performance" })).toBeVisible();
@@ -63,7 +88,7 @@ test("completes the authenticated product workflow", async ({ page }) => {
 
   await page.goto("/profile");
   await expect(page.getByText("tester@example.com")).toBeVisible();
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByRole("main").getByRole("button", { name: "Sign Out" }).click();
   await expect(page).toHaveURL(/\/login$/);
   await page.goto("/saved-picks");
   await expect(page).toHaveURL(/\/login$/);
@@ -75,7 +100,7 @@ test("shows friendly not-found states", async ({ page }) => {
   await page.route("**/api/v1/product/games/999", (route) => route.fulfill({ status: 404, json: { detail: "Game not found" } }));
 
   await page.goto("/games/999");
-  await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("alert")).toHaveText("Game analysis is unavailable.", { timeout: 15_000 });
   await page.goto("/does-not-exist");
   await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
 });

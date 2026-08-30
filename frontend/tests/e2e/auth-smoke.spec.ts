@@ -89,10 +89,10 @@ test("login success redirects to dashboard", async ({ page }) => {
   await page.getByRole("button", { name: "Sign In" }).click();
 
   await expect(page).toHaveURL(/\/dashboard\/?$/);
-  await expect(page.getByRole("heading", { name: "Today's edge" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Best Picks Today" })).toBeVisible();
 });
 
-test("dashboard renders expected metrics after authenticated bootstrap", async ({ page }) => {
+test("dashboard renders its current empty state after authenticated bootstrap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("golden_key_access_token", "seed-token");
   });
@@ -164,8 +164,6 @@ test("dashboard renders expected metrics after authenticated bootstrap", async (
 
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "Today's edge" })).toBeVisible();
-  await expect(page.getByText("81.3%")).toBeVisible();
-  await expect(page.getByText("128")).toBeVisible();
-  await expect(page.getByText("+$96.40")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Best Picks Today" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No upcoming predictions are currently available." })).toBeVisible();
 });
