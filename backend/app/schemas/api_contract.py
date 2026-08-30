@@ -61,6 +61,11 @@ class SavedPicksResponse(BaseModel):
     picks: list[SavedPickItem]
 
 
+class RemoveSavedPredictionResponse(BaseModel):
+    removed: bool
+    prediction_id: int
+
+
 class PerformanceResponse(BaseModel):
     total_predictions: int
     wins: int

@@ -74,3 +74,25 @@ def get_user_predictions(
         .all()
 
     )
+
+
+def remove_saved_prediction(
+    db: Session,
+    user_id: int,
+    prediction_id: int,
+) -> bool:
+    saved = (
+        db.query(UserPrediction)
+        .filter(
+            UserPrediction.user_id == user_id,
+            UserPrediction.prediction_id == prediction_id,
+        )
+        .first()
+    )
+
+    if saved is None:
+        return False
+
+    db.delete(saved)
+    db.commit()
+    return True

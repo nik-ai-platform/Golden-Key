@@ -1,5 +1,7 @@
 import ArrowForwardOutlinedIcon from "@mui/icons-material/ArrowForwardOutlined";
+import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -10,15 +12,17 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
-import { getSavedPicks } from "../services/productApi";
-import type { SavedPick } from "../types/product";
+import { getSavedPicks, removeSavedPrediction } from "../services/productApi";
+import type { SavedPick, SavedPicksResponse } from "../types/product";
+
+const savedPicksQueryKey = ["product", "saved-picks"] as const;
 
 function marketLabel(market: string): string {
   const value = market.toLowerCase();
@@ -76,11 +80,51 @@ function outcomeColor(
   return "default";
 }
 
+function RemovePickButton({ predictionId }: { predictionId: number }) {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: () => removeSavedPrediction(predictionId),
+    onSuccess: async () => {
+      queryClient.setQueryData<SavedPicksResponse>(
+        savedPicksQueryKey,
+        (current) => {
+          if (!current) return current;
+          const picks = current.picks.filter(
+            (pick) => pick.prediction_id !== predictionId,
+          );
+          return { count: picks.length, picks };
+        },
+      );
+      await queryClient.invalidateQueries({ queryKey: savedPicksQueryKey });
+    },
+  });
+
+  return (
+    <Stack spacing={1} alignItems="flex-start">
+      <Button
+        type="button"
+        color="error"
+        variant="outlined"
+        startIcon={<DeleteOutlineOutlinedIcon />}
+        disabled={mutation.isPending}
+        onClick={() => mutation.mutate()}
+      >
+        {mutation.isPending ? "Removing..." : "Remove Pick"}
+      </Button>
+      {mutation.isError ? (
+        <Alert severity="error">
+          Unable to remove this saved pick. Please try again.
+        </Alert>
+      ) : null}
+    </Stack>
+  );
+}
+
 export function ProductSavedPicksPage() {
   const navigate = useNavigate();
 
   const query = useQuery({
-    queryKey: ["product", "saved-picks"],
+    queryKey: savedPicksQueryKey,
     queryFn: getSavedPicks,
   });
 
@@ -310,6 +354,10 @@ export function ProductSavedPicksPage() {
                                 </Typography>
                                 </Box>
                               </Stack>
+
+                              <RemovePickButton
+                                predictionId={pick.prediction_id}
+                              />
                             </Stack>
                           </Box>
                         </Grid>

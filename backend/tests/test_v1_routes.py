@@ -7,6 +7,7 @@ def test_required_product_routes_exist():
         "/api/v1/auth/register",
         "/api/v1/auth/login",
         "/api/v1/users/me",
+        "/api/v1/users/saved-predictions/{prediction_id}",
         "/api/v1/product/predictions/today",
         "/api/v1/product/games/{game_id}",
         "/api/v1/product/me/saved-picks",

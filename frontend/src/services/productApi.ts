@@ -2,6 +2,7 @@ import { client } from "../api/client";
 import type {
   GameDetail,
   Performance,
+  RemoveSavedPredictionResponse,
   SavedPicksResponse,
   TodayPredictionsResponse,
   UserProfile,
@@ -47,4 +48,13 @@ export async function savePrediction(predictionId: number): Promise<void> {
   await client.post("/users/save-prediction", {
     prediction_id: predictionId,
   });
+}
+
+export async function removeSavedPrediction(
+  predictionId: number,
+): Promise<RemoveSavedPredictionResponse> {
+  const { data } = await client.delete<RemoveSavedPredictionResponse>(
+    `/users/saved-predictions/${predictionId}`,
+  );
+  return data;
 }

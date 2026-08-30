@@ -58,6 +58,11 @@ export interface SavedPicksResponse {
   picks: SavedPick[];
 }
 
+export interface RemoveSavedPredictionResponse {
+  removed: boolean;
+  prediction_id: number;
+}
+
 export interface Performance {
   total_predictions: number;
   wins: number;

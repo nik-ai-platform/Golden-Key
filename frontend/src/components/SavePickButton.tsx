@@ -1,10 +1,10 @@
 import BookmarkAddOutlinedIcon from "@mui/icons-material/BookmarkAddOutlined";
 import BookmarkAddedOutlinedIcon from "@mui/icons-material/BookmarkAddedOutlined";
 import { Alert, Button, Stack } from "@mui/material";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { savePrediction } from "../services/productApi";
+import { getSavedPicks, savePrediction } from "../services/productApi";
 
 interface SavePickButtonProps {
   predictionId: number;
@@ -12,11 +12,23 @@ interface SavePickButtonProps {
 
 export function SavePickButton({ predictionId }: SavePickButtonProps) {
   const queryClient = useQueryClient();
-  const [saved, setSaved] = useState(false);
+  const [savedAfterMutation, setSavedAfterMutation] = useState(false);
+  const savedPicks = useQuery({
+    queryKey: ["product", "saved-picks"],
+    queryFn: getSavedPicks,
+    enabled: false,
+  });
+  const saved =
+    savedAfterMutation ||
+    Boolean(
+      savedPicks.data?.picks.some(
+        (pick) => pick.prediction_id === predictionId,
+      ),
+    );
   const mutation = useMutation({
     mutationFn: () => savePrediction(predictionId),
     onSuccess: async () => {
-      setSaved(true);
+      setSavedAfterMutation(true);
       await queryClient.invalidateQueries({ queryKey: ["product", "saved-picks"] });
     },
   });
