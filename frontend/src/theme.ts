@@ -1,18 +1,21 @@
 import { createTheme } from "@mui/material";
+import type { PaletteMode } from "@mui/material";
 
-export const theme = createTheme({
+export function createAppTheme(mode: PaletteMode) {
+  return createTheme({
   palette: {
-    mode: "light",
+    mode,
     primary: {
-      main: "#0f766e",
+      main: mode === "light" ? "#0f766e" : "#5eead4",
     },
     secondary: {
-      main: "#ca8a04",
+      main: mode === "light" ? "#ca8a04" : "#facc15",
     },
     background: {
-      default: "#f8fafc",
-      paper: "#ffffff",
+      default: mode === "light" ? "#f8fafc" : "#071312",
+      paper: mode === "light" ? "#ffffff" : "#102321",
     },
+    divider: mode === "light" ? "#dbe7ea" : "rgba(148, 163, 184, 0.28)",
   },
   shape: {
     borderRadius: 14,
@@ -27,4 +30,5 @@ export const theme = createTheme({
       fontWeight: 700,
     },
   },
-});
+  });
+}

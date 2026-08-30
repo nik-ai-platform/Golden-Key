@@ -26,7 +26,7 @@ export function ProductPredictionCard({ prediction, rank }: ProductPredictionCar
   const odds = formatAmericanOdds(prediction.american_odds);
 
   return (
-    <Card variant="outlined" sx={{ height: "100%", borderRadius: 2, background: "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(240,253,250,0.58))", transition: "border-color 180ms ease, transform 180ms ease", "&:hover": { borderColor: "primary.main", transform: "translateY(-2px)" } }}>
+    <Card variant="outlined" sx={{ height: "100%", borderRadius: 2, backgroundColor: "background.paper", transition: "border-color 180ms ease, transform 180ms ease", "&:hover": { borderColor: "primary.main", transform: "translateY(-2px)" } }}>
       <CardContent sx={{ p: 3, "&:last-child": { pb: 3 } }}>
         <Stack spacing={3}>
           <Stack spacing={1}>
@@ -57,7 +57,7 @@ export function ProductPredictionCard({ prediction, rank }: ProductPredictionCar
           </Grid>
 
           {prediction.reasoning ? (
-            <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2, backgroundColor: "rgba(255,255,255,0.55)" }}><Typography variant="overline" color="text.secondary">Model summary</Typography><Typography color="text.secondary" sx={{ mt: 0.5, lineHeight: 1.7, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{prediction.reasoning}</Typography></Box>
+            <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2, backgroundColor: "action.hover" }}><Typography variant="overline" color="text.secondary">Model summary</Typography><Typography color="text.secondary" sx={{ mt: 0.5, lineHeight: 1.7, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{prediction.reasoning}</Typography></Box>
           ) : null}
 
           <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>

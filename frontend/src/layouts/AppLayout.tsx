@@ -25,6 +25,7 @@ import { Link as RouterLink, Outlet, useLocation } from "react-router-dom";
 
 import { useAuth } from "../hooks/useAuth";
 import { MobileNav } from "../components/MobileNav";
+import { ThemeToggleButton } from "../components/ThemeToggleButton";
 
 const drawerWidth = 270;
 
@@ -79,12 +80,12 @@ export function AppLayout() {
   }
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", background: "linear-gradient(140deg, #f0fdfa 0%, #f8fafc 45%, #fefce8 100%)" }}>
+    <Box sx={{ display: "flex", minHeight: "100vh", backgroundColor: "background.default" }}>
       <AppBar
         position="fixed"
         color="inherit"
         elevation={0}
-        sx={{ width: { sm: `calc(100% - ${drawerWidth}px)` }, ml: { sm: `${drawerWidth}px` }, borderBottom: "1px solid #dbe7ea" }}
+        sx={{ width: { sm: `calc(100% - ${drawerWidth}px)` }, ml: { sm: `${drawerWidth}px` }, borderBottom: "1px solid", borderBottomColor: "divider" }}
       >
         <Toolbar sx={{ justifyContent: "space-between" }}>
           <Stack direction="row" spacing={1.2} alignItems="center">
@@ -96,9 +97,12 @@ export function AppLayout() {
               <Typography variant="caption" color="text.secondary">Daily model intelligence · {user?.role ?? "user"}</Typography>
             </Stack>
           </Stack>
-          <IconButton aria-label="Sign Out" onClick={logout} color="primary">
-            <LogoutOutlinedIcon />
-          </IconButton>
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <ThemeToggleButton />
+            <IconButton aria-label="Sign Out" onClick={logout} color="primary">
+              <LogoutOutlinedIcon />
+            </IconButton>
+          </Stack>
         </Toolbar>
       </AppBar>
 
@@ -128,7 +132,8 @@ export function AppLayout() {
           [`& .MuiDrawer-paper`]: {
             width: drawerWidth,
             boxSizing: "border-box",
-            borderRight: "1px solid #dbe7ea",
+            borderRight: "1px solid",
+            borderRightColor: "divider",
             background: "linear-gradient(170deg, #0f766e 0%, #134e4a 100%)",
             color: "white",
           },
@@ -139,7 +144,7 @@ export function AppLayout() {
 
       <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, sm: 3 }, pb: { xs: 11, sm: 3 }, mt: 8 }}>
         <Outlet />
-        <Box component="footer" sx={{ mt: 4, pt: 2, borderTop: "1px solid #dbe7ea" }}>
+        <Box component="footer" sx={{ mt: 4, pt: 2, borderTop: "1px solid", borderTopColor: "divider" }}>
           <Typography variant="caption" color="text.secondary">
             Golden Key Sports Intelligence
           </Typography>
