@@ -74,7 +74,7 @@ def test_run_backtest_route_persists_and_returns_summary(monkeypatch):
     app.dependency_overrides.clear()
 
 
-def test_list_backtests_route_returns_rows():
+def test_list_backtests_route_returns_rows(monkeypatch):
     class _FakeDB:
         pass
 

@@ -73,8 +73,24 @@ class FeatureImportanceService:
 
         return PredictionExplanation(
             prediction_id=int(getattr(prediction, "id", 0)),
-            winner=str(getattr(prediction, "recommendation", "UNKNOWN")),
-            confidence=round(float(getattr(prediction, "confidence", 0.0) or 0.0), 2),
+            winner=str(
+                getattr(
+                    prediction,
+                    "selection",
+                    getattr(prediction, "recommendation", "UNKNOWN"),
+                )
+            ),
+            confidence=round(
+                float(
+                    getattr(
+                        prediction,
+                        "confidence_score",
+                        getattr(prediction, "confidence", 0.0),
+                    )
+                    or 0.0
+                ),
+                2,
+            ),
             top_positive=top_positive,
             top_negative=top_negative,
         )

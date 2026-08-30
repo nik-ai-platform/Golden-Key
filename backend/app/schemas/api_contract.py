@@ -10,6 +10,9 @@ class TodayPredictionItem(BaseModel):
     game_date: str
     market: str
     selection: str
+    display_selection: str = ""
+    line_value: float | None = None
+    american_odds: int | None = None
     model_version: str
     npi_score: float
     confidence_score: float | None = None
@@ -31,7 +34,7 @@ class GameDetailResponse(BaseModel):
     home_team: str
     away_team: str
     game_date: str
-    prediction: TodayPredictionItem | None = None
+    predictions: list[TodayPredictionItem]
 
 
 class SavedPickItem(BaseModel):

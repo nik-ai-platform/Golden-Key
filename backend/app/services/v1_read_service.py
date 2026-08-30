@@ -48,12 +48,19 @@ class V1ReadService:
             query = query.filter(Prediction.selection != "PASS")
 
         rows = query.order_by(
+            Prediction.id.desc(),
             Prediction.confidence_score.desc(),
             Prediction.npi_score.desc(),
         ).all()
+        latest_by_game_market = {}
+        for prediction, game, home, away in rows:
+            latest_by_game_market.setdefault(
+                (prediction.game_id, prediction.market),
+                (prediction, game, home, away),
+            )
         items = [
             self._prediction_item(prediction, game, home, away)
-            for prediction, game, home, away in rows
+            for prediction, game, home, away in latest_by_game_market.values()
         ]
         return {
             "sport": sport.upper() if sport else None,
@@ -80,12 +87,15 @@ class V1ReadService:
             .filter(Team.id == game.away_team_id)
             .first()
         )
-        prediction = (
+        prediction_rows = (
             db.query(Prediction)
             .filter(Prediction.game_id == game_id)
             .order_by(Prediction.id.desc())
-            .first()
+            .all()
         )
+        latest_by_market = {}
+        for prediction in prediction_rows:
+            latest_by_market.setdefault(prediction.market, prediction)
         return {
             "game_id": game.id,
             "sport": game.sport,
@@ -96,16 +106,16 @@ class V1ReadService:
                 away_team.name if away_team else str(game.away_team_id)
             ),
             "game_date": game.game_date.isoformat(),
-            "prediction": (
+            "predictions": [
                 self._prediction_item(
-                    prediction,
+                    latest_by_market[market],
                     game,
                     home_team,
                     away_team,
                 )
-                if prediction
-                else None
-            ),
+                for market in ("spread", "moneyline", "total")
+                if market in latest_by_market
+            ],
         }
 
     def get_saved_picks(
@@ -178,6 +188,13 @@ class V1ReadService:
             "game_date": game.game_date.isoformat(),
             "market": prediction.market,
             "selection": prediction.selection,
+            "display_selection": self._display_selection(
+                prediction,
+                home_team,
+                away_team,
+            ),
+            "line_value": prediction.line_value,
+            "american_odds": prediction.american_odds,
             "model_version": prediction.model_version,
             "npi_score": float(prediction.npi_score),
             "confidence_score": prediction.confidence_score,
@@ -186,3 +203,20 @@ class V1ReadService:
             "risk_level": prediction.risk_level,
             "reasoning": prediction.reasoning,
         }
+
+    def _display_selection(
+        self,
+        prediction: Prediction,
+        home_team: Team,
+        away_team: Team,
+    ) -> str:
+        if prediction.selection == "PASS":
+            return "PASS"
+        if prediction.market == "spread":
+            return f"{prediction.selection} {prediction.line_value:+g}"
+        if prediction.market == "moneyline":
+            team = home_team if prediction.selection == "HOME" else away_team
+            return f"{team.name} ML"
+        if prediction.market == "total":
+            return f"{prediction.selection} {prediction.line_value:g}"
+        return prediction.selection

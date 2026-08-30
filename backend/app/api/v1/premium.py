@@ -5,13 +5,9 @@ from fastapi import (
 
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import get_current_user
+from app.auth.schemas import AuthUser
 from app.database.session import get_db
-
-from app.models.user import User
-
-from app.core.auth_dependencies import (
-    get_current_user
-)
 
 from app.core.premium import (
     require_premium
@@ -28,7 +24,7 @@ router = APIRouter(
 )
 def advanced_analysis(
 
-    current_user: User =
+    current_user: AuthUser =
         Depends(get_current_user),
 
     db: Session =

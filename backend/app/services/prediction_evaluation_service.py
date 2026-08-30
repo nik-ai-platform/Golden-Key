@@ -9,7 +9,7 @@ from app.models.prediction_evaluation import (
 
 class PredictionEvaluationService:
 
-    def evaluate(self, prediction, outcome=None, db: Session | None = None, snapshot=None, actual_winner_id: int | None = None):
+    def evaluate(self, prediction=None, outcome=None, db: Session | None = None, snapshot=None, actual_winner_id: int | None = None):
         if db is not None and snapshot is not None and actual_winner_id is not None:
             correct = snapshot.prediction == str(actual_winner_id)
 

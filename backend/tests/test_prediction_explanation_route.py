@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from app.auth.dependencies import require_analyst
 from app.auth.schemas import AuthUser
 from app.main import app
-from app.models.nik_score import NikScore
+from app.models.prediction_record import Prediction
 from app.models.prediction_snapshot import PredictionSnapshot
 
 
@@ -13,10 +13,8 @@ def test_prediction_explanation_route_returns_expected_contract(monkeypatch):
     prediction = SimpleNamespace(
         id=1421,
         game_id=100,
-        home_score=111.2,
-        away_score=104.7,
-        recommendation="Boston Celtics",
-        confidence=87.4,
+        selection="HOME",
+        confidence_score=87.4,
     )
     snapshot = SimpleNamespace(
         id=900,
@@ -40,7 +38,7 @@ def test_prediction_explanation_route_returns_expected_contract(monkeypatch):
 
     class _FakeDB:
         def query(self, model):
-            if model is NikScore:
+            if model is Prediction:
                 return _Query(prediction)
             if model is PredictionSnapshot:
                 return _Query(snapshot)

@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.auth_dependencies import get_current_user
+from app.auth.dependencies import get_current_user
+from app.auth.schemas import AuthUser
 from app.database.session import get_db
-from app.models.user import User
 from app.schemas.api_contract import (
     GameDetailResponse,
     PerformanceResponse,
@@ -62,7 +62,7 @@ def game_detail(
     response_model=SavedPicksResponse,
 )
 def saved_picks(
-    current_user: User = Depends(get_current_user),
+    current_user: AuthUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     return service.get_saved_picks(

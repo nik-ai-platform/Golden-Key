@@ -108,3 +108,27 @@ def test_npi_uses_database_profile_when_session_is_supplied(monkeypatch):
         factor["weight"]
         for factor in result["factors"]
     ] == list(profile.values())
+
+
+def test_npi_uses_default_weights_when_database_profile_is_missing(monkeypatch):
+    def get_profile(db, sport, model_version):
+        raise ValueError("No NPI weight profile found for WNBA NPI-4.0")
+
+    monkeypatch.setattr(
+        NPIEngine.weight_profiles,
+        "get_profile",
+        get_profile,
+    )
+
+    result = NPIEngine().calculate(
+        db=object(),
+        game=None,
+        odds=make_odds(),
+        sport="WNBA",
+        model_version="NPI-4.0",
+    )
+
+    assert [
+        factor["weight"]
+        for factor in result["factors"]
+    ] == list(NPIEngine.DEFAULT_WEIGHTS.values())

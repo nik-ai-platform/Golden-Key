@@ -1,0 +1,1 @@
+import{j as r,S as s}from"./index-Cc6PolFi.js";import{T as e}from"./Typography-C_ZuAlyt.js";import{C as a,a as t}from"./CardContent-Dv2mA28m.js";function d(){return r.jsxs(s,{spacing:2,children:[r.jsx(e,{variant:"h4",children:"Agent Debates"}),r.jsx(a,{children:r.jsx(t,{children:r.jsx(e,{children:"Does edge justify risk?"})})})]})}export{d as default};

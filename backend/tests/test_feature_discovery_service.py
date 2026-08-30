@@ -7,8 +7,8 @@ def test_discovery_does_not_alter_production_models():
     service = FeatureDiscoveryService()
     features = service.discover_features("NBA")
 
-    assert len(features) == 2
-    assert features[0]["sport"] == "NBA"
+    assert len(features["feature_details"]) == 2
+    assert features["feature_details"][0]["sport"] == "NBA"
 
 
 def test_feature_scoring_consistent():

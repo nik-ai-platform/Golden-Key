@@ -5,13 +5,9 @@ from fastapi import (
 
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import get_current_user
+from app.auth.schemas import AuthUser
 from app.database.session import get_db
-
-from app.models.user import User
-
-from app.core.auth_dependencies import (
-    get_current_user
-)
 
 from app.schemas.user_prediction import (
     SavePredictionRequest,
@@ -33,25 +29,11 @@ router = APIRouter(
     "/me"
 )
 def get_profile(
-    current_user: User = Depends(
+    current_user: AuthUser = Depends(
         get_current_user
     )
 ):
-
-    return {
-
-        "id": current_user.id,
-
-        "email":
-        current_user.email,
-
-        "username":
-        current_user.username,
-
-        "premium":
-        current_user.is_premium
-
-    }
+    return current_user
 
 
 @router.post(
@@ -62,7 +44,7 @@ def get_profile(
 def save_user_prediction(
     request: SavePredictionRequest,
 
-    current_user: User =
+    current_user: AuthUser =
     Depends(get_current_user),
 
     db: Session =
@@ -88,7 +70,7 @@ def save_user_prediction(
 )
 def my_predictions(
 
-    current_user: User =
+    current_user: AuthUser =
     Depends(get_current_user),
 
     db: Session =

@@ -49,7 +49,6 @@ from app.api.v1 import research_agent
 from app.api.v1 import simulation
 from app.api.v1 import enterprise
 from app.api.v1 import learning
-from app.api.v1 import auth
 from app.api.v1 import users
 from app.api.v1 import subscriptions
 from app.api.v1 import premium
@@ -72,6 +71,7 @@ from app.api.v1 import pipeline
 from app.api.v1 import jobs
 from app.api.v1 import onboarding
 from app.api.routes import analytics
+from app.api.routes import auth
 from app.api.routes import dashboard
 from app.api.routes import health
 

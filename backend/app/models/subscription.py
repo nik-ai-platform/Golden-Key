@@ -76,3 +76,18 @@ class Subscription(Base):
         DateTime,
         onupdate=func.now()
     )
+
+    @property
+    def status(self) -> str:
+        return (
+            SubscriptionStatus.ACTIVE.value
+            if self.active
+            else SubscriptionStatus.CANCELED.value
+        )
+
+    @status.setter
+    def status(self, value: str) -> None:
+        self.active = value in {
+            SubscriptionStatus.ACTIVE.value,
+            SubscriptionStatus.TRIALING.value,
+        }

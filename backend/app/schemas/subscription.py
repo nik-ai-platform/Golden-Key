@@ -5,13 +5,13 @@ from pydantic import BaseModel
 
 class SubscriptionResponse(BaseModel):
 
-    id: int
+    id: int | None
 
     plan: str
 
     active: bool
 
-    created_at: datetime
+    created_at: datetime | None
 
     class Config:
 

@@ -13,5 +13,13 @@ class MomentumService:
         pace = float(pace_change or 0)
         momentum = round(scoring_run_value * 1.5 + efficiency + possession_value - turnover_penalty + shot_quality_value + pace - (time_value / 10), 2)
         if scoring_run_value > 10 and time_value <= 60:
-            momentum = round(momentum + 6, 2)
+            corroborating_signals = (
+                efficiency,
+                possession_value,
+                turnover_penalty,
+                shot_quality_value,
+                pace,
+            )
+            bonus = 6 if any(corroborating_signals) else 1
+            momentum = round(momentum + bonus, 2)
         return momentum

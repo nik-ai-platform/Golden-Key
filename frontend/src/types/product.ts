@@ -7,6 +7,9 @@ export interface Prediction {
   game_date: string;
   market: string;
   selection: string;
+  display_selection: string;
+  line_value: number | null;
+  american_odds: number | null;
   model_version: string;
   npi_score: number;
   confidence_score: number | null;
@@ -28,7 +31,7 @@ export interface GameDetail {
   home_team: string;
   away_team: string;
   game_date: string;
-  prediction: Prediction | null;
+  predictions: Prediction[];
 }
 
 export interface SavedPick {

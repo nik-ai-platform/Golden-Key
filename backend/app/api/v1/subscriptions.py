@@ -5,13 +5,9 @@ from fastapi import (
 
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import get_current_user
+from app.auth.schemas import AuthUser
 from app.database.session import get_db
-
-from app.core.auth_dependencies import (
-    get_current_user
-)
-
-from app.models.user import User
 
 from app.schemas.subscription import (
     SubscriptionResponse
@@ -34,7 +30,7 @@ router = APIRouter(
 )
 def my_subscription(
 
-    current_user: User =
+    current_user: AuthUser =
         Depends(get_current_user),
 
     db: Session =

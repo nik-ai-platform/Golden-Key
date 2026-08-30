@@ -1,15 +1,15 @@
 import { client } from "../api/client";
 import type { PredictionResponse } from "../types/predictions";
 
-export async function getPrediction(gameId: number): Promise<PredictionResponse> {
-  const { data } = await client.get<PredictionResponse>(`/predictions/${gameId}`);
+export async function getPrediction(gameId: number): Promise<PredictionResponse[]> {
+  const { data } = await client.get<PredictionResponse[]>(`/predictions/${gameId}`);
   return data;
 }
 
 export async function listPredictions(params: {
   winner?: string;
   minConfidence?: number;
-  sortBy?: "confidence" | "nik_power_index" | "game_date" | "model_version" | "winner";
+  sortBy?: "confidence_score" | "npi_score" | "game_date" | "market" | "model_version" | "selection";
   sortOrder?: "asc" | "desc";
   limit?: number;
 }): Promise<PredictionResponse[]> {

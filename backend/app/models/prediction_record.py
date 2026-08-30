@@ -30,6 +30,16 @@ class Prediction(Base):
         nullable=False,
     )
 
+    line_value = Column(
+        Float,
+        nullable=True,
+    )
+
+    american_odds = Column(
+        Integer,
+        nullable=True,
+    )
+
     npi_score = Column(
         Float,
         nullable=False,

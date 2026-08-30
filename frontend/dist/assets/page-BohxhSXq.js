@@ -1,1 +1,0 @@
-import{j as r,S as e}from"./index-C0hwFoT0.js";import{T as a}from"./Typography-CBZn4uAZ.js";import{C as n,a as t}from"./CardContent-B5FvrTPH.js";function c(){return r.jsxs(e,{spacing:2,children:[r.jsx(a,{variant:"h4",children:"Agent Performance"}),r.jsx(n,{children:r.jsx(t,{children:r.jsx(a,{children:"Simulation Agent Accuracy: 59.2% | Weight: HIGH"})})})]})}export{c as default};

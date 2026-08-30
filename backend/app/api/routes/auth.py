@@ -16,12 +16,32 @@ from app.auth.schemas import (
 )
 from app.auth.service import AuthenticationService
 from app.database.session import get_db
+from app.schemas.user import UserCreate, UserResponse
+from app.services.user_service import create_user, get_user_by_email
 
 
 router = APIRouter(
     prefix="/auth",
     tags=["Authentication"],
 )
+
+
+@router.post("/register", response_model=UserResponse)
+def register(
+    payload: UserCreate,
+    db: Session = Depends(get_db),
+):
+    if get_user_by_email(db, str(payload.email)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered",
+        )
+    return create_user(
+        db,
+        str(payload.email),
+        payload.username,
+        payload.password,
+    )
 
 
 @router.post("/login", response_model=AccessTokenResponse)

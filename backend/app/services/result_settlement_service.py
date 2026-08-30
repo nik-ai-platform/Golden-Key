@@ -124,7 +124,9 @@ class ResultSettlementService:
             )
 
         american_odds = None
-        if odds:
+        if getattr(prediction, "american_odds", None) is not None:
+            american_odds = prediction.american_odds
+        elif odds:
             american_odds = (
                 odds.moneyline_home
                 if selection == "HOME"
@@ -165,11 +167,15 @@ class ResultSettlementService:
                 "profit_loss": 0.0,
             }
         if selection == "HOME":
-            spread = odds.spread_home
+            spread = getattr(prediction, "line_value", None)
+            if spread is None:
+                spread = odds.spread_home
             selected_score = float(game.home_score)
             opponent_score = float(game.away_score)
         elif selection == "AWAY":
-            spread = odds.spread_away
+            spread = getattr(prediction, "line_value", None)
+            if spread is None:
+                spread = odds.spread_away
             selected_score = float(game.away_score)
             opponent_score = float(game.home_score)
         else:
@@ -208,7 +214,11 @@ class ResultSettlementService:
         if not odds or odds.total is None:
             raise ValueError(f"No total found for game {game.id}")
 
-        total_line = float(odds.total)
+        total_line = float(
+            getattr(prediction, "line_value", None)
+            if getattr(prediction, "line_value", None) is not None
+            else odds.total
+        )
         final_total = float(game.home_score) + float(game.away_score)
         selection = (prediction.selection or "").upper()
         if selection == "OVER":

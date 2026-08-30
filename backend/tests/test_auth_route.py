@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.routes import auth as auth_routes
+from app.api.v1 import premium, product, subscriptions
 from app.auth.dependencies import get_auth_service
 from app.auth.jwt import JWTService
 from app.auth.service import AuthenticationService
@@ -52,6 +53,61 @@ def test_login_and_me_flow():
         "is_active": True,
         "email_verified": False,
     }
+
+
+def test_login_token_authenticates_users_me_route(monkeypatch):
+    monkeypatch.setattr(
+        product.service,
+        "get_saved_picks",
+        lambda **_: {"count": 0, "picks": []},
+    )
+    monkeypatch.setattr(
+        subscriptions,
+        "get_user_subscription",
+        lambda *_: {
+            "id": None,
+            "plan": "free",
+            "active": False,
+            "created_at": None,
+        },
+    )
+    monkeypatch.setattr(premium, "require_premium", lambda *_: True)
+    client = TestClient(app)
+
+    login_response = client.post(
+        "/api/v1/auth/login",
+        json={"email": "admin@example.com", "password": "admin123"},
+    )
+
+    assert login_response.status_code == 200
+    access_token = login_response.json()["access_token"]
+
+    me_response = client.get(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert me_response.status_code == 200
+    assert me_response.json()["role"] == "admin"
+
+    saved_picks_response = client.get(
+        "/api/v1/product/me/saved-picks",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert saved_picks_response.status_code == 200
+
+    subscription_response = client.get(
+        "/api/v1/subscriptions/me",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    premium_response = client.get(
+        "/api/v1/premium/advanced-analysis",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert subscription_response.status_code == 200
+    assert premium_response.status_code == 200
 
 
 def test_login_rejects_invalid_credentials():

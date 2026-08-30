@@ -64,11 +64,15 @@ class NPIEngine:
     ):
         weights = self.weights
         if db is not None:
-            weights = self.weight_profiles.get_profile(
-                db=db,
-                sport=sport,
-                model_version=model_version,
-            )
+            try:
+                weights = self.weight_profiles.get_profile(
+                    db=db,
+                    sport=sport,
+                    model_version=model_version,
+                )
+            except ValueError as error:
+                if "No NPI weight profile found for" not in str(error):
+                    raise
 
         factors = [
             self.home_advantage(game, weights["home_advantage"]),

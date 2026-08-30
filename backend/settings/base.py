@@ -33,13 +33,14 @@ class BaseAppSettings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     CORS_ORIGINS: str = "http://localhost:3000"
 
-    OPENAI_API_KEY: str
-    SPORTSBOOK_API_KEYS: dict[str, str]
+    OPENAI_API_KEY: str = ""
+    SPORTSBOOK_API_KEYS: dict[str, str] = {}
     ODDS_API_KEY: str
     ODDS_API_BASE_URL: str = "https://api.the-odds-api.com/v4"
 
-    REDIS_URL: str
-    SMTP_SETTINGS: dict[str, Any]
+    REDIS_URL: str = ""
+    STORAGE_BACKEND: str = "local"
+    SMTP_SETTINGS: dict[str, Any] = {}
 
     DB_POOL_SIZE: int = 40
     DB_MAX_OVERFLOW: int = 80
@@ -68,12 +69,15 @@ class BaseAppSettings(BaseSettings):
     @field_validator("SPORTSBOOK_API_KEYS", mode="before")
     @classmethod
     def parse_sportsbook_keys(cls, value: Any) -> dict[str, str]:
-        if value is None or value == "":
-            raise ValueError("SPORTSBOOK_API_KEYS is required and must be a JSON object")
+        if value in (None, ""):
+            return {}
         if isinstance(value, dict):
             return {str(key): str(item) for key, item in value.items()}
         if isinstance(value, str):
-            parsed = json.loads(value)
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError as exc:
+                raise ValueError("SPORTSBOOK_API_KEYS must be a JSON object") from exc
             if isinstance(parsed, dict):
                 return {str(key): str(item) for key, item in parsed.items()}
         raise ValueError("SPORTSBOOK_API_KEYS must be a JSON object")
@@ -81,12 +85,15 @@ class BaseAppSettings(BaseSettings):
     @field_validator("SMTP_SETTINGS", mode="before")
     @classmethod
     def parse_smtp_settings(cls, value: Any) -> dict[str, Any]:
-        if value is None or value == "":
-            raise ValueError("SMTP_SETTINGS is required and must be a JSON object")
+        if value in (None, ""):
+            return {}
         if isinstance(value, dict):
             return value
         if isinstance(value, str):
-            parsed = json.loads(value)
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError as exc:
+                raise ValueError("SMTP_SETTINGS must be a JSON object") from exc
             if isinstance(parsed, dict):
                 return parsed
         raise ValueError("SMTP_SETTINGS must be a JSON object")

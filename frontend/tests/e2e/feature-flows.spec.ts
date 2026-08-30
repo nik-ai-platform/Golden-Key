@@ -5,7 +5,7 @@ test("predictions applies winner and confidence filters with sort controls", asy
     localStorage.setItem("golden_key_access_token", "seed-token");
   });
 
-  await page.route("**/api/v1/auth/me", async (route) => {
+  await page.route("**/api/v1/users/me", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -21,15 +21,23 @@ test("predictions applies winner and confidence filters with sort controls", asy
 
   const predictionPayload = [
     {
+      prediction_id: 301,
       game_id: 901,
+      sport: "NBA",
       game_date: "2026-07-24T18:00:00Z",
       home_team: "Boston Celtics",
       away_team: "Miami Heat",
-      winner: "HOME",
-      confidence: 82.3,
-      nik_power_index: 114.2,
-      home_npi: 114.2,
-      away_npi: 107.8,
+      market: "spread",
+      selection: "HOME",
+      display_selection: "HOME -4.5",
+      line_value: -4.5,
+      american_odds: -110,
+      confidence_score: 82.3,
+      npi_score: 114.2,
+      simulation_probability: 67.1,
+      projected_edge: 8.2,
+      risk_level: "low",
+      reasoning: "Spread model.",
       model_version: "NPI-v2",
     },
   ];
@@ -49,7 +57,7 @@ test("predictions applies winner and confidence filters with sort controls", asy
   await expect(page.getByRole("heading", { name: "Predictions" })).toBeVisible();
   await expect(page.getByText("Boston Celtics")).toBeVisible();
 
-  await page.getByLabel("Winner Filter").fill("home");
+  await page.getByLabel("Selection Filter").fill("home");
   await page.getByLabel("Min Confidence").fill("70");
   await page.getByLabel("Sort By").click();
   await page.getByRole("option", { name: "Nik Power Index" }).click();
@@ -63,16 +71,16 @@ test("predictions applies winner and confidence filters with sort controls", asy
   const latestUrl = capturedUrls[capturedUrls.length - 1];
   expect(latestUrl).toContain("winner=home");
   expect(latestUrl).toContain("min_confidence=70");
-  expect(latestUrl).toContain("sort_by=nik_power_index");
+  expect(latestUrl).toContain("sort_by=npi_score");
   expect(latestUrl).toContain("sort_order=asc");
 });
 
-test("games page renders upcoming, live, and completed sections", async ({ page }) => {
+test("games page renders today's prediction opportunities", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("golden_key_access_token", "seed-token");
   });
 
-  await page.route("**/api/v1/auth/me", async (route) => {
+  await page.route("**/api/v1/users/me", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -86,58 +94,42 @@ test("games page renders upcoming, live, and completed sections", async ({ page 
     });
   });
 
-  await page.route("**/api/v1/games**", async (route) => {
+  await page.route("**/api/v1/product/predictions/today**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([
-        {
-          id: 100,
-          sport: "Basketball",
-          league: "NBA",
-          home_team_id: 1,
-          away_team_id: 2,
+      body: JSON.stringify({
+        sport: null,
+        count: 1,
+        predictions: [{
+          prediction_id: 100,
+          game_id: 200,
+          sport: "NBA",
           game_date: "2099-01-01T01:00:00Z",
-          home_score: null,
-          away_score: null,
-          winner_team_id: null,
-        },
-        {
-          id: 200,
-          sport: "Basketball",
-          league: "NBA",
-          home_team_id: 3,
-          away_team_id: 4,
-          game_date: "2024-01-01T01:00:00Z",
-          home_score: null,
-          away_score: null,
-          winner_team_id: null,
-        },
-        {
-          id: 300,
-          sport: "Basketball",
-          league: "NBA",
-          home_team_id: 5,
-          away_team_id: 6,
-          game_date: "2024-01-01T01:00:00Z",
-          home_score: 110,
-          away_score: 98,
-          winner_team_id: 5,
-        },
-      ]),
+          home_team: "Boston Celtics",
+          away_team: "Miami Heat",
+          market: "spread",
+          selection: "HOME",
+          display_selection: "Boston Celtics -4.5",
+          line_value: -4.5,
+          american_odds: -110,
+          confidence_score: 82.3,
+          npi_score: 114.2,
+          simulation_probability: 67.1,
+          projected_edge: 8.2,
+          risk_level: "low",
+          reasoning: "Spread model.",
+          model_version: "NPI-v2",
+        }],
+      }),
     });
   });
 
   await page.goto("/games");
 
-  await expect(page.getByRole("heading", { name: "Upcoming Games" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Live Games" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Completed Games" })).toBeVisible();
-
-  await expect(page.getByText("2099-01-01T01:00:00Z")).toBeVisible();
-  await expect(page.getByText("100", { exact: true })).toBeVisible();
-  await expect(page.getByText("200", { exact: true })).toBeVisible();
-  await expect(page.getByText("300", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Today's games" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Miami Heat at Boston Celtics" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Boston Celtics -4.5" })).toBeVisible();
 });
 
 test("predictions shows server error and recovers on retry", async ({ page }) => {
@@ -145,7 +137,7 @@ test("predictions shows server error and recovers on retry", async ({ page }) =>
     localStorage.setItem("golden_key_access_token", "seed-token");
   });
 
-  await page.route("**/api/v1/auth/me", async (route) => {
+  await page.route("**/api/v1/users/me", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -176,15 +168,23 @@ test("predictions shows server error and recovers on retry", async ({ page }) =>
       contentType: "application/json",
       body: JSON.stringify([
         {
+          prediction_id: 990,
           game_id: 990,
           game_date: "2026-07-24T20:00:00Z",
           home_team: "Lakers",
           away_team: "Warriors",
-          winner: "HOME",
-          confidence: 75.5,
-          nik_power_index: 109.9,
-          home_npi: 109.9,
-          away_npi: 104.4,
+          sport: "NBA",
+          market: "moneyline",
+          selection: "HOME",
+          display_selection: "Lakers ML",
+          line_value: null,
+          american_odds: -120,
+          confidence_score: 75.5,
+          npi_score: 109.9,
+          simulation_probability: 64.0,
+          projected_edge: 5.0,
+          risk_level: "medium",
+          reasoning: "Moneyline model.",
           model_version: "NPI-v2",
         },
       ]),
@@ -197,8 +197,8 @@ test("predictions shows server error and recovers on retry", async ({ page }) =>
   await expect(page.getByRole("button", { name: "Retry" })).toBeVisible({ timeout: 15000 });
   await page.getByRole("button", { name: "Retry" }).click();
 
-  await expect(page.getByText("Lakers")).toBeVisible();
-  await expect(page.getByText("Warriors")).toBeVisible();
+  await expect(page.getByRole("gridcell", { name: "Lakers", exact: true })).toBeVisible();
+  await expect(page.getByRole("gridcell", { name: "Warriors" })).toBeVisible();
 });
 
 test("games shows server error and recovers on retry", async ({ page }) => {
@@ -206,7 +206,7 @@ test("games shows server error and recovers on retry", async ({ page }) => {
     localStorage.setItem("golden_key_access_token", "seed-token");
   });
 
-  await page.route("**/api/v1/auth/me", async (route) => {
+  await page.route("**/api/v1/users/me", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -221,7 +221,7 @@ test("games shows server error and recovers on retry", async ({ page }) => {
   });
 
   let gameCalls = 0;
-  await page.route("**/api/v1/games**", async (route) => {
+  await page.route("**/api/v1/product/predictions/today**", async (route) => {
     gameCalls += 1;
     if (gameCalls <= 4) {
       await route.fulfill({
@@ -235,19 +235,30 @@ test("games shows server error and recovers on retry", async ({ page }) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([
-        {
-          id: 700,
-          sport: "Basketball",
-          league: "NBA",
-          home_team_id: 1,
-          away_team_id: 2,
+      body: JSON.stringify({
+        sport: null,
+        count: 1,
+        predictions: [{
+          prediction_id: 700,
+          game_id: 701,
+          sport: "NBA",
           game_date: "2099-01-01T01:00:00Z",
-          home_score: null,
-          away_score: null,
-          winner_team_id: null,
-        },
-      ]),
+          home_team: "Lakers",
+          away_team: "Warriors",
+          market: "moneyline",
+          selection: "HOME",
+          display_selection: "Lakers ML",
+          line_value: null,
+          american_odds: -120,
+          confidence_score: 75.5,
+          npi_score: 109.9,
+          simulation_probability: 64.0,
+          projected_edge: 5.0,
+          risk_level: "medium",
+          reasoning: "Moneyline model.",
+          model_version: "NPI-v2",
+        }],
+      }),
     });
   });
 
@@ -257,8 +268,8 @@ test("games shows server error and recovers on retry", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Retry" })).toBeVisible({ timeout: 15000 });
   await page.getByRole("button", { name: "Retry" }).click();
 
-  await expect(page.getByRole("heading", { name: "Upcoming Games" })).toBeVisible();
-  await expect(page.getByText("700", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Today's games" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Warriors at Lakers" })).toBeVisible();
 });
 
 test("analytics renders calibration metrics and bucket chart", async ({ page }) => {
@@ -266,7 +277,7 @@ test("analytics renders calibration metrics and bucket chart", async ({ page }) 
     localStorage.setItem("golden_key_access_token", "seed-token");
   });
 
-  await page.route("**/api/v1/auth/me", async (route) => {
+  await page.route("**/api/v1/users/me", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -390,7 +401,7 @@ test("models page renders comparison recommendation", async ({ page }) => {
     localStorage.setItem("golden_key_access_token", "seed-token");
   });
 
-  await page.route("**/api/v1/auth/me", async (route) => {
+  await page.route("**/api/v1/users/me", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",

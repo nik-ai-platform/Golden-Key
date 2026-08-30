@@ -11,6 +11,8 @@ class PredictionBase(BaseModel):
 
 class PredictionCreate(PredictionBase):
     model_version: str
+    line_value: float | None = None
+    american_odds: int | None = None
     npi_score: float
     win_probability: float | None = None
     simulation_probability: float | None = None

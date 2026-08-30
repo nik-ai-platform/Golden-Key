@@ -26,7 +26,7 @@ async function mockProductApi(page: import("@playwright/test").Page) {
   await page.route("**/api/v1/version", (route) => route.fulfill({ json: { api_version: "v1" } }));
   await page.route("**/api/v1/product/performance", (route) => route.fulfill({ json: { total_predictions: 20, wins: 14, losses: 5, pushes: 1, accuracy: 70, profit_loss: 125.5 } }));
   await page.route("**/api/v1/product/predictions/today**", (route) => route.fulfill({ json: { sport: null, count: 1, predictions: [prediction] } }));
-  await page.route("**/api/v1/product/games/101", (route) => route.fulfill({ json: { game_id: 101, sport: "WNBA", home_team: prediction.home_team, away_team: prediction.away_team, game_date: prediction.game_date, prediction } }));
+  await page.route("**/api/v1/product/games/101", (route) => route.fulfill({ json: { game_id: 101, sport: "WNBA", home_team: prediction.home_team, away_team: prediction.away_team, game_date: prediction.game_date, predictions: [prediction] } }));
   await page.route("**/api/v1/users/save-prediction", (route) => {
     saved = true;
     return route.fulfill({ json: { id: 1, prediction_id: prediction.prediction_id } });

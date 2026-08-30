@@ -1,1 +1,0 @@
-import{j as r,S as a}from"./index-C0hwFoT0.js";import{T as s}from"./Typography-CBZn4uAZ.js";import{C as t,a as e}from"./CardContent-B5FvrTPH.js";function p(){return r.jsxs(a,{spacing:2,children:[r.jsx(s,{variant:"h4",children:"History"}),r.jsx(t,{children:r.jsx(e,{children:r.jsx(s,{children:"Lesson: Teams resting starters perform worse ATS."})})})]})}export{p as default};

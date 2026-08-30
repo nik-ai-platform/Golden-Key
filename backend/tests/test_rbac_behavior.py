@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from datetime import datetime
 
 from fastapi import Depends
 from fastapi import FastAPI
@@ -17,6 +18,48 @@ def _user(role: str) -> AuthUser:
         email=f"{role}@example.com",
         role=role,
         is_active=True,
+    )
+
+
+class _PredictionQuery:
+    def filter(self, *_args, **_kwargs):
+        return self
+
+    def order_by(self, *_args, **_kwargs):
+        return self
+
+    def all(self):
+        return [
+            SimpleNamespace(
+                id=11,
+                game_id=1,
+                market="spread",
+                selection="HOME",
+                line_value=-4.5,
+                american_odds=-110,
+                model_version="NPI-4.0",
+                npi_score=110.0,
+                confidence_score=75.0,
+                simulation_probability=62.0,
+                projected_edge=8.0,
+                risk_level="medium",
+                reasoning="Spread model.",
+            )
+        ]
+
+
+class _PredictionDB:
+    def query(self, _model):
+        return _PredictionQuery()
+
+
+def _prediction_game():
+    return SimpleNamespace(
+        id=1,
+        sport="NBA",
+        game_date=datetime(2026, 8, 30, 12, 0),
+        home_team=SimpleNamespace(name="Home Team"),
+        away_team=SimpleNamespace(name="Away Team"),
     )
 
 
@@ -75,7 +118,7 @@ def test_viewer_can_view_dashboard(monkeypatch):
 
 
 def test_analyst_can_run_predictions(monkeypatch):
-    fake_db = object()
+    fake_db = _PredictionDB()
 
     def _override_get_db():
         yield fake_db
@@ -86,22 +129,16 @@ def test_analyst_can_run_predictions(monkeypatch):
     app.dependency_overrides[auth_get_current_user] = lambda: _user("analyst")
 
     monkeypatch.setattr(
-        predictions_router.service,
-        "generate_prediction",
-        lambda *_: SimpleNamespace(
-            game_id=1,
-            home_score=100,
-            away_score=90,
-            confidence=0.82,
-            recommendation="HOME",
-        ),
+        predictions_router.game_repository,
+        "get_game_with_teams",
+        lambda *_: _prediction_game(),
     )
 
     client = TestClient(app)
     response = client.get("/api/v1/predictions/1")
 
     assert response.status_code == 200
-    assert response.json()["game_id"] == 1
+    assert response.json()[0]["game_id"] == 1
 
     app.dependency_overrides.clear()
 
@@ -123,7 +160,7 @@ def test_analyst_cannot_manage_users_admin_endpoint():
 
 
 def test_admin_can_access_everything(monkeypatch):
-    fake_db = object()
+    fake_db = _PredictionDB()
 
     def _override_get_db():
         yield fake_db
@@ -151,15 +188,9 @@ def test_admin_can_access_everything(monkeypatch):
     monkeypatch.setattr(dashboard_router, "DashboardService", _FakeDashboardService)
     monkeypatch.setattr(imports_router, "import_sport_games", lambda *_: [1])
     monkeypatch.setattr(
-        predictions_router.service,
-        "generate_prediction",
-        lambda *_: SimpleNamespace(
-            game_id=1,
-            home_score=100,
-            away_score=90,
-            confidence=0.82,
-            recommendation="HOME",
-        ),
+        predictions_router.game_repository,
+        "get_game_with_teams",
+        lambda *_: _prediction_game(),
     )
 
     client = TestClient(app)

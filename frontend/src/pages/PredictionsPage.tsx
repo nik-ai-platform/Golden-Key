@@ -12,7 +12,7 @@ import { listPredictions } from "../services/predictionsService";
 import { classifyError } from "../utils/apiError";
 import { formatPercent } from "../utils/format";
 
-type PredictionSortBy = "confidence" | "nik_power_index" | "game_date" | "model_version" | "winner";
+type PredictionSortBy = "confidence_score" | "npi_score" | "game_date" | "market" | "model_version" | "selection";
 type PredictionSortOrder = "asc" | "desc";
 
 type PredictionFilterState = {
@@ -25,12 +25,12 @@ type PredictionFilterState = {
 export function PredictionsPage() {
   const [winnerFilter, setWinnerFilter] = useState("");
   const [minConfidence, setMinConfidence] = useState("");
-  const [sortBy, setSortBy] = useState<PredictionSortBy>("confidence");
+  const [sortBy, setSortBy] = useState<PredictionSortBy>("confidence_score");
   const [sortOrder, setSortOrder] = useState<PredictionSortOrder>("desc");
   const [submitted, setSubmitted] = useState<PredictionFilterState>({
     winnerFilter: "",
     minConfidence: "",
-    sortBy: "confidence",
+    sortBy: "confidence_score",
     sortOrder: "desc",
   });
 
@@ -54,15 +54,16 @@ export function PredictionsPage() {
     () => [
       { field: "home_team", headerName: "Home Team", flex: 1.2, minWidth: 160 },
       { field: "away_team", headerName: "Away Team", flex: 1.2, minWidth: 160 },
-      { field: "winner", headerName: "Winner", flex: 1, minWidth: 150 },
+      { field: "market", headerName: "Market", width: 120 },
+      { field: "display_selection", headerName: "Golden Key Pick", flex: 1, minWidth: 170 },
       {
-        field: "confidence",
+        field: "confidence_score",
         headerName: "Confidence",
         width: 130,
         valueFormatter: (value) => formatPercent(Number(value)),
       },
       {
-        field: "nik_power_index",
+        field: "npi_score",
         headerName: "Nik Power Index",
         width: 150,
       },
@@ -76,7 +77,7 @@ export function PredictionsPage() {
   );
 
   const rows = useMemo(
-    () => (predictionQuery.data ?? []).map((row) => ({ id: row.game_id, ...row })),
+    () => (predictionQuery.data ?? []).map((row) => ({ id: row.prediction_id, ...row })),
     [predictionQuery.data],
   );
 
@@ -100,7 +101,7 @@ export function PredictionsPage() {
         <CardContent>
           <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
             <TextField
-              label="Winner Filter"
+              label="Selection Filter"
               value={winnerFilter}
               onChange={(event) => setWinnerFilter(event.target.value)}
               sx={{ maxWidth: 220 }}
@@ -118,11 +119,12 @@ export function PredictionsPage() {
               onChange={(event) => setSortBy(event.target.value as typeof sortBy)}
               sx={{ minWidth: 170 }}
             >
-              <MenuItem value="confidence">Confidence</MenuItem>
-              <MenuItem value="nik_power_index">Nik Power Index</MenuItem>
+              <MenuItem value="confidence_score">Confidence</MenuItem>
+              <MenuItem value="npi_score">Nik Power Index</MenuItem>
               <MenuItem value="game_date">Game Date</MenuItem>
+              <MenuItem value="market">Market</MenuItem>
               <MenuItem value="model_version">Model Version</MenuItem>
-              <MenuItem value="winner">Winner</MenuItem>
+              <MenuItem value="selection">Selection</MenuItem>
             </TextField>
             <TextField
               select

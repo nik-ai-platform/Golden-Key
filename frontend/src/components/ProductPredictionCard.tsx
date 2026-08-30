@@ -21,9 +21,7 @@ function formatGameTime(value: string): string {
 }
 
 function formatSelection(prediction: Prediction): string {
-  if (prediction.selection === "HOME") return prediction.home_team;
-  if (prediction.selection === "AWAY") return prediction.away_team;
-  return prediction.selection;
+  return prediction.display_selection;
 }
 
 export function ProductPredictionCard({ prediction, rank }: ProductPredictionCardProps) {

@@ -1,0 +1,1 @@
+import{j as r,P as t}from"./index-Cc6PolFi.js";import{T as e}from"./Typography-C_ZuAlyt.js";function s({label:i,value:o}){return r.jsxs(t,{variant:"outlined",sx:{p:2,minHeight:86,borderRadius:2},children:[r.jsx(e,{variant:"overline",color:"text.secondary",children:i}),r.jsx(e,{variant:"h6",sx:{mt:.5,overflowWrap:"anywhere"},children:o})]})}export{s as P};

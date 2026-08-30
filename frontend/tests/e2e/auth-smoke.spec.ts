@@ -18,7 +18,7 @@ test("login success redirects to dashboard", async ({ page }) => {
     });
   });
 
-  await page.route("**/api/v1/auth/me", async (route) => {
+  await page.route("**/api/v1/users/me", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -31,6 +31,13 @@ test("login success redirects to dashboard", async ({ page }) => {
       }),
     });
   });
+
+  await page.route("**/api/v1/product/predictions/today**", (route) => route.fulfill({
+    json: { sport: null, count: 0, predictions: [] },
+  }));
+  await page.route("**/api/v1/product/performance", (route) => route.fulfill({
+    json: { total_predictions: 34, wins: 25, losses: 8, pushes: 1, accuracy: 72.5, profit_loss: 48.25 },
+  }));
 
   await page.route("**/api/v1/dashboard", async (route) => {
     await route.fulfill({
@@ -82,7 +89,7 @@ test("login success redirects to dashboard", async ({ page }) => {
   await page.getByRole("button", { name: "Sign In" }).click();
 
   await expect(page).toHaveURL(/\/dashboard\/?$/);
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Today's edge" })).toBeVisible();
 });
 
 test("dashboard renders expected metrics after authenticated bootstrap", async ({ page }) => {
@@ -90,7 +97,7 @@ test("dashboard renders expected metrics after authenticated bootstrap", async (
     localStorage.setItem("golden_key_access_token", "seed-token");
   });
 
-  await page.route("**/api/v1/auth/me", async (route) => {
+  await page.route("**/api/v1/users/me", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -103,6 +110,13 @@ test("dashboard renders expected metrics after authenticated bootstrap", async (
       }),
     });
   });
+
+  await page.route("**/api/v1/product/predictions/today**", (route) => route.fulfill({
+    json: { sport: null, count: 0, predictions: [] },
+  }));
+  await page.route("**/api/v1/product/performance", (route) => route.fulfill({
+    json: { total_predictions: 128, wins: 104, losses: 23, pushes: 1, accuracy: 81.25, profit_loss: 96.4 },
+  }));
 
   await page.route("**/api/v1/dashboard", async (route) => {
     await route.fulfill({
@@ -150,9 +164,8 @@ test("dashboard renders expected metrics after authenticated bootstrap", async (
 
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-  await expect(page.getByText("81.25%")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Today's edge" })).toBeVisible();
+  await expect(page.getByText("81.3%")).toBeVisible();
   await expect(page.getByText("128")).toBeVisible();
-  await expect(page.getByText("HEALTHY")).toBeVisible();
-  await expect(page.getByText("96.40%")).toBeVisible();
+  await expect(page.getByText("+$96.40")).toBeVisible();
 });

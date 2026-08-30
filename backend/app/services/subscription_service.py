@@ -61,10 +61,12 @@ def get_user_subscription(
 
         return subscription
 
-    return create_free_subscription(
-        db,
-        user_id
-    )
+    return {
+        "id": None,
+        "plan": "free",
+        "active": False,
+        "created_at": None,
+    }
 
 
 def upgrade_subscription(
@@ -73,18 +75,19 @@ def upgrade_subscription(
     plan: str
 ):
 
-    subscription = get_user_subscription(
-        db,
-        user_id
+    subscription = (
+        db.query(Subscription)
+        .filter(
+            Subscription.user_id == user_id
+        )
+        .first()
     )
 
     if not subscription:
 
-        subscription = (
-            create_free_subscription(
-                db,
-                user_id
-            )
+        subscription = create_free_subscription(
+            db,
+            user_id
         )
 
     subscription.plan = plan
