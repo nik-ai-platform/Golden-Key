@@ -42,7 +42,7 @@ export function SavePickButton({ predictionId }: SavePickButtonProps) {
         disabled={mutation.isPending || saved}
         onClick={() => mutation.mutate()}
       >
-        {saved ? "Saved" : mutation.isPending ? "Saving..." : "Save pick"}
+        {saved ? "Saved" : mutation.isPending ? "Saving..." : "Save Pick"}
       </Button>
       {mutation.isError ? <Alert severity="error">Unable to save pick.</Alert> : null}
     </Stack>

@@ -17,6 +17,7 @@ import type {
   PerformanceBreakdown,
   RecentPerformanceResult,
 } from "../types/product";
+import { formatNpi, formatProductDate } from "../utils/productFormat";
 
 const marketOrder = ["spread", "moneyline", "total"];
 const sportOrder = ["NFL", "NBA", "NCAAF", "NCAAB", "WNBA"];
@@ -28,16 +29,6 @@ function winRate(wins: number, losses: number): string {
 
 function titleCase(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
-}
-
-function formatGameDate(gameDate: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(gameDate));
 }
 
 function formatScore(score: number): string {
@@ -122,7 +113,7 @@ function RecentResultCard({ result }: { result: RecentPerformanceResult }) {
               {result.away_team} @ {result.home_team}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {formatGameDate(result.game_date)}
+              {formatProductDate(result.game_date)}
             </Typography>
             {hasFinalScore ? (
               <Typography variant="body2" fontWeight={700} sx={{ mt: 0.5 }}>
@@ -139,7 +130,7 @@ function RecentResultCard({ result }: { result: RecentPerformanceResult }) {
               {result.display_selection}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              NPI {result.npi_score.toFixed(0)} / 200
+              NPI {formatNpi(result.npi_score)}
             </Typography>
           </Box>
         </Stack>

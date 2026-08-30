@@ -20,6 +20,12 @@ import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
 import { getSavedPicks, removeSavedPrediction } from "../services/productApi";
 import type { SavedPick, SavedPicksResponse } from "../types/product";
+import {
+  formatAmericanOdds,
+  formatConfidence,
+  formatNpi,
+  formatProductDate,
+} from "../utils/productFormat";
 
 const savedPicksQueryKey = ["product", "saved-picks"] as const;
 
@@ -31,16 +37,6 @@ function marketLabel(market: string): string {
   if (value === "total") return "Total";
 
   return market;
-}
-
-function formatGameDate(gameDate: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(gameDate));
 }
 
 function isSettled(pick: SavedPick): boolean {
@@ -56,10 +52,6 @@ function outcomeColor(
   if (value === "LOSS") return "error";
 
   return "warning";
-}
-
-function formatOdds(odds: number): string {
-  return odds > 0 ? `+${odds}` : String(odds);
 }
 
 function formatScore(score: number): string {
@@ -151,7 +143,7 @@ function SavedPickCard({ pick }: { pick: SavedPick }) {
               </Typography>
 
               <Typography variant="body2" color="text.secondary">
-                {formatGameDate(pick.game_date)}
+                {formatProductDate(pick.game_date)}
               </Typography>
 
               {settled && hasFinalScore ? (
@@ -192,7 +184,7 @@ function SavedPickCard({ pick }: { pick: SavedPick }) {
               </Typography>
               {pick.american_odds != null ? (
                 <Typography variant="body2" color="text.secondary">
-                  Odds {formatOdds(pick.american_odds)}
+                  Odds {formatAmericanOdds(pick.american_odds)}
                 </Typography>
               ) : null}
             </Grid>
@@ -202,7 +194,7 @@ function SavedPickCard({ pick }: { pick: SavedPick }) {
                 NPI
               </Typography>
               <Typography fontWeight={700}>
-                {pick.npi_score.toFixed(0)} / 200
+                {formatNpi(pick.npi_score)}
               </Typography>
             </Grid>
 
@@ -211,9 +203,7 @@ function SavedPickCard({ pick }: { pick: SavedPick }) {
                 Confidence
               </Typography>
               <Typography fontWeight={700}>
-                {pick.confidence_score == null
-                  ? "Not rated"
-                  : `${pick.confidence_score.toFixed(1)}%`}
+                {formatConfidence(pick.confidence_score)}
               </Typography>
             </Grid>
 

@@ -32,7 +32,7 @@ export function ProductProfilePage() {
     return (
       <ErrorState
         kind="generic"
-        detail="Unable to load profile."
+        detail="Unable to load profile right now."
         onRetry={() => void query.refetch()}
       />
     );

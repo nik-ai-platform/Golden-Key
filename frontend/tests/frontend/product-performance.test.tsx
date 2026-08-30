@@ -145,7 +145,7 @@ describe("Performance results summary", () => {
     expect(within(section).getByText("Dallas Cowboys ML")).toBeTruthy();
     expect(within(section).queryByText("HOME")).toBeNull();
     expect(within(section).queryByText("AWAY")).toBeNull();
-    expect(within(section).getByText("NPI 175 / 200")).toBeTruthy();
+    expect(within(section).getByText("NPI 175.0 / 200")).toBeTruthy();
     for (const outcome of ["WIN", "LOSS", "PUSH"]) {
       expect(within(section).getByText(outcome)).toBeTruthy();
     }

@@ -20,6 +20,7 @@ import { LoadingState } from "../components/LoadingState";
 import { ProductPredictionCard } from "../components/ProductPredictionCard";
 import { getTodayPredictions } from "../services/productApi";
 import type { Prediction, TodayPredictionsResponse } from "../types/product";
+import { formatNpi, formatProductDate } from "../utils/productFormat";
 
 const SPORTS = ["NFL", "NBA", "NCAAF", "NCAAB", "WNBA"] as const;
 const MARKETS = ["spread", "moneyline", "total"] as const;
@@ -41,16 +42,6 @@ function rankPredictions(left: Prediction, right: Prediction): number {
 
 function marketLabel(market: string): string {
   return market.charAt(0).toUpperCase() + market.slice(1).toLowerCase();
-}
-
-function formatGameDate(value: string): string {
-  return new Date(value).toLocaleString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
 
 async function getDashboardPredictions(): Promise<TodayPredictionsResponse> {
@@ -196,7 +187,7 @@ export function ProductDashboardPage() {
                             </Typography>
                             <Typography variant="h6">{prediction.display_selection}</Typography>
                             <Typography variant="body2" color="text.secondary">
-                              {prediction.sport} · NPI {prediction.npi_score.toFixed(0)}
+                              {prediction.sport} · NPI {formatNpi(prediction.npi_score)}
                             </Typography>
                             <Button
                               component={RouterLink}
@@ -204,7 +195,7 @@ export function ProductDashboardPage() {
                               endIcon={<ArrowForwardOutlinedIcon />}
                               sx={{ alignSelf: "flex-start" }}
                             >
-                              View game analysis
+                              View Game Analysis
                             </Button>
                           </>
                         ) : (
@@ -245,7 +236,7 @@ export function ProductDashboardPage() {
                           {prediction.away_team} @ {prediction.home_team}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                          {prediction.sport} · {formatGameDate(prediction.game_date)} · Best NPI {prediction.npi_score.toFixed(0)}
+                          {prediction.sport} · {formatProductDate(prediction.game_date)} · Best NPI {formatNpi(prediction.npi_score)}
                         </Typography>
                       </Box>
                       <Button
@@ -253,7 +244,7 @@ export function ProductDashboardPage() {
                         to={`/games/${prediction.game_id}`}
                         endIcon={<ArrowForwardOutlinedIcon />}
                       >
-                        Game analysis
+                        View Game Analysis
                       </Button>
                     </Stack>
                   </CardContent>

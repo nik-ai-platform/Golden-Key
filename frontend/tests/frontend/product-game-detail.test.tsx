@@ -114,10 +114,9 @@ describe("Game Analysis", () => {
     expect(
       screen.getByText(
         new Date(game.game_date).toLocaleString(undefined, {
-          weekday: "long",
-          month: "long",
+          weekday: "short",
+          month: "short",
           day: "numeric",
-          year: "numeric",
           hour: "numeric",
           minute: "2-digit",
         }),
@@ -135,9 +134,9 @@ describe("Game Analysis", () => {
     expect(screen.queryByText("AWAY")).toBeNull();
     expect(screen.getAllByText("American odds -110")).toHaveLength(2);
     expect(screen.getByText("American odds +125")).toBeTruthy();
-    expect(screen.getAllByText("/ 200")).toHaveLength(3);
+    expect(screen.getByText("175.0 / 200")).toBeTruthy();
     expect(screen.getAllByText("Confidence")).toHaveLength(3);
-    expect(screen.getByText("83%")).toBeTruthy();
+    expect(screen.getByText("83.0%")).toBeTruthy();
     expect(screen.getAllByText("Golden Key Best Pick")).toHaveLength(1);
     expect(screen.getByText("Seattle owns the stronger matchup profile.")).toBeTruthy();
     expect(screen.getAllByText("Why Golden Key Likes This Pick")).toHaveLength(2);

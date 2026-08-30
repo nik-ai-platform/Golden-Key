@@ -88,6 +88,7 @@ describe("best picks dashboard", () => {
     expect(within(topPicks[1]).getByText("New York Knicks ML")).toBeTruthy();
     expect(within(topPicks[1]).getByText("Odds +125")).toBeTruthy();
     expect(within(topPicks[2]).getByText("OVER 52.5")).toBeTruthy();
+    expect(within(topPicks[0]).getByText("190.0 / 200")).toBeTruthy();
     expect(screen.queryByText("Past HOME")).toBeNull();
     expect(within(topPicks[0]).queryByText("HOME")).toBeNull();
     expect(within(topPicks[0]).getByRole("button", { name: "Save pick" })).toBeTruthy();
@@ -104,6 +105,7 @@ describe("best picks dashboard", () => {
     expect(within(screen.getByTestId("best-market-spread")).getByText("Philadelphia Eagles -3.5")).toBeTruthy();
     expect(within(screen.getByTestId("best-market-moneyline")).getByText("New York Knicks ML")).toBeTruthy();
     expect(within(screen.getByTestId("best-market-total")).getByText("OVER 52.5")).toBeTruthy();
+    expect(within(screen.getByTestId("best-market-spread")).getByText("NFL · NPI 190.0 / 200")).toBeTruthy();
   });
 
   it("shows five unique upcoming games ordered by date", () => {

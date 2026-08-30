@@ -3,6 +3,11 @@ import { Box, Button, Card, CardContent, Divider, Grid2 as Grid, Stack, Typograp
 import { Link as RouterLink } from "react-router-dom";
 
 import type { Prediction } from "../types/product";
+import {
+  formatAmericanOdds,
+  formatConfidence,
+  formatProductDate,
+} from "../utils/productFormat";
 import { NPIScore } from "./NPIScore";
 import { PredictionMetric } from "./PredictionMetric";
 import { SavePickButton } from "./SavePickButton";
@@ -12,32 +17,13 @@ interface ProductPredictionCardProps {
   rank?: number;
 }
 
-function percentage(value: number | null): string {
-  return value == null ? "Not rated" : `${value.toFixed(1)}%`;
-}
-
-function formatGameDate(value: string): string {
-  return new Date(value).toLocaleString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 function marketLabel(market: string): string {
   return market.charAt(0).toUpperCase() + market.slice(1).toLowerCase();
 }
 
-function americanOdds(value: number | null): string | null {
-  if (value == null) return null;
-  return value > 0 ? `+${value}` : String(value);
-}
-
 export function ProductPredictionCard({ prediction, rank }: ProductPredictionCardProps) {
   const edge = prediction.projected_edge;
-  const odds = americanOdds(prediction.american_odds);
+  const odds = formatAmericanOdds(prediction.american_odds);
 
   return (
     <Card variant="outlined" sx={{ height: "100%", borderRadius: 2, background: "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(240,253,250,0.58))", transition: "border-color 180ms ease, transform 180ms ease", "&:hover": { borderColor: "primary.main", transform: "translateY(-2px)" } }}>
@@ -48,11 +34,11 @@ export function ProductPredictionCard({ prediction, rank }: ProductPredictionCar
               {rank ? `#${rank}  ` : ""}{prediction.sport} · {marketLabel(prediction.market)}
             </Typography>
             <Typography variant="h6">{prediction.away_team} @ {prediction.home_team}</Typography>
-            <Typography variant="body2" color="text.secondary">{formatGameDate(prediction.game_date)}</Typography>
+            <Typography variant="body2" color="text.secondary">{formatProductDate(prediction.game_date)}</Typography>
           </Stack>
 
           <Box>
-            <Typography variant="overline" color="text.secondary">Golden Key pick</Typography>
+            <Typography variant="overline" color="text.secondary">Golden Key Best Pick</Typography>
             <Typography variant="h4" sx={{ mt: 0.5 }}>{prediction.display_selection}</Typography>
             {odds ? <Typography variant="body2" color="text.secondary">Odds {odds}</Typography> : null}
             <Typography variant="caption" color="text.secondary">{prediction.model_version}</Typography>
@@ -62,8 +48,8 @@ export function ProductPredictionCard({ prediction, rank }: ProductPredictionCar
           <NPIScore score={prediction.npi_score} />
 
           <Grid container spacing={1.5}>
-            <Grid size={{ xs: 6, md: 3 }}><PredictionMetric label="Confidence" value={percentage(prediction.confidence_score)} /></Grid>
-            <Grid size={{ xs: 6, md: 3 }}><PredictionMetric label="Simulation" value={percentage(prediction.simulation_probability)} /></Grid>
+            <Grid size={{ xs: 6, md: 3 }}><PredictionMetric label="Confidence" value={formatConfidence(prediction.confidence_score)} /></Grid>
+            <Grid size={{ xs: 6, md: 3 }}><PredictionMetric label="Simulation" value={formatConfidence(prediction.simulation_probability)} /></Grid>
             <Grid size={{ xs: 6, md: 3 }}>
               <PredictionMetric label="Projected edge" value={edge == null ? "Not rated" : `${edge >= 0 ? "+" : ""}${edge.toFixed(1)}%`} />
             </Grid>
@@ -81,7 +67,7 @@ export function ProductPredictionCard({ prediction, rank }: ProductPredictionCar
               variant="contained"
               startIcon={<InsightsOutlinedIcon />}
             >
-              View game analysis
+              View Game Analysis
             </Button>
             <SavePickButton predictionId={prediction.prediction_id} />
           </Stack>

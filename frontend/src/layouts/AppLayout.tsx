@@ -3,6 +3,7 @@ import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
 import DirectionsRunOutlinedIcon from "@mui/icons-material/DirectionsRunOutlined";
 import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
+import PersonOutlineOutlinedIcon from "@mui/icons-material/PersonOutlineOutlined";
 import SportsBasketballOutlinedIcon from "@mui/icons-material/SportsBasketballOutlined";
 import TimelineOutlinedIcon from "@mui/icons-material/TimelineOutlined";
 import {
@@ -20,7 +21,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useState } from "react";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link as RouterLink, Outlet, useLocation } from "react-router-dom";
 
 import { useAuth } from "../hooks/useAuth";
 import { MobileNav } from "../components/MobileNav";
@@ -30,21 +31,15 @@ const drawerWidth = 270;
 const navItems = [
   { label: "Dashboard", path: "/dashboard", icon: <DashboardOutlinedIcon />, roles: ["user", "viewer", "analyst", "admin"] },
   { label: "Games", path: "/games", icon: <SportsBasketballOutlinedIcon />, roles: ["user", "viewer", "analyst", "admin"] },
-  { label: "Performance", path: "/performance", icon: <TimelineOutlinedIcon />, roles: ["user", "viewer", "analyst", "admin"] },
   { label: "Saved Picks", path: "/saved-picks", icon: <BookmarkBorderOutlinedIcon />, roles: ["user", "viewer", "analyst", "admin"] },
-  { label: "Profile", path: "/profile", icon: <DashboardOutlinedIcon />, roles: ["user", "viewer", "analyst", "admin"] },
+  { label: "Performance", path: "/performance", icon: <TimelineOutlinedIcon />, roles: ["user", "viewer", "analyst", "admin"] },
+  { label: "Profile", path: "/profile", icon: <PersonOutlineOutlinedIcon />, roles: ["user", "viewer", "analyst", "admin"] },
 ];
 
 export function AppLayout() {
   const location = useLocation();
-  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  function handleNav(path: string) {
-    navigate(path);
-    setMobileOpen(false);
-  }
 
   function navigation() {
     const availableItems = navItems.filter((item) => user && item.roles.includes(user.role));
@@ -62,8 +57,11 @@ export function AppLayout() {
           {availableItems.map((item) => (
             <ListItemButton
               key={item.path}
-              selected={location.pathname === item.path}
-              onClick={() => handleNav(item.path)}
+              component={RouterLink}
+              to={item.path}
+              selected={location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)}
+              aria-current={location.pathname === item.path || location.pathname.startsWith(`${item.path}/`) ? "page" : undefined}
+              onClick={() => setMobileOpen(false)}
               sx={{
                 mx: 1,
                 my: 0.5,
@@ -90,7 +88,7 @@ export function AppLayout() {
       >
         <Toolbar sx={{ justifyContent: "space-between" }}>
           <Stack direction="row" spacing={1.2} alignItems="center">
-            <IconButton sx={{ display: { sm: "none" } }} onClick={() => setMobileOpen((value) => !value)} color="primary">
+            <IconButton aria-label="Open navigation" sx={{ display: { sm: "none" } }} onClick={() => setMobileOpen((value) => !value)} color="primary">
               <MenuOutlinedIcon />
             </IconButton>
             <Stack>
@@ -98,7 +96,7 @@ export function AppLayout() {
               <Typography variant="caption" color="text.secondary">Daily model intelligence · {user?.role ?? "user"}</Typography>
             </Stack>
           </Stack>
-          <IconButton onClick={logout} color="primary">
+          <IconButton aria-label="Sign Out" onClick={logout} color="primary">
             <LogoutOutlinedIcon />
           </IconButton>
         </Toolbar>
@@ -143,7 +141,7 @@ export function AppLayout() {
         <Outlet />
         <Box component="footer" sx={{ mt: 4, pt: 2, borderTop: "1px solid #dbe7ea" }}>
           <Typography variant="caption" color="text.secondary">
-            Golden Key · Product API v1
+            Golden Key Sports Intelligence
           </Typography>
         </Box>
       </Box>

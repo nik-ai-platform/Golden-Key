@@ -1,5 +1,7 @@
 import { Box, Chip, LinearProgress, Stack, Typography } from "@mui/material";
 
+import { formatNpi } from "../utils/productFormat";
+
 export interface NPIScoreProps {
   score: number;
 }
@@ -12,12 +14,9 @@ export function NPIScore({ score }: NPIScoreProps) {
     <Box>
       <Stack direction="row" alignItems="flex-end" justifyContent="space-between">
         <Box>
-          <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 1.2 }}>Nik Power Index</Typography>
+          <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 1.2 }}>NPI</Typography>
           <Typography variant="h4">
-            {score.toFixed(1)}
-            <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 0.75 }}>
-              / 200
-            </Typography>
+            {formatNpi(score)}
           </Typography>
         </Box>
         <Chip label={label} size="small" variant="outlined" />

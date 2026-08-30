@@ -19,6 +19,12 @@ import { LoadingState } from "../components/LoadingState";
 import { SavePickButton } from "../components/SavePickButton";
 import { getGameDetail } from "../services/productApi";
 import type { Prediction } from "../types/product";
+import {
+  formatAmericanOdds,
+  formatConfidence,
+  formatNpi,
+  formatProductDate,
+} from "../utils/productFormat";
 
 const MARKET_ORDER = ["spread", "moneyline", "total"];
 
@@ -33,21 +39,6 @@ function rankPredictions(left: Prediction, right: Prediction): number {
     nullableDescending(left.confidence_score, right.confidence_score) ||
     nullableDescending(left.projected_edge, right.projected_edge)
   );
-}
-
-function formatGameDate(value: string): string {
-  return new Date(value).toLocaleString(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function formatOdds(value: number): string {
-  return value > 0 ? `+${value}` : String(value);
 }
 
 function formatScore(value: number): string {
@@ -103,7 +94,7 @@ function MarketCard({
             </Typography>
             {prediction.american_odds != null ? (
               <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-                American odds {formatOdds(prediction.american_odds)}
+                American odds {formatAmericanOdds(prediction.american_odds)}
               </Typography>
             ) : null}
           </Box>
@@ -115,8 +106,7 @@ function MarketCard({
               <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2, height: "100%" }}>
                 <Typography variant="overline" color="text.secondary">NPI</Typography>
                 <Typography variant="h5" fontWeight={700}>
-                  {prediction.npi_score}
-                  <Typography component="span" color="text.secondary" sx={{ ml: 0.75 }}>/ 200</Typography>
+                  {formatNpi(prediction.npi_score)}
                 </Typography>
               </Box>
             </Grid>
@@ -124,7 +114,7 @@ function MarketCard({
               <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2, height: "100%" }}>
                 <Typography variant="overline" color="text.secondary">Confidence</Typography>
                 <Typography variant="h5" fontWeight={700}>
-                  {prediction.confidence_score == null ? "Not rated" : `${prediction.confidence_score}%`}
+                  {formatConfidence(prediction.confidence_score)}
                 </Typography>
               </Box>
             </Grid>
@@ -216,7 +206,7 @@ export function ProductGameDetailPage() {
           {game.away_team} @ {game.home_team}
         </Typography>
         <Typography color="text.secondary" sx={{ mt: 1 }}>
-          {formatGameDate(game.game_date)}
+          {formatProductDate(game.game_date)}
         </Typography>
         {hasFinalScore ? (
           <Typography variant="h6" sx={{ mt: 1.5 }}>

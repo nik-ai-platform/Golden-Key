@@ -13,25 +13,16 @@ import {
 import { Link as RouterLink } from "react-router-dom";
 
 import type { Prediction } from "../types/product";
+import {
+  formatAmericanOdds,
+  formatConfidence,
+  formatNpi,
+  formatProductDate,
+} from "../utils/productFormat";
 import { SavePickButton } from "./SavePickButton";
 
 interface ProductGameCardProps {
   predictions: Prediction[];
-}
-
-function formatGameTime(value: string): string {
-  return new Date(value).toLocaleString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function formatOdds(value: number | null): string {
-  if (value == null) return "";
-  return value > 0 ? `+${value}` : `${value}`;
 }
 
 function marketLabel(market: string): string {
@@ -105,7 +96,7 @@ export function ProductGameCard({ predictions }: ProductGameCardProps) {
                 />
 
                 <Typography variant="body2" color="text.secondary">
-                  {formatGameTime(game.game_date)}
+                  {formatProductDate(game.game_date)}
                 </Typography>
               </Stack>
 
@@ -178,7 +169,7 @@ export function ProductGameCard({ predictions }: ProductGameCardProps) {
 
                     {prediction.american_odds != null ? (
                       <Typography variant="body2" color="text.secondary">
-                        Odds {formatOdds(prediction.american_odds)}
+                        Odds {formatAmericanOdds(prediction.american_odds)}
                       </Typography>
                     ) : null}
 
@@ -194,7 +185,7 @@ export function ProductGameCard({ predictions }: ProductGameCardProps) {
                         </Typography>
 
                         <Typography fontWeight={700}>
-                          {prediction.npi_score.toFixed(1)}
+                          {formatNpi(prediction.npi_score)}
                         </Typography>
                       </Box>
 
@@ -204,9 +195,7 @@ export function ProductGameCard({ predictions }: ProductGameCardProps) {
                         </Typography>
 
                         <Typography fontWeight={700}>
-                          {prediction.confidence_score == null
-                            ? "—"
-                            : `${prediction.confidence_score.toFixed(1)}%`}
+                          {formatConfidence(prediction.confidence_score)}
                         </Typography>
                       </Box>
                     </Stack>

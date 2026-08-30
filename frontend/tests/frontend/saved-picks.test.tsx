@@ -146,7 +146,7 @@ describe("saved picks tracking", () => {
     expect(screen.getAllByText("Seattle Seahawks -3.5")).toHaveLength(2);
     expect(screen.queryByText("HOME")).toBeNull();
     expect(screen.queryByText("AWAY")).toBeNull();
-    expect(screen.getAllByText("142 / 200")).toHaveLength(5);
+    expect(screen.getAllByText("142.0 / 200")).toHaveLength(5);
     expect(screen.getAllByText("78.0%")).toHaveLength(5);
     expect(within(pendingSection).getAllByText("LOW")).toHaveLength(2);
 
