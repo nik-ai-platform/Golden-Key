@@ -6,7 +6,6 @@ import {
   Card,
   CardContent,
   Chip,
-  Divider,
   Grid2 as Grid,
   Stack,
   Typography,
@@ -16,13 +15,12 @@ import { Link as RouterLink, useParams } from "react-router-dom";
 
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
+import { PickMetrics } from "../components/PickMetrics";
 import { SavePickButton } from "../components/SavePickButton";
 import { getGameDetail } from "../services/productApi";
 import type { Prediction } from "../types/product";
 import {
   formatAmericanOdds,
-  formatConfidence,
-  formatNpi,
   formatProductDate,
 } from "../utils/productFormat";
 
@@ -99,43 +97,13 @@ function MarketCard({
             ) : null}
           </Box>
 
-          <Divider />
-
-          <Grid container spacing={1.5}>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2, height: "100%" }}>
-                <Typography variant="overline" color="text.secondary">NPI</Typography>
-                <Typography variant="h5" fontWeight={700}>
-                  {formatNpi(prediction.npi_score)}
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2, height: "100%" }}>
-                <Typography variant="overline" color="text.secondary">Confidence</Typography>
-                <Typography variant="h5" fontWeight={700}>
-                  {formatConfidence(prediction.confidence_score)}
-                </Typography>
-              </Box>
-            </Grid>
-          </Grid>
-
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={3}>
-            {prediction.projected_edge != null ? (
-              <Box>
-                <Typography variant="caption" color="text.secondary">Projected edge</Typography>
-                <Typography fontWeight={700}>
-                  {prediction.projected_edge > 0 ? "+" : ""}{prediction.projected_edge}%
-                </Typography>
-              </Box>
-            ) : null}
-            {prediction.risk_level ? (
-              <Box>
-                <Typography variant="caption" color="text.secondary">Risk</Typography>
-                <Typography fontWeight={700}>{prediction.risk_level.toUpperCase()}</Typography>
-              </Box>
-            ) : null}
-          </Stack>
+          <PickMetrics
+            npi={prediction.npi_score}
+            confidence={prediction.confidence_score}
+            simulationProbability={prediction.simulation_probability}
+            projectedEdge={prediction.projected_edge}
+            riskLevel={prediction.risk_level}
+          />
 
           {prediction.reasoning ? (
             <Box>
@@ -224,7 +192,7 @@ export function ProductGameDetailPage() {
           </Typography>
           <Grid container spacing={2.5}>
             {predictions.map((prediction) => (
-              <Grid key={prediction.prediction_id} size={{ xs: 12, lg: 4 }}>
+              <Grid key={prediction.prediction_id} size={{ xs: 12, md: 6, xl: 4 }}>
                 <MarketCard
                   prediction={prediction}
                   isBestPick={prediction.prediction_id === bestPrediction?.prediction_id}

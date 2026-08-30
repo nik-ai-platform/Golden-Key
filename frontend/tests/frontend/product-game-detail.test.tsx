@@ -135,8 +135,14 @@ describe("Game Analysis", () => {
     expect(screen.getAllByText("American odds -110")).toHaveLength(2);
     expect(screen.getByText("American odds +125")).toBeTruthy();
     expect(screen.getByText("175.0 / 200")).toBeTruthy();
+    expect(screen.getAllByTestId("pick-metrics")).toHaveLength(3);
     expect(screen.getAllByText("Confidence")).toHaveLength(3);
+    expect(screen.getAllByText("Simulation")).toHaveLength(3);
     expect(screen.getByText("83.0%")).toBeTruthy();
+    expect(screen.getAllByText("61.0%")).toHaveLength(3);
+    expect(screen.getByText("+8.5%")).toBeTruthy();
+    expect(screen.getAllByText("Low")).toHaveLength(2);
+    expect(screen.queryByText("LOW")).toBeNull();
     expect(screen.getAllByText("Golden Key Best Pick")).toHaveLength(1);
     expect(screen.getByText("Seattle owns the stronger matchup profile.")).toBeTruthy();
     expect(screen.getAllByText("Why Golden Key Likes This Pick")).toHaveLength(2);

@@ -89,6 +89,11 @@ describe("best picks dashboard", () => {
     expect(within(topPicks[1]).getByText("Odds +125")).toBeTruthy();
     expect(within(topPicks[2]).getByText("OVER 52.5")).toBeTruthy();
     expect(within(topPicks[0]).getByText("190.0 / 200")).toBeTruthy();
+    expect(within(topPicks[0]).getByTestId("pick-metrics")).toBeTruthy();
+    expect(within(topPicks[0]).getByText("82.0%")).toBeTruthy();
+    expect(within(topPicks[0]).getByText("61.0%")).toBeTruthy();
+    expect(within(topPicks[0]).getByText("+8.0%")).toBeTruthy();
+    expect(within(topPicks[0]).getByText("Low")).toBeTruthy();
     expect(screen.queryByText("Past HOME")).toBeNull();
     expect(within(topPicks[0]).queryByText("HOME")).toBeNull();
     expect(within(topPicks[0]).getByRole("button", { name: "Save pick" })).toBeTruthy();

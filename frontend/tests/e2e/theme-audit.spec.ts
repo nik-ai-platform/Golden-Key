@@ -115,6 +115,49 @@ async function expectDarkPage(page: import("@playwright/test").Page) {
   ).toBe(true);
 }
 
+async function expectCompactMetrics(
+  page: import("@playwright/test").Page,
+  expectedColumns: number,
+) {
+  const container = page.getByTestId("pick-metrics").first();
+  const supportingMetrics = container.getByTestId("supporting-metrics");
+
+  await expect(container).toBeVisible();
+  for (const label of ["NPI", "Confidence", "Simulation", "Edge", "Risk"]) {
+    await expect(container.getByText(label, { exact: true })).toBeVisible();
+  }
+  expect(
+    await supportingMetrics.evaluate(
+      (element) => getComputedStyle(element).gridTemplateColumns.split(" ").length,
+    ),
+  ).toBe(expectedColumns);
+  expect(
+    await supportingMetrics.evaluate((element) =>
+      Array.from(element.children).every(
+        (child) =>
+          child.scrollWidth <= child.clientWidth &&
+          child.scrollHeight <= child.clientHeight,
+      ),
+    ),
+  ).toBe(true);
+  expect(
+    await supportingMetrics.evaluate((element) => {
+      const cells = Array.from(element.children).map((child) =>
+        child.getBoundingClientRect(),
+      );
+      return cells.every((cell, index) =>
+        cells.slice(index + 1).every(
+          (other) =>
+            cell.right <= other.left ||
+            other.right <= cell.left ||
+            cell.bottom <= other.top ||
+            other.bottom <= cell.top,
+        ),
+      );
+    }),
+  ).toBe(true);
+}
+
 test("login supports dark mode without preset credentials", async ({ page }) => {
   await page.goto("/login");
   await expect(page.getByLabel("Email")).toHaveValue("");
@@ -148,6 +191,13 @@ for (const viewport of [
       await page.goto(route);
       await expectDarkPage(page);
       await expect(page.locator("main")).toBeVisible();
+      if (["/dashboard", "/games/101"].includes(route)) {
+        await expectCompactMetrics(page, viewport.name === "desktop" ? 4 : 2);
+        await page.screenshot({
+          path: `test-results/theme-${route === "/dashboard" ? "dashboard" : "game-analysis"}-dark-${viewport.name}.png`,
+          fullPage: true,
+        });
+      }
       if (["/games/101", "/saved-picks", "/performance"].includes(route)) {
         for (const outcome of ["WIN", "LOSS", "PUSH"]) {
           await expect(page.getByText(outcome, { exact: true }).first()).toBeVisible();
@@ -159,5 +209,34 @@ for (const viewport of [
       path: `test-results/theme-profile-dark-${viewport.name}.png`,
       fullPage: true,
     });
+  });
+}
+
+for (const viewport of [
+  { name: "desktop", width: 1440, height: 900 },
+  { name: "mobile", width: 390, height: 844 },
+]) {
+  test(`compact pick metrics render cleanly in light mode on ${viewport.name}`, async ({ page }) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.addInitScript(() => {
+      localStorage.setItem("golden_key_access_token", "theme-token");
+      localStorage.setItem("golden-key-theme", "light");
+    });
+    await mockProductApi(page);
+
+    for (const route of ["/dashboard", "/games/101"]) {
+      await page.goto(route);
+      await expect(page.getByRole("button", { name: "Switch to dark mode" })).toBeVisible();
+      await expectCompactMetrics(page, viewport.name === "desktop" ? 4 : 2);
+      expect(
+        await page.evaluate(() =>
+          document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true);
+      await page.screenshot({
+        path: `test-results/theme-${route === "/dashboard" ? "dashboard" : "game-analysis"}-light-${viewport.name}.png`,
+        fullPage: true,
+      });
+    }
   });
 }
