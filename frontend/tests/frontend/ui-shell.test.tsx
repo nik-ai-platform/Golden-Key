@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 import DashboardPage from "../../app/dashboard/page";
@@ -7,6 +7,7 @@ import GamesPage from "../../app/games/page";
 import NPIIndicator from "../../components/NPIIndicator";
 import AIAnalysisPanel from "../../components/AIAnalysisPanel";
 import PortfolioPage from "../../app/portfolio/page";
+import { installLegacyApiMock } from "../helpers/mockLegacyApi";
 
 class ResizeObserverMock {
   observe() {
@@ -26,10 +27,19 @@ if (!("ResizeObserver" in globalThis)) {
 }
 
 describe("frontend command center", () => {
-  it("dashboard loads", () => {
+  beforeEach(() => {
+    installLegacyApiMock();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("dashboard loads", async () => {
     render(<DashboardPage />);
     expect(screen.getByText("Golden Key Dashboard")).toBeTruthy();
     expect(screen.getByText("Top NPI Scores")).toBeTruthy();
+    await screen.findByText("Welcome Test User");
   });
 
   it("predictions display on games page", () => {
@@ -56,9 +66,10 @@ describe("frontend command center", () => {
     expect(screen.getByText("8.5%")).toBeTruthy();
   });
 
-  it("mobile layouts still render key content", () => {
+  it("mobile layouts still render key content", async () => {
     Object.defineProperty(window, "innerWidth", { value: 390, configurable: true });
     render(<DashboardPage />);
     expect(screen.getByText("Main command center for opportunities, intelligence, and performance.")).toBeTruthy();
+    await screen.findByText("Welcome Test User");
   });
 });

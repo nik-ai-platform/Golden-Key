@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 
 import React from "react";
 import { render, screen } from "@testing-library/react";
@@ -8,11 +8,21 @@ import DashboardPage from "../app/dashboard/page";
 import { PredictionCard } from "../components/predictions/PredictionCard";
 import { NotificationCenter } from "../components/notifications/NotificationCenter";
 import { ProductExperiencePage } from "../src/pages/ProductExperiencePage";
+import { installLegacyApiMock } from "./helpers/mockLegacyApi";
 
 describe("frontend UI scaffold", () => {
-  it("renders dashboard content", () => {
+  beforeEach(() => {
+    installLegacyApiMock();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("renders dashboard content", async () => {
     render(<DashboardPage />);
     expect(screen.getByText("Golden Key Dashboard")).toBeTruthy();
+    await screen.findByText("Welcome Test User");
   });
 
   it("renders prediction card", () => {
@@ -25,12 +35,13 @@ describe("frontend UI scaffold", () => {
     expect(screen.getByText("Notifications")).toBeTruthy();
   });
 
-  it("renders the integrated product experience shell", () => {
+  it("renders the integrated product experience shell", async () => {
     render(
       <MemoryRouter>
         <ProductExperiencePage />
       </MemoryRouter>,
     );
     expect(screen.getByText("Product Experience Preview")).toBeTruthy();
+    await screen.findByText("Welcome Test User");
   });
 });
