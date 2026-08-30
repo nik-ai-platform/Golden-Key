@@ -9,7 +9,10 @@ class SportMappingService:
     }
 
     def provider_key(self, sport: str) -> str:
-        key = self.INTERNAL_TO_PROVIDER.get(sport.upper())
+        normalized = sport.strip()
+        key = self.INTERNAL_TO_PROVIDER.get(normalized.upper())
+        if not key and "_" in normalized:
+            return normalized.lower()
         if not key:
             raise ValueError(f"Unsupported sport: {sport}")
 

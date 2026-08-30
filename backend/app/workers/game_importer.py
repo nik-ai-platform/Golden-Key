@@ -28,6 +28,8 @@ class GameOddsImporter:
         sport: str
     ):
 
+        sport = sport.strip().upper()
+
         games = self.live_data.fetch_games(
             sport
         )
@@ -35,6 +37,10 @@ class GameOddsImporter:
         imported = []
 
         for game_data in games:
+
+            provider_game_id = game_data.get("id")
+            if not provider_game_id:
+                raise ValueError("Provider game is missing an id")
 
             home_team = self.get_or_create_team(
                 game_data["home_team"],
@@ -46,18 +52,33 @@ class GameOddsImporter:
                 sport
             )
 
-            game = Game(
-                sport=sport,
-                league=sport,
-                season=2026,
-                game_date=self._parse_game_time(
-                    game_data["commence_time"]
-                ),
-                home_team_id=home_team.id,
-                away_team_id=away_team.id
+            game = (
+                self.db.query(Game)
+                .filter(Game.provider_game_id == provider_game_id)
+                .first()
+            )
+            game_date = self._parse_game_time(
+                game_data["commence_time"]
             )
 
-            self.db.add(game)
+            if game:
+                game.sport = sport
+                game.league = sport
+                game.game_date = game_date
+                game.home_team_id = home_team.id
+                game.away_team_id = away_team.id
+            else:
+                game = Game(
+                    provider_game_id=provider_game_id,
+                    sport=sport,
+                    league=sport,
+                    season=game_date.year,
+                    game_date=game_date,
+                    home_team_id=home_team.id,
+                    away_team_id=away_team.id,
+                )
+                self.db.add(game)
+
             self.db.commit()
             self.db.refresh(game)
 

@@ -2,6 +2,7 @@ import requests
 
 from app.core.config import settings
 from app.services.monitoring_service import MonitoringService
+from app.services.sport_mapping_service import SportMappingService
 
 
 class LiveDataService:
@@ -44,8 +45,10 @@ class LiveDataService:
     def __init__(
         self,
         monitor=None,
+        sport_mapping=None,
     ):
         self.monitor = monitor or MonitoringService()
+        self.sport_mapping = sport_mapping or SportMappingService()
 
 
     def fetch_games(
@@ -53,13 +56,16 @@ class LiveDataService:
         sport: str
     ):
 
+        provider_sport = self.sport_mapping.provider_key(sport)
+
         self.monitor.log_import(
             "Fetching games",
-            sport=sport
+            sport=sport,
+            provider_sport=provider_sport,
         )
 
         response = requests.get(
-            f"{self.BASE_URL}/{sport}/odds",
+            f"{self.BASE_URL}/{provider_sport}/odds",
             params={
                 "apiKey": settings.ODDS_API_KEY,
                 "regions": "us",

@@ -132,6 +132,35 @@ test("games page renders today's prediction opportunities", async ({ page }) => 
   await expect(page.getByRole("heading", { name: "Boston Celtics -4.5" })).toBeVisible();
 });
 
+test("games supports the NCAAF prediction filter", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("golden_key_access_token", "seed-token");
+  });
+  await page.route("**/api/v1/users/me", (route) => route.fulfill({
+    json: {
+      id: 21,
+      username: "viewer",
+      email: "viewer@nik.ai",
+      role: "viewer",
+      is_active: true,
+    },
+  }));
+
+  const requestedUrls: string[] = [];
+  await page.route("**/api/v1/product/predictions/today**", (route) => {
+    requestedUrls.push(route.request().url());
+    return route.fulfill({
+      json: { sport: "NCAAF", count: 0, predictions: [] },
+    });
+  });
+
+  await page.goto("/games");
+  await page.getByRole("button", { name: "NCAAF", exact: true }).click();
+
+  await expect(page).toHaveURL(/sport=NCAAF/);
+  await expect.poll(() => requestedUrls.some((url) => url.includes("sport=NCAAF"))).toBe(true);
+});
+
 test("predictions shows server error and recovers on retry", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("golden_key_access_token", "seed-token");
