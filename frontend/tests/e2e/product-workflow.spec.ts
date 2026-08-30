@@ -80,6 +80,18 @@ test("shows friendly not-found states", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
 });
 
+test("hides retired routes and redirects legacy product URLs", async ({ page }) => {
+  await mockProductApi(page);
+  await page.addInitScript(() => localStorage.setItem("golden_key_access_token", "test-token"));
+
+  await page.goto("/portfolio");
+  await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
+
+  await page.goto("/product/live");
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByRole("heading", { name: "Best Picks Today" })).toBeVisible();
+});
+
 test("redirects when an authenticated session expires", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("golden_key_access_token", "expired-token"));
   await page.route("**/api/v1/users/me", (route) => route.fulfill({ status: 401, json: { detail: "Expired" } }));
