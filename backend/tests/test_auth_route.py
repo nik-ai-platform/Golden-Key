@@ -52,6 +52,8 @@ def test_login_and_me_flow():
         "role": "admin",
         "is_active": True,
         "email_verified": False,
+        "recovery_email_masked": None,
+        "recovery_email_verified": False,
     }
 
 

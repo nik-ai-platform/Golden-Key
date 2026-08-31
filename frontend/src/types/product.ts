@@ -110,4 +110,6 @@ export interface UserProfile {
   email: string;
   username: string;
   premium: boolean;
+  recovery_email_masked?: string | null;
+  recovery_email_verified?: boolean;
 }

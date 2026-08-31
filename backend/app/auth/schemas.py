@@ -33,6 +33,26 @@ class PasswordResetConfirmRequest(BaseModel):
     new_password: str = Field(min_length=8, max_length=256)
 
 
+class RecoveryEmailRequest(BaseModel):
+    recovery_email: EmailStr
+
+
+class RecoveryCodeRequest(BaseModel):
+    code: str = Field(max_length=128)
+
+
+class ForgotEmailRequest(BaseModel):
+    recovery_email: str = Field(max_length=320)
+
+
+class ForgotEmailVerifyRequest(ForgotEmailRequest, RecoveryCodeRequest):
+    pass
+
+
+class MaskedEmailResponse(BaseModel):
+    email: str
+
+
 class EmailVerificationRequest(BaseModel):
     email: EmailStr
 
@@ -52,3 +72,5 @@ class AuthUser(BaseModel):
     role: UserRole
     is_active: bool
     email_verified: bool = False
+    recovery_email_masked: str | None = None
+    recovery_email_verified: bool = False

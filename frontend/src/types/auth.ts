@@ -18,6 +18,15 @@ export type ResetPasswordRequest = {
   new_password: string;
 };
 
+export type ForgotEmailVerifyRequest = {
+  recovery_email: string;
+  code: string;
+};
+
+export type MaskedEmailResponse = {
+  email: string;
+};
+
 export type AccessTokenResponse = {
   access_token: string;
   token_type: "bearer";
@@ -29,4 +38,6 @@ export type AuthUser = {
   email: string;
   role: "user" | "admin" | "analyst" | "viewer";
   is_active: boolean;
+  recovery_email_masked?: string | null;
+  recovery_email_verified?: boolean;
 };

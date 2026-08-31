@@ -2,8 +2,10 @@ import { client } from "../api/client";
 import type {
   AccessTokenResponse,
   AuthUser,
+  ForgotEmailVerifyRequest,
   LoginRequest,
   MessageResponse,
+  MaskedEmailResponse,
   RegisterRequest,
   ResetPasswordRequest,
 } from "../types/auth";
@@ -24,6 +26,32 @@ export async function forgotPassword(email: string): Promise<MessageResponse> {
 
 export async function resetPassword(payload: ResetPasswordRequest): Promise<MessageResponse> {
   const { data } = await client.post<MessageResponse>("/auth/reset-password", payload);
+  return data;
+}
+
+export async function setRecoveryEmail(recoveryEmail: string): Promise<MessageResponse> {
+  const { data } = await client.post<MessageResponse>("/auth/recovery-email", {
+    recovery_email: recoveryEmail,
+  });
+  return data;
+}
+
+export async function verifyRecoveryEmail(code: string): Promise<MessageResponse> {
+  const { data } = await client.post<MessageResponse>("/auth/recovery-email/verify", { code });
+  return data;
+}
+
+export async function forgotEmail(recoveryEmail: string): Promise<MessageResponse> {
+  const { data } = await client.post<MessageResponse>("/auth/forgot-email", {
+    recovery_email: recoveryEmail,
+  });
+  return data;
+}
+
+export async function verifyForgotEmail(
+  payload: ForgotEmailVerifyRequest,
+): Promise<MaskedEmailResponse> {
+  const { data } = await client.post<MaskedEmailResponse>("/auth/forgot-email/verify", payload);
   return data;
 }
 

@@ -11,6 +11,8 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, nullable=False, unique=True)
     email = Column(String, nullable=False, unique=True, index=True)
+    recovery_email = Column(String, nullable=True, unique=True, index=True)
+    recovery_email_verified = Column(Boolean, nullable=False, default=False, server_default="false")
     hashed_password = Column(String, nullable=False)
     is_premium = Column(Boolean, default=False)
     role = Column(

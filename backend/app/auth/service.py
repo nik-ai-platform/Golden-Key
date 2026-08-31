@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 import logging
 import secrets
 from dataclasses import dataclass
@@ -15,6 +16,8 @@ from app.auth.schemas import AccessTokenResponse, AuthUser
 from app.core.config import settings
 from app.core.roles import UserRole
 from app.models.password_reset_token import PasswordResetToken
+from app.models.forgot_email_challenge import ForgotEmailChallenge
+from app.models.recovery_email_verification import RecoveryEmailVerification
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
 from app.services.mail_service import MailSender, SmtpMailSender
@@ -30,7 +33,16 @@ class PasswordResetDelivery:
     token: str
 
 
+@dataclass(frozen=True)
+class RecoveryCodeDelivery:
+    recipient: str
+    code: str
+
+
 class AuthenticationService:
+    recovery_code_expiry = timedelta(minutes=10)
+    recovery_code_max_attempts = 5
+
     def __init__(
         self,
         user_repository: UserRepository | None = None,
@@ -231,6 +243,182 @@ class AuthenticationService:
         except Exception:  # noqa: BLE001
             logger.error("Password reset email delivery failed")
 
+    def request_recovery_email_verification(
+        self,
+        db: Session,
+        user_id: int,
+        recovery_email: str,
+    ) -> RecoveryCodeDelivery:
+        normalized_email = recovery_email.strip().lower()
+        user = db.get(User, user_id)
+        if user is None or not user.is_active:
+            raise ValueError("Unable to configure recovery email")
+        if normalized_email == user.email.lower():
+            raise ValueError("Recovery email must differ from sign-in email")
+        owner = db.query(User).filter(User.recovery_email == normalized_email).first()
+        if owner is not None and owner.id != user.id:
+            raise ValueError("Unable to configure recovery email")
+
+        now = datetime.now(UTC)
+        db.query(RecoveryEmailVerification).filter(
+            RecoveryEmailVerification.user_id == user.id,
+            RecoveryEmailVerification.used_at.is_(None),
+        ).update({RecoveryEmailVerification.used_at: now}, synchronize_session=False)
+        code = self._new_recovery_code()
+        user.recovery_email = normalized_email
+        user.recovery_email_verified = False
+        db.add(
+            RecoveryEmailVerification(
+                user_id=user.id,
+                recovery_email=normalized_email,
+                code_digest=self._recovery_code_digest(
+                    "recovery-email-verification", user.id, normalized_email, code
+                ),
+                expires_at=now + self.recovery_code_expiry,
+            )
+        )
+        db.add(user)
+        db.commit()
+        return RecoveryCodeDelivery(recipient=normalized_email, code=code)
+
+    def deliver_recovery_email_verification(self, delivery: RecoveryCodeDelivery) -> None:
+        try:
+            self.mail_sender.send_recovery_email_verification(delivery.recipient, delivery.code)
+        except Exception:  # noqa: BLE001
+            logger.error("Recovery email verification delivery failed")
+
+    def verify_recovery_email(self, db: Session, user_id: int, code: str) -> bool:
+        user = db.get(User, user_id)
+        if user is None or not user.recovery_email:
+            return False
+        now = datetime.now(UTC)
+        challenge = (
+            db.query(RecoveryEmailVerification)
+            .filter(
+                RecoveryEmailVerification.user_id == user.id,
+                RecoveryEmailVerification.recovery_email == user.recovery_email,
+                RecoveryEmailVerification.used_at.is_(None),
+                RecoveryEmailVerification.expires_at > now,
+            )
+            .order_by(RecoveryEmailVerification.created_at.desc())
+            .first()
+        )
+        if challenge is None or challenge.failed_attempts >= self.recovery_code_max_attempts:
+            return False
+        expected = self._recovery_code_digest(
+            "recovery-email-verification", user.id, user.recovery_email, code
+        )
+        if not hmac.compare_digest(challenge.code_digest, expected):
+            self._record_failed_recovery_attempt(db, challenge, now)
+            return False
+
+        challenge.used_at = now
+        user.recovery_email_verified = True
+        db.add_all([challenge, user])
+        db.commit()
+        return True
+
+    def request_forgot_email(
+        self, db: Session, recovery_email: str
+    ) -> RecoveryCodeDelivery | None:
+        normalized_email = recovery_email.strip().lower()
+        user = (
+            db.query(User)
+            .filter(
+                User.recovery_email == normalized_email,
+                User.recovery_email_verified.is_(True),
+                User.is_active.is_(True),
+            )
+            .first()
+        )
+        if user is None:
+            return None
+
+        now = datetime.now(UTC)
+        db.query(ForgotEmailChallenge).filter(
+            ForgotEmailChallenge.user_id == user.id,
+            ForgotEmailChallenge.used_at.is_(None),
+        ).update({ForgotEmailChallenge.used_at: now}, synchronize_session=False)
+        code = self._new_recovery_code()
+        db.add(
+            ForgotEmailChallenge(
+                user_id=user.id,
+                recovery_email=normalized_email,
+                code_digest=self._recovery_code_digest(
+                    "forgot-email", user.id, normalized_email, code
+                ),
+                expires_at=now + self.recovery_code_expiry,
+            )
+        )
+        db.commit()
+        return RecoveryCodeDelivery(recipient=normalized_email, code=code)
+
+    def deliver_forgot_email_code(self, delivery: RecoveryCodeDelivery) -> None:
+        try:
+            self.mail_sender.send_forgot_email_code(delivery.recipient, delivery.code)
+        except Exception:  # noqa: BLE001
+            logger.error("Forgot email recovery delivery failed")
+
+    def verify_forgot_email(self, db: Session, recovery_email: str, code: str) -> str | None:
+        normalized_email = recovery_email.strip().lower()
+        user = (
+            db.query(User)
+            .filter(
+                User.recovery_email == normalized_email,
+                User.recovery_email_verified.is_(True),
+                User.is_active.is_(True),
+            )
+            .first()
+        )
+        if user is None:
+            return None
+        now = datetime.now(UTC)
+        challenge = (
+            db.query(ForgotEmailChallenge)
+            .filter(
+                ForgotEmailChallenge.user_id == user.id,
+                ForgotEmailChallenge.recovery_email == normalized_email,
+                ForgotEmailChallenge.used_at.is_(None),
+                ForgotEmailChallenge.expires_at > now,
+            )
+            .order_by(ForgotEmailChallenge.created_at.desc())
+            .first()
+        )
+        if challenge is None or challenge.failed_attempts >= self.recovery_code_max_attempts:
+            return None
+        expected = self._recovery_code_digest("forgot-email", user.id, normalized_email, code)
+        if not hmac.compare_digest(challenge.code_digest, expected):
+            self._record_failed_recovery_attempt(db, challenge, now)
+            return None
+
+        challenge.used_at = now
+        db.add(challenge)
+        db.commit()
+        return self.mask_email(user.email)
+
+    @staticmethod
+    def mask_email(email: str) -> str:
+        local, separator, domain = email.partition("@")
+        if not separator or not local or not domain:
+            return "***"
+        return f"{local[0]}{'*' * max(1, len(local) - 1)}@{domain}"
+
+    @staticmethod
+    def _new_recovery_code() -> str:
+        return f"{secrets.randbelow(1_000_000):06d}"
+
+    @staticmethod
+    def _recovery_code_digest(purpose: str, user_id: int, email: str, code: str) -> str:
+        payload = f"{purpose}:{user_id}:{email}:{code}".encode("utf-8")
+        return hmac.new(settings.SECRET_KEY.encode("utf-8"), payload, hashlib.sha256).hexdigest()
+
+    def _record_failed_recovery_attempt(self, db: Session, challenge, now: datetime) -> None:
+        challenge.failed_attempts += 1
+        if challenge.failed_attempts >= self.recovery_code_max_attempts:
+            challenge.used_at = now
+        db.add(challenge)
+        db.commit()
+
     def reset_password(self, db: Session, token: str, new_password: str) -> bool:
         if not token:
             return False
@@ -318,6 +506,10 @@ class AuthenticationService:
             role=UserRole(self._role_value(user.role)),
             is_active=user.is_active,
             email_verified=bool(getattr(user, "email_verified", False)),
+            recovery_email_masked=(
+                self.mask_email(user.recovery_email) if getattr(user, "recovery_email", None) else None
+            ),
+            recovery_email_verified=bool(getattr(user, "recovery_email_verified", False)),
         )
 
 

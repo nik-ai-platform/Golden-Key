@@ -11,7 +11,9 @@ from app.auth.hashing import HashingService
 from app.auth.service import AuthenticationService
 from app.database.session import get_db
 from app.main import app
+from app.models.forgot_email_challenge import ForgotEmailChallenge
 from app.models.password_reset_token import PasswordResetToken
+from app.models.recovery_email_verification import RecoveryEmailVerification
 from app.models.subscription import Subscription
 from app.models.user import User
 
@@ -24,9 +26,17 @@ GENERIC_MESSAGE = (
 class FakeMailSender:
     def __init__(self) -> None:
         self.deliveries: list[tuple[str, str]] = []
+        self.recovery_verifications: list[tuple[str, str]] = []
+        self.forgot_email_deliveries: list[tuple[str, str]] = []
 
     def send_password_reset(self, recipient: str, token: str) -> None:
         self.deliveries.append((recipient, token))
+
+    def send_recovery_email_verification(self, recipient: str, code: str) -> None:
+        self.recovery_verifications.append((recipient, code))
+
+    def send_forgot_email_code(self, recipient: str, code: str) -> None:
+        self.forgot_email_deliveries.append((recipient, code))
 
 
 @pytest.fixture
@@ -39,6 +49,8 @@ def recovery_client():
     User.__table__.create(bind=engine)
     Subscription.__table__.create(bind=engine)
     PasswordResetToken.__table__.create(bind=engine)
+    RecoveryEmailVerification.__table__.create(bind=engine)
+    ForgotEmailChallenge.__table__.create(bind=engine)
     session_factory = sessionmaker(bind=engine)
     mail_sender = FakeMailSender()
     auth_service = AuthenticationService(mail_sender=mail_sender)
@@ -71,6 +83,30 @@ def request_token(client: TestClient, mail_sender: FakeMailSender, email: str) -
     assert response.status_code == 200
     assert response.json() == {"message": GENERIC_MESSAGE}
     return mail_sender.deliveries[-1][1]
+
+
+def auth_headers(client: TestClient, email: str, password: str) -> dict[str, str]:
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": password},
+    )
+    assert response.status_code == 200
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
+def configure_recovery_email(
+    client: TestClient,
+    mail_sender: FakeMailSender,
+    headers: dict[str, str],
+    recovery_email: str,
+) -> str:
+    response = client.post(
+        "/api/v1/auth/recovery-email",
+        json={"recovery_email": recovery_email},
+        headers=headers,
+    )
+    assert response.status_code == 200
+    return mail_sender.recovery_verifications[-1][1]
 
 
 def test_forgot_password_does_not_enumerate_accounts(recovery_client):
@@ -190,15 +226,235 @@ def test_demo_account_cannot_request_password_reset(recovery_client):
     assert mail_sender.deliveries == []
 
 
-def test_forgot_email_is_support_based(recovery_client):
-    client, _, _ = recovery_client
+def test_authenticated_user_configures_and_verifies_recovery_email(recovery_client):
+    client, session_factory, mail_sender = recovery_client
+    register(client, "customer", "customer@example.com", "old-password")
+    headers = auth_headers(client, "customer@example.com", "old-password")
 
-    response = client.post("/api/v1/auth/forgot-email")
+    code = configure_recovery_email(
+        client, mail_sender, headers, "Secondary@Example.com"
+    )
+    with session_factory() as db:
+        user = db.query(User).filter(User.email == "customer@example.com").one()
+        challenge = db.query(RecoveryEmailVerification).one()
+        assert user.recovery_email == "secondary@example.com"
+        assert user.recovery_email_verified is False
+        assert code not in challenge.code_digest
+        assert len(challenge.code_digest) == 64
 
+    response = client.post(
+        "/api/v1/auth/recovery-email/verify",
+        json={"code": code},
+        headers=headers,
+    )
     assert response.status_code == 200
-    assert response.json() == {
-        "message": (
-            "If you no longer remember the email associated with your Golden Key account, "
-            "contact support for account recovery."
+    assert response.json() == {"message": "Recovery email verified"}
+    profile = client.get("/api/v1/users/me", headers=headers).json()
+    assert profile["recovery_email_masked"] == "s********@example.com"
+    assert profile["recovery_email_verified"] is True
+    assert "secondary@example.com" not in profile.values()
+
+
+def test_recovery_email_rejects_primary_and_change_resets_verification(recovery_client):
+    client, session_factory, mail_sender = recovery_client
+    register(client, "customer", "customer@example.com", "old-password")
+    headers = auth_headers(client, "customer@example.com", "old-password")
+
+    same = client.post(
+        "/api/v1/auth/recovery-email",
+        json={"recovery_email": "CUSTOMER@example.com"},
+        headers=headers,
+    )
+    assert same.status_code == 400
+
+    code = configure_recovery_email(client, mail_sender, headers, "first@example.com")
+    assert client.post(
+        "/api/v1/auth/recovery-email/verify", json={"code": code}, headers=headers
+    ).status_code == 200
+    configure_recovery_email(client, mail_sender, headers, "second@example.com")
+    with session_factory() as db:
+        user = db.query(User).filter(User.email == "customer@example.com").one()
+        assert user.recovery_email == "second@example.com"
+        assert user.recovery_email_verified is False
+
+
+def test_recovery_email_code_expiry_replay_and_wrong_code(recovery_client):
+    client, session_factory, mail_sender = recovery_client
+    register(client, "customer", "customer@example.com", "old-password")
+    headers = auth_headers(client, "customer@example.com", "old-password")
+
+    code = configure_recovery_email(client, mail_sender, headers, "secondary@example.com")
+    assert client.post(
+        "/api/v1/auth/recovery-email/verify", json={"code": "000000"}, headers=headers
+    ).status_code == 400
+    assert client.post(
+        "/api/v1/auth/recovery-email/verify", json={"code": code}, headers=headers
+    ).status_code == 200
+    assert client.post(
+        "/api/v1/auth/recovery-email/verify", json={"code": code}, headers=headers
+    ).status_code == 400
+
+    configure_recovery_email(client, mail_sender, headers, "new@example.com")
+    with session_factory() as db:
+        challenge = (
+            db.query(RecoveryEmailVerification)
+            .filter(RecoveryEmailVerification.used_at.is_(None))
+            .one()
         )
+        challenge.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        db.commit()
+    assert client.post(
+        "/api/v1/auth/recovery-email/verify",
+        json={"code": mail_sender.recovery_verifications[-1][1]},
+        headers=headers,
+    ).status_code == 400
+
+
+def test_recovery_email_verification_attempts_are_bounded(recovery_client):
+    client, session_factory, mail_sender = recovery_client
+    register(client, "customer", "customer@example.com", "old-password")
+    headers = auth_headers(client, "customer@example.com", "old-password")
+    code = configure_recovery_email(client, mail_sender, headers, "secondary@example.com")
+
+    for wrong_code in ["000000", "000001", "000002", "000003", "000004"]:
+        assert client.post(
+            "/api/v1/auth/recovery-email/verify",
+            json={"code": wrong_code},
+            headers=headers,
+        ).status_code == 400
+    assert client.post(
+        "/api/v1/auth/recovery-email/verify", json={"code": code}, headers=headers
+    ).status_code == 400
+    with session_factory() as db:
+        challenge = db.query(RecoveryEmailVerification).one()
+        assert challenge.failed_attempts == 5
+        assert challenge.used_at is not None
+
+
+def test_forgot_email_request_is_generic_for_all_addresses(recovery_client):
+    client, _, mail_sender = recovery_client
+    register(client, "verified", "verified@example.com", "old-password")
+    register(client, "unverified", "unverified@example.com", "old-password")
+    verified_headers = auth_headers(client, "verified@example.com", "old-password")
+    unverified_headers = auth_headers(client, "unverified@example.com", "old-password")
+    code = configure_recovery_email(
+        client, mail_sender, verified_headers, "verified-recovery@example.com"
+    )
+    assert client.post(
+        "/api/v1/auth/recovery-email/verify",
+        json={"code": code},
+        headers=verified_headers,
+    ).status_code == 200
+    configure_recovery_email(
+        client, mail_sender, unverified_headers, "unverified-recovery@example.com"
+    )
+
+    responses = [
+        client.post(
+            "/api/v1/auth/forgot-email", json={"recovery_email": address}
+        )
+        for address in (
+            "verified-recovery@example.com",
+            "unverified-recovery@example.com",
+            "unknown@example.com",
+            "not-an-email",
+        )
+    ]
+    assert all(response.status_code == 200 for response in responses)
+    assert len({response.text for response in responses}) == 1
+    assert responses[0].json() == {
+        "message": "If a verified recovery account matches that address, a recovery code has been sent."
     }
+    assert len(mail_sender.forgot_email_deliveries) == 1
+
+
+def test_forgot_email_verify_returns_only_masked_email_and_cannot_replay(recovery_client):
+    client, session_factory, mail_sender = recovery_client
+    register(client, "customer", "nikhill@gmail.com", "old-password")
+    headers = auth_headers(client, "nikhill@gmail.com", "old-password")
+    verification_code = configure_recovery_email(
+        client, mail_sender, headers, "secondary@example.com"
+    )
+    client.post(
+        "/api/v1/auth/recovery-email/verify",
+        json={"code": verification_code},
+        headers=headers,
+    )
+    client.post(
+        "/api/v1/auth/forgot-email", json={"recovery_email": "secondary@example.com"}
+    )
+    recovery_code = mail_sender.forgot_email_deliveries[-1][1]
+
+    response = client.post(
+        "/api/v1/auth/forgot-email/verify",
+        json={"recovery_email": "secondary@example.com", "code": recovery_code},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"email": "n******@gmail.com"}
+    assert "nikhill@gmail.com" not in response.text
+    assert client.post(
+        "/api/v1/auth/forgot-email/verify",
+        json={"recovery_email": "secondary@example.com", "code": recovery_code},
+    ).status_code == 400
+    malformed = client.post(
+        "/api/v1/auth/forgot-email/verify",
+        json={"recovery_email": "secondary@example.com", "code": "malformed"},
+    )
+    assert malformed.status_code == 400
+    assert malformed.json() == {"detail": "Invalid or expired recovery code"}
+    with session_factory() as db:
+        challenge = db.query(ForgotEmailChallenge).one()
+        assert recovery_code not in challenge.code_digest
+        assert len(challenge.code_digest) == 64
+
+
+def test_forgot_email_challenge_expiry_and_attempt_limit(recovery_client):
+    client, session_factory, mail_sender = recovery_client
+    register(client, "customer", "a@example.com", "old-password")
+    headers = auth_headers(client, "a@example.com", "old-password")
+    verification_code = configure_recovery_email(
+        client, mail_sender, headers, "secondary@example.com"
+    )
+    client.post(
+        "/api/v1/auth/recovery-email/verify",
+        json={"code": verification_code},
+        headers=headers,
+    )
+    client.post(
+        "/api/v1/auth/forgot-email", json={"recovery_email": "secondary@example.com"}
+    )
+    expired_code = mail_sender.forgot_email_deliveries[-1][1]
+    with session_factory() as db:
+        challenge = db.query(ForgotEmailChallenge).one()
+        challenge.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        db.commit()
+    assert client.post(
+        "/api/v1/auth/forgot-email/verify",
+        json={"recovery_email": "secondary@example.com", "code": expired_code},
+    ).status_code == 400
+
+    client.post(
+        "/api/v1/auth/forgot-email", json={"recovery_email": "secondary@example.com"}
+    )
+    valid_code = mail_sender.forgot_email_deliveries[-1][1]
+    for wrong_code in ["000000", "000001", "000002", "000003", "000004"]:
+        assert client.post(
+            "/api/v1/auth/forgot-email/verify",
+            json={"recovery_email": "secondary@example.com", "code": wrong_code},
+        ).status_code == 400
+    assert client.post(
+        "/api/v1/auth/forgot-email/verify",
+        json={"recovery_email": "secondary@example.com", "code": valid_code},
+    ).status_code == 400
+
+
+@pytest.mark.parametrize(
+    ("email", "masked"),
+    [
+        ("nikhill@gmail.com", "n******@gmail.com"),
+        ("ab@example.com", "a*@example.com"),
+        ("a@example.com", "a*@example.com"),
+    ],
+)
+def test_email_masking_never_reveals_full_local_part(email, masked):
+    assert AuthenticationService.mask_email(email) == masked

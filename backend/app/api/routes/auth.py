@@ -6,11 +6,16 @@ from app.auth.schemas import (
     AccessTokenResponse,
     AuthUser,
     EmailVerificationRequest,
+    ForgotEmailRequest,
+    ForgotEmailVerifyRequest,
     LoginRequest,
     LogoutRequest,
     MessageResponse,
     PasswordResetConfirmRequest,
     PasswordResetRequest,
+    RecoveryCodeRequest,
+    RecoveryEmailRequest,
+    MaskedEmailResponse,
     RefreshTokenRequest,
     VerifyEmailTokenRequest,
 )
@@ -101,6 +106,11 @@ PASSWORD_RESET_MESSAGE = (
     "If an account exists for that email, password reset instructions have been sent."
 )
 
+FORGOT_EMAIL_MESSAGE = (
+    "If a verified recovery account matches that address, a recovery code has been sent."
+)
+INVALID_RECOVERY_CODE_MESSAGE = "Invalid or expired recovery code"
+
 
 @router.post("/forgot-password", response_model=MessageResponse)
 @router.post("/password-reset", response_model=MessageResponse, include_in_schema=False)
@@ -128,14 +138,67 @@ def confirm_password_reset(
     return MessageResponse(message="Password updated")
 
 
-@router.post("/forgot-email", response_model=MessageResponse)
-def forgot_email():
-    return MessageResponse(
-        message=(
-            "If you no longer remember the email associated with your Golden Key account, "
-            "contact support for account recovery."
+@router.post("/recovery-email", response_model=MessageResponse)
+def configure_recovery_email(
+    payload: RecoveryEmailRequest,
+    background_tasks: BackgroundTasks,
+    current_user: AuthUser = Depends(get_current_user),
+    auth: AuthenticationService = Depends(get_auth_service),
+    db: Session = Depends(get_db),
+):
+    try:
+        delivery = auth.request_recovery_email_verification(
+            db, current_user.id, str(payload.recovery_email)
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    background_tasks.add_task(auth.deliver_recovery_email_verification, delivery)
+    return MessageResponse(message="Recovery email verification code sent")
+
+
+@router.post("/recovery-email/verify", response_model=MessageResponse)
+def verify_recovery_email(
+    payload: RecoveryCodeRequest,
+    current_user: AuthUser = Depends(get_current_user),
+    auth: AuthenticationService = Depends(get_auth_service),
+    db: Session = Depends(get_db),
+):
+    if not auth.verify_recovery_email(db, current_user.id, payload.code):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=INVALID_RECOVERY_CODE_MESSAGE,
+        )
+    return MessageResponse(message="Recovery email verified")
+
+
+@router.post("/forgot-email", response_model=MessageResponse)
+def forgot_email(
+    payload: ForgotEmailRequest,
+    background_tasks: BackgroundTasks,
+    auth: AuthenticationService = Depends(get_auth_service),
+    db: Session = Depends(get_db),
+):
+    delivery = auth.request_forgot_email(db, str(payload.recovery_email))
+    if delivery is not None:
+        background_tasks.add_task(auth.deliver_forgot_email_code, delivery)
+    return MessageResponse(message=FORGOT_EMAIL_MESSAGE)
+
+
+@router.post("/forgot-email/verify", response_model=MaskedEmailResponse)
+def verify_forgot_email(
+    payload: ForgotEmailVerifyRequest,
+    auth: AuthenticationService = Depends(get_auth_service),
+    db: Session = Depends(get_db),
+):
+    masked_email = auth.verify_forgot_email(
+        db, str(payload.recovery_email), payload.code
     )
+    if masked_email is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=INVALID_RECOVERY_CODE_MESSAGE,
+        )
+    return MaskedEmailResponse(email=masked_email)
 
 
 @router.post("/email-verification", response_model=MessageResponse)
