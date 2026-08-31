@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import get_auth_service, get_current_user, oauth2_scheme
 from app.auth.persistent_user import (
     PersistentUserNotFoundError,
+    hydrate_recovery_state,
     resolve_existing_persistent_user,
 )
 from app.auth.schemas import (
@@ -82,8 +83,9 @@ def login(
 @router.get("/me", response_model=AuthUser)
 def me(
     current_user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    return current_user
+    return hydrate_recovery_state(db, current_user)
 
 
 @router.post("/refresh", response_model=AccessTokenResponse)

@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.routes import auth as auth_routes
-from app.api.v1 import premium, product, subscriptions
+from app.api.v1 import premium, product, subscriptions, users
 from app.auth.dependencies import get_auth_service
 from app.auth.jwt import JWTService
 from app.auth.service import AuthenticationService
@@ -27,7 +27,12 @@ def _auth_client() -> TestClient:
     return TestClient(auth_app)
 
 
-def test_login_and_me_flow():
+def test_login_and_me_flow(monkeypatch):
+    monkeypatch.setattr(
+        auth_routes,
+        "hydrate_recovery_state",
+        lambda _db, current_user: current_user,
+    )
     client = _auth_client()
 
     login_response = client.post(
@@ -58,6 +63,11 @@ def test_login_and_me_flow():
 
 
 def test_login_token_authenticates_users_me_route(monkeypatch):
+    monkeypatch.setattr(
+        users,
+        "hydrate_recovery_state",
+        lambda _db, current_user: current_user,
+    )
     monkeypatch.setattr(
         product,
         "resolve_persistent_user_id",

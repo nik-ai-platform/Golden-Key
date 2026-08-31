@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.hashing import HashingService
 from app.auth.schemas import AuthUser
+from app.auth.service import AuthenticationService
 from app.core.config import settings
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
@@ -25,6 +26,31 @@ def resolve_existing_persistent_user(
         raise PersistentUserNotFoundError("Authenticated user has no persistent account")
 
     return user
+
+
+def hydrate_recovery_state(
+    db: Session,
+    current_user: AuthUser,
+) -> AuthUser:
+    try:
+        user = resolve_existing_persistent_user(db, current_user)
+    except PersistentUserNotFoundError:
+        recovery_email_masked = None
+        recovery_email_verified = False
+    else:
+        recovery_email_masked = (
+            AuthenticationService.mask_email(user.recovery_email)
+            if user.recovery_email
+            else None
+        )
+        recovery_email_verified = bool(user.recovery_email_verified)
+
+    return current_user.model_copy(
+        update={
+            "recovery_email_masked": recovery_email_masked,
+            "recovery_email_verified": recovery_email_verified,
+        }
+    )
 
 
 def resolve_persistent_user_id(

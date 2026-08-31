@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
-from app.auth.persistent_user import resolve_persistent_user_id
+from app.auth.persistent_user import hydrate_recovery_state, resolve_persistent_user_id
 from app.auth.schemas import AuthUser
 from app.database.session import get_db
 from app.schemas.api_contract import RemoveSavedPredictionResponse
@@ -22,11 +22,12 @@ router = APIRouter(
 )
 
 
-@router.get("/me")
+@router.get("/me", response_model=AuthUser)
 def get_profile(
     current_user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    return current_user
+    return hydrate_recovery_state(db, current_user)
 
 
 @router.post(

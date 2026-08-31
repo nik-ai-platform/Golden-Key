@@ -242,6 +242,12 @@ def test_authenticated_user_configures_and_verifies_recovery_email(recovery_clie
         assert code not in challenge.code_digest
         assert len(challenge.code_digest) == 64
 
+    unverified_profile = client.get("/api/v1/users/me", headers=headers)
+    assert unverified_profile.status_code == 200
+    assert unverified_profile.json()["recovery_email_masked"] == "s********@example.com"
+    assert unverified_profile.json()["recovery_email_verified"] is False
+    assert "secondary@example.com" not in unverified_profile.text
+
     response = client.post(
         "/api/v1/auth/recovery-email/verify",
         json={"code": code},
@@ -252,7 +258,7 @@ def test_authenticated_user_configures_and_verifies_recovery_email(recovery_clie
     profile = client.get("/api/v1/users/me", headers=headers).json()
     assert profile["recovery_email_masked"] == "s********@example.com"
     assert profile["recovery_email_verified"] is True
-    assert "secondary@example.com" not in profile.values()
+    assert "secondary@example.com" not in str(profile)
 
 
 def test_synthetic_user_uses_existing_persistent_user_for_recovery(recovery_client):
@@ -281,12 +287,25 @@ def test_synthetic_user_uses_existing_persistent_user_for_recovery(recovery_clie
         assert challenge.user_id != 0
         assert user.recovery_email == "admin-recovery@example.com"
 
+    unverified_profile = client.get("/api/v1/users/me", headers=headers)
+    assert unverified_profile.status_code == 200
+    assert unverified_profile.json()["id"] == 0
+    assert unverified_profile.json()["recovery_email_masked"] == "a*************@example.com"
+    assert unverified_profile.json()["recovery_email_verified"] is False
+    assert "admin-recovery@example.com" not in unverified_profile.text
+
     response = client.post(
         "/api/v1/auth/recovery-email/verify",
         json={"code": code},
         headers=headers,
     )
     assert response.status_code == 200
+    verified_profile = client.get("/api/v1/users/me", headers=headers)
+    assert verified_profile.status_code == 200
+    assert verified_profile.json()["id"] == 0
+    assert verified_profile.json()["recovery_email_masked"] == "a*************@example.com"
+    assert verified_profile.json()["recovery_email_verified"] is True
+    assert "admin-recovery@example.com" not in verified_profile.text
     with session_factory() as db:
         assert db.get(User, persistent_id).recovery_email_verified is True
 
@@ -294,6 +313,12 @@ def test_synthetic_user_uses_existing_persistent_user_for_recovery(recovery_clie
 def test_synthetic_user_without_persistent_row_fails_cleanly(recovery_client):
     client, session_factory, mail_sender = recovery_client
     headers = auth_headers(client, "admin@example.com", "admin123")
+
+    profile = client.get("/api/v1/users/me", headers=headers)
+    assert profile.status_code == 200
+    assert profile.json()["id"] == 0
+    assert profile.json()["recovery_email_masked"] is None
+    assert profile.json()["recovery_email_verified"] is False
 
     response = client.post(
         "/api/v1/auth/recovery-email",
