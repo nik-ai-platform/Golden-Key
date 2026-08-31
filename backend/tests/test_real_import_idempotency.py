@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -99,11 +100,20 @@ def test_prediction_engine_returns_existing_production_prediction():
 
 def test_prediction_engine_uses_default_version_without_production_model():
     game = SimpleNamespace(id=17, sport="WNBA")
-    odds = SimpleNamespace(spread_home=-4.5)
+    odds = SimpleNamespace(
+        id=23,
+        sportsbook="Test Sportsbook",
+        created_at=datetime.now(timezone.utc),
+        spread_home=-4.5,
+        spread_away=4.5,
+        moneyline_home=-180,
+        moneyline_away=155,
+        total=164.5,
+    )
     game_query = MagicMock()
     game_query.filter.return_value.first.return_value = game
     odds_query = MagicMock()
-    odds_query.filter.return_value.first.return_value = odds
+    odds_query.filter.return_value.order_by.return_value.first.return_value = odds
     db = MagicMock()
     db.query.side_effect = [game_query, odds_query]
 

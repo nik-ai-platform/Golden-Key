@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -92,11 +93,15 @@ class FinalScoreSettlementService:
                     game.home_score != home_score
                     or game.away_score != away_score
                     or game.winner_team_id != winner_team_id
+                    or game.status != "final"
                 )
 
                 game.home_score = home_score
                 game.away_score = away_score
                 game.winner_team_id = winner_team_id
+                game.status = "final"
+                if game.completed_at is None:
+                    game.completed_at = datetime.now(UTC).replace(tzinfo=None)
                 if changed:
                     summary.updated += 1
                 db.commit()

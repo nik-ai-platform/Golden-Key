@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 
+from app.models.game import Game
 from app.models.odds import Odds
 from app.repositories import odds_repository
 from app.services.monitoring_service import MonitoringService
@@ -44,7 +45,9 @@ class OddsService:
 
     def extract_market_values(
         self,
-        bookmaker: dict
+        bookmaker: dict,
+        home_team: str,
+        away_team: str,
     ):
 
         spread_home = None
@@ -60,14 +63,19 @@ class OddsService:
             key = market.get("key")
             outcomes = market.get("outcomes", [])
 
-            if key == "h2h" and len(outcomes) >= 2:
-                moneyline_home = outcomes[0].get("price")
-                moneyline_away = outcomes[1].get("price")
+            if key == "h2h":
+                for outcome in outcomes:
+                    if outcome.get("name") == home_team:
+                        moneyline_home = outcome.get("price")
+                    elif outcome.get("name") == away_team:
+                        moneyline_away = outcome.get("price")
 
-            if key == "spreads" and outcomes:
-                spread_home = outcomes[0].get("point")
-                if len(outcomes) > 1:
-                    spread_away = outcomes[1].get("point")
+            if key == "spreads":
+                for outcome in outcomes:
+                    if outcome.get("name") == home_team:
+                        spread_home = outcome.get("point")
+                    elif outcome.get("name") == away_team:
+                        spread_away = outcome.get("point")
 
             if key == "totals" and outcomes:
                 total = outcomes[0].get("point")
@@ -91,6 +99,9 @@ def create_odds_snapshot(
 
     service = odds_service or OddsService()
     monitor = monitor or service.monitor
+    game = db.get(Game, game_id)
+    if game is None:
+        raise ValueError(f"Game {game_id} not found")
 
     (
         spread_home,
@@ -99,7 +110,9 @@ def create_odds_snapshot(
         moneyline_away,
         total
     ) = service.extract_market_values(
-        bookmaker
+        bookmaker,
+        game.home_team.name,
+        game.away_team.name,
     )
 
     required_values = (

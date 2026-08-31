@@ -18,3 +18,4 @@ from app.models.prediction_result import PredictionResult  # noqa: E402,F401
 from app.models.npi_factor_result import NPIFactorResult  # noqa: E402,F401
 from app.models.model_version import ModelVersion  # noqa: E402,F401
 from app.models.npi_weight_profile import NPIWeightProfile  # noqa: E402,F401
+from app.models.prediction_line_correction import PredictionLineCorrection  # noqa: E402,F401

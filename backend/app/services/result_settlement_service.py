@@ -87,6 +87,42 @@ class ResultSettlementService:
             "results": results,
         }
 
+    def regrade_prediction(
+        self,
+        db: Session,
+        prediction_id: int,
+    ) -> PredictionResult:
+        prediction = db.get(Prediction, prediction_id)
+        if prediction is None:
+            raise ValueError(f"Prediction {prediction_id} not found")
+        game = db.get(Game, prediction.game_id)
+        if game is None:
+            raise ValueError(f"Game {prediction.game_id} not found")
+        if game.home_score is None or game.away_score is None:
+            raise ValueError(f"Game {game.id} has no final score")
+
+        graded = self.grade_prediction(
+            db=db,
+            game=game,
+            prediction=prediction,
+        )
+        result = (
+            db.query(PredictionResult)
+            .filter(PredictionResult.prediction_id == prediction.id)
+            .one_or_none()
+        )
+        if result is None:
+            result = PredictionResult(prediction_id=prediction.id)
+            db.add(result)
+
+        result.actual_result = graded["actual_result"]
+        result.predicted_result = graded["predicted_result"]
+        result.outcome = graded["outcome"]
+        result.profit_loss = graded["profit_loss"]
+        db.commit()
+        db.refresh(result)
+        return result
+
     def grade_prediction(
         self,
         db: Session,

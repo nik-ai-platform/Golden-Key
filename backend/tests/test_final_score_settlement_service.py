@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -166,5 +166,115 @@ def test_sync_sport_ignores_uncompleted_games():
         assert summary.settled == 0
         assert summary.skipped == 1
         assert summary.errors == 0
+    finally:
+        db.close()
+
+
+def test_previous_day_game_without_predictions_is_finalized_idempotently():
+    db = _session()
+    try:
+        home = Team(name="Dallas", sport="WNBA", league="WNBA")
+        away = Team(name="Connecticut", sport="WNBA", league="WNBA")
+        db.add_all([home, away])
+        db.flush()
+        game = Game(
+            provider_game_id="wnba-yesterday-1",
+            sport="WNBA",
+            league="WNBA",
+            game_date=datetime.now(timezone.utc) - timedelta(days=1),
+            home_team_id=home.id,
+            away_team_id=away.id,
+        )
+        db.add(game)
+        db.commit()
+        provider = FakeScoreClient(
+            [
+                {
+                    "id": "wnba-yesterday-1",
+                    "completed": True,
+                    "home_team": "Dallas",
+                    "away_team": "Connecticut",
+                    "scores": [
+                        {"name": "Connecticut", "score": "71"},
+                        {"name": "Dallas", "score": "97"},
+                    ],
+                }
+            ]
+        )
+        service = FinalScoreSettlementService(provider_client=provider)
+
+        first = service.sync_sport(db, "WNBA", days_from=3)
+        completed_at = game.completed_at
+        second = service.sync_sport(db, "WNBA", days_from=3)
+
+        db.refresh(game)
+        assert game.status == "final"
+        assert game.home_score == 97
+        assert game.away_score == 71
+        assert game.winner_team_id == home.id
+        assert completed_at is not None
+        assert game.completed_at == completed_at
+        assert first.updated == 1
+        assert first.settled == 0
+        assert second.updated == 0
+        assert db.query(PredictionResult).count() == 0
+        assert provider.calls == [
+            {"sport_key": "basketball_wnba", "days_from": 3},
+            {"sport_key": "basketball_wnba", "days_from": 3},
+        ]
+    finally:
+        db.close()
+
+
+def test_missed_completion_is_recovered_on_next_cycle():
+    db = _session()
+    try:
+        home = Team(name="Home", sport="WNBA", league="WNBA")
+        away = Team(name="Away", sport="WNBA", league="WNBA")
+        db.add_all([home, away])
+        db.flush()
+        game = Game(
+            provider_game_id="wnba-missed-cycle",
+            sport="WNBA",
+            league="WNBA",
+            game_date=datetime.now(timezone.utc) - timedelta(days=1),
+            home_team_id=home.id,
+            away_team_id=away.id,
+        )
+        db.add(game)
+        db.commit()
+        provider = FakeScoreClient(
+            [
+                {
+                    "id": "wnba-missed-cycle",
+                    "completed": False,
+                    "home_team": "Home",
+                    "away_team": "Away",
+                    "scores": None,
+                }
+            ]
+        )
+        service = FinalScoreSettlementService(provider_client=provider)
+
+        first = service.sync_sport(db, "WNBA")
+        provider.rows = [
+            {
+                "id": "wnba-missed-cycle",
+                "completed": True,
+                "home_team": "Home",
+                "away_team": "Away",
+                "scores": [
+                    {"name": "Home", "score": "88"},
+                    {"name": "Away", "score": "80"},
+                ],
+            }
+        ]
+        second = service.sync_sport(db, "WNBA")
+
+        db.refresh(game)
+        assert first.updated == 0
+        assert second.updated == 1
+        assert game.status == "final"
+        assert (game.home_score, game.away_score) == (88, 80)
     finally:
         db.close()

@@ -77,40 +77,40 @@ describe("best picks dashboard", () => {
     );
   });
 
-  it("ranks five future top picks with complete actionable details", () => {
+  it("ranks five active top picks including unresolved past games", () => {
     renderDashboard();
 
     const topPicks = screen.getAllByTestId("top-pick");
     expect(topPicks).toHaveLength(5);
-    expect(within(topPicks[0]).getByText("Dallas Cowboys @ Philadelphia Eagles")).toBeTruthy();
-    expect(within(topPicks[0]).getByText("Philadelphia Eagles -3.5")).toBeTruthy();
+    expect(within(topPicks[0]).getByText("Past HOME")).toBeTruthy();
+    expect(within(topPicks[1]).getByText("Dallas Cowboys @ Philadelphia Eagles")).toBeTruthy();
+    expect(within(topPicks[1]).getByText("Philadelphia Eagles -3.5")).toBeTruthy();
     expect(within(topPicks[0]).getByText("Odds -110")).toBeTruthy();
-    expect(within(topPicks[1]).getByText("New York Knicks ML")).toBeTruthy();
-    expect(within(topPicks[1]).getByText("Odds +125")).toBeTruthy();
-    expect(within(topPicks[2]).getByText("OVER 52.5")).toBeTruthy();
-    expect(within(topPicks[0]).getByText("190.0 / 200")).toBeTruthy();
+    expect(within(topPicks[2]).getByText("New York Knicks ML")).toBeTruthy();
+    expect(within(topPicks[2]).getByText("Odds +125")).toBeTruthy();
+    expect(within(topPicks[3]).getByText("OVER 52.5")).toBeTruthy();
+    expect(within(topPicks[0]).getByText("999.0 / 200")).toBeTruthy();
     expect(within(topPicks[0]).getByTestId("pick-metrics")).toBeTruthy();
     expect(within(topPicks[0]).getByText("82.0%")).toBeTruthy();
     expect(within(topPicks[0]).getByText("61.0%")).toBeTruthy();
     expect(within(topPicks[0]).getByText("+8.0%")).toBeTruthy();
     expect(within(topPicks[0]).getByText("Low")).toBeTruthy();
-    expect(screen.queryByText("Past HOME")).toBeNull();
     expect(within(topPicks[0]).queryByText("HOME")).toBeNull();
     expect(within(topPicks[0]).getByRole("button", { name: "Save pick" })).toBeTruthy();
     expect(
       within(topPicks[0])
         .getByRole("link", { name: /view game analysis/i })
         .getAttribute("href"),
-    ).toBe("/games/1");
+    ).toBe("/games/7");
   });
 
   it("selects the strongest pick per market", () => {
     renderDashboard();
 
-    expect(within(screen.getByTestId("best-market-spread")).getByText("Philadelphia Eagles -3.5")).toBeTruthy();
+    expect(within(screen.getByTestId("best-market-spread")).getByText("Past HOME")).toBeTruthy();
     expect(within(screen.getByTestId("best-market-moneyline")).getByText("New York Knicks ML")).toBeTruthy();
     expect(within(screen.getByTestId("best-market-total")).getByText("OVER 52.5")).toBeTruthy();
-    expect(within(screen.getByTestId("best-market-spread")).getByText("NFL · NPI 190.0 / 200")).toBeTruthy();
+    expect(within(screen.getByTestId("best-market-spread")).getByText("NFL · NPI 999.0 / 200")).toBeTruthy();
   });
 
   it("shows five unique upcoming games ordered by date", () => {
@@ -119,11 +119,11 @@ describe("best picks dashboard", () => {
     const games = screen.getAllByTestId("upcoming-game");
     expect(games).toHaveLength(5);
     expect(games.map((game) => game.getAttribute("data-game-id"))).toEqual([
+      "7",
       "4",
       "2",
       "5",
       "3",
-      "6",
     ]);
   });
 
@@ -134,9 +134,10 @@ describe("best picks dashboard", () => {
     for (const topPick of screen.getAllByTestId("top-pick")) {
       expect(topPick.textContent).toContain("NFL");
     }
+    expect(screen.getByTestId("best-market-spread").textContent).toContain("Past HOME");
     expect(screen.getByTestId("best-market-moneyline").textContent).toContain("Philadelphia Eagles ML");
     expect(screen.getByTestId("best-market-total").textContent).toContain("No Total pick available.");
-    expect(screen.getAllByTestId("upcoming-game").map((game) => game.getAttribute("data-game-id"))).toEqual(["6", "1"]);
+    expect(screen.getAllByTestId("upcoming-game").map((game) => game.getAttribute("data-game-id"))).toEqual(["7", "6", "1"]);
   });
 
   it("renders a focused empty state", () => {

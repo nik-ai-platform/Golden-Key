@@ -160,22 +160,20 @@ class PredictionEngine:
             odds=odds,
             spread_npi=npi_result,
         )
+        for specification in specifications:
+            specification.update(
+                {
+                    "odds_snapshot_id": odds.id,
+                    "sportsbook": odds.sportsbook,
+                    "odds_observed_at": odds.created_at,
+                }
+            )
         results = []
 
         for specification in specifications:
             market = specification["market"]
             existing = existing_by_market.get(market)
             if existing is not None:
-                changed = False
-                if existing.line_value is None:
-                    existing.line_value = specification["line_value"]
-                    changed = True
-                if existing.american_odds is None:
-                    existing.american_odds = specification["american_odds"]
-                    changed = True
-                if changed:
-                    db.commit()
-                    db.refresh(existing)
                 results.append(existing)
                 continue
 

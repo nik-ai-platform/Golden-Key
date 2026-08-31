@@ -67,11 +67,9 @@ export function ProductDashboardPage() {
   });
 
   const dashboard = useMemo(() => {
-    const now = Date.now();
     const ranked = [...(query.data?.predictions ?? [])]
       .filter((prediction) => {
-        const gameTime = new Date(prediction.game_date).getTime();
-        return gameTime > now && (sport === "All" || prediction.sport === sport);
+        return sport === "All" || prediction.sport === sport;
       })
       .sort(rankPredictions);
     const bestByMarket = MARKETS.map((market) => ({

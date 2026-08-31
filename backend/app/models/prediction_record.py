@@ -40,6 +40,22 @@ class Prediction(Base):
         nullable=True,
     )
 
+    odds_snapshot_id = Column(
+        Integer,
+        ForeignKey("odds.id"),
+        nullable=True,
+    )
+
+    sportsbook = Column(
+        String,
+        nullable=True,
+    )
+
+    odds_observed_at = Column(
+        DateTime,
+        nullable=True,
+    )
+
     npi_score = Column(
         Float,
         nullable=False,

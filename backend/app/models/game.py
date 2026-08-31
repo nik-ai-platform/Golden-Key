@@ -67,6 +67,18 @@ class Game(Base):
         nullable=True
     )
 
+    status = Column(
+        String,
+        nullable=False,
+        default="scheduled",
+        server_default="scheduled",
+    )
+
+    completed_at = Column(
+        DateTime,
+        nullable=True,
+    )
+
     home_team = relationship(
         "Team",
         foreign_keys=[home_team_id],

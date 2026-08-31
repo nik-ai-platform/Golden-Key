@@ -139,6 +139,58 @@ def test_incomplete_bookmaker_snapshot_is_not_persisted():
     assert db.query(Odds).filter(Odds.game_id == game.id).all() == []
 
 
+@pytest.mark.parametrize(
+    ("spread_home", "spread_away"),
+    [(-5.5, 5.5), (3.5, -3.5)],
+)
+def test_import_orients_spreads_by_team_name_not_outcome_order(
+    spread_home,
+    spread_away,
+):
+    event = _event(with_odds=True)
+    spread_market = next(
+        market
+        for market in event["bookmakers"][0]["markets"]
+        if market["key"] == "spreads"
+    )
+    spread_market["outcomes"] = [
+        {"name": event["away_team"], "point": spread_away},
+        {"name": event["home_team"], "point": spread_home},
+    ]
+    db = _session()
+    live_data = MagicMock()
+    live_data.fetch_games.return_value = [event]
+
+    game = GameOddsImporter(db=db, live_data_service=live_data).import_games("WNBA")[0]
+    odds = db.query(Odds).filter(Odds.game_id == game.id).one()
+
+    assert odds.spread_home == spread_home
+    assert odds.spread_away == spread_away
+
+
+def test_incomplete_bookmakers_cannot_be_mixed_into_one_snapshot():
+    event = _event(with_odds=True)
+    first, second = event["bookmakers"][0].copy(), event["bookmakers"][0].copy()
+    first["title"] = "Spread Only"
+    first["markets"] = [
+        market for market in event["bookmakers"][0]["markets"]
+        if market["key"] == "spreads"
+    ]
+    second["title"] = "Prices Only"
+    second["markets"] = [
+        market for market in event["bookmakers"][0]["markets"]
+        if market["key"] != "spreads"
+    ]
+    event["bookmakers"] = [first, second]
+    db = _session()
+    live_data = MagicMock()
+    live_data.fetch_games.return_value = [event]
+
+    GameOddsImporter(db=db, live_data_service=live_data).import_games("WNBA")
+
+    assert db.query(Odds).count() == 0
+
+
 @pytest.mark.parametrize("with_incomplete_history", [False, True])
 def test_engine_reports_no_complete_snapshot_semantically(
     with_incomplete_history,
@@ -240,6 +292,36 @@ def test_ncaaf_builds_unified_spread_moneyline_and_total_predictions():
     assert specifications[2]["line_value"] == 52.5
 
 
+@pytest.mark.parametrize(
+    ("spread_home", "spread_away", "selection", "expected_line"),
+    [
+        (-5.5, 5.5, "HOME", -5.5),
+        (3.5, -3.5, "AWAY", -3.5),
+        (3.5, -3.5, "HOME", 3.5),
+    ],
+)
+def test_prediction_uses_selected_team_spread(
+    spread_home,
+    spread_away,
+    selection,
+    expected_line,
+):
+    odds = _odds()
+    odds.spread_home = spread_home
+    odds.spread_away = spread_away
+    engine = PredictionEngine()
+    engine.determine_pick = MagicMock(return_value=selection)
+
+    spread = engine._market_specifications(
+        sport="WNBA",
+        odds=odds,
+        spread_npi={"npi_score": 110, "factors": []},
+    )[0]
+
+    assert spread["selection"] == selection
+    assert spread["line_value"] == expected_line
+
+
 def test_one_ncaaf_event_persists_complete_odds_and_three_predictions():
     db = _session()
     live_data = MagicMock()
@@ -313,6 +395,35 @@ def test_one_ncaaf_event_persists_complete_odds_and_three_predictions():
     ]
     assert len(stored_predictions) == 3
     assert all(0 <= prediction.npi_score <= 200 for prediction in predictions)
+    assert all(
+        prediction.odds_snapshot_id == stored_odds.id
+        and prediction.sportsbook == stored_odds.sportsbook
+        and prediction.odds_observed_at == stored_odds.created_at
+        for prediction in predictions
+    )
+
+    original_lines = {
+        prediction.market: prediction.line_value
+        for prediction in predictions
+    }
+    db.add(
+        Odds(
+            game_id=game.id,
+            sportsbook="Later Sportsbook",
+            spread_home=-20.0,
+            spread_away=20.0,
+            moneyline_home=-900,
+            moneyline_away=650,
+            total=60.0,
+        )
+    )
+    db.commit()
+    repeated = engine.analyze_markets(db=db, game_id=game.id, persist=True)
+    assert {
+        prediction.market: prediction.line_value
+        for prediction in repeated
+    } == original_lines
+    assert all(prediction.odds_snapshot_id == stored_odds.id for prediction in repeated)
 
     feed = V1ReadService().get_today_predictions(
         db=db,
@@ -326,3 +437,11 @@ def test_one_ncaaf_event_persists_complete_odds_and_three_predictions():
         "moneyline",
         "total",
     }
+
+    stored_game.status = "final"
+    db.commit()
+    assert V1ReadService().get_today_predictions(
+        db=db,
+        sport="NCAAF",
+        include_passes=True,
+    )["count"] == 0

@@ -58,6 +58,7 @@ class V1ReadService:
             query = query.filter(Game.sport == sport.upper())
         if not include_passes:
             query = query.filter(Prediction.selection != "PASS")
+        query = query.filter(Game.status != "final")
 
         rows = query.filter(
             Game.game_date >= day_start,

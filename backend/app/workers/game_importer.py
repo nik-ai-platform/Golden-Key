@@ -160,31 +160,3 @@ class GameOddsImporter:
         return datetime.fromisoformat(
             commence_time.replace("Z", "+00:00")
         )
-
-    def _extract_market_values(
-        self,
-        bookmaker: dict
-    ) -> tuple[float | None, float | None, int | None, int | None, float | None]:
-        spread_home = None
-        spread_away = None
-        moneyline_home = None
-        moneyline_away = None
-        total = None
-
-        for market in bookmaker.get("markets", []):
-            key = market.get("key")
-            outcomes = market.get("outcomes", [])
-
-            if key == "h2h" and len(outcomes) >= 2:
-                moneyline_home = outcomes[0].get("price")
-                moneyline_away = outcomes[1].get("price")
-
-            if key == "spreads" and outcomes:
-                spread_home = outcomes[0].get("point")
-                if len(outcomes) > 1:
-                    spread_away = outcomes[1].get("point")
-
-            if key == "totals" and outcomes:
-                total = outcomes[0].get("point")
-
-        return spread_home, spread_away, moneyline_home, moneyline_away, total
