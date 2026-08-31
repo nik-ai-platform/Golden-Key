@@ -1,5 +1,12 @@
 import { client } from "../api/client";
-import type { AccessTokenResponse, AuthUser, LoginRequest, RegisterRequest } from "../types/auth";
+import type {
+  AccessTokenResponse,
+  AuthUser,
+  LoginRequest,
+  MessageResponse,
+  RegisterRequest,
+  ResetPasswordRequest,
+} from "../types/auth";
 
 export async function login(payload: LoginRequest): Promise<AccessTokenResponse> {
   const { data } = await client.post<AccessTokenResponse>("/auth/login", payload);
@@ -8,6 +15,16 @@ export async function login(payload: LoginRequest): Promise<AccessTokenResponse>
 
 export async function register(payload: RegisterRequest): Promise<void> {
   await client.post("/auth/register", payload);
+}
+
+export async function forgotPassword(email: string): Promise<MessageResponse> {
+  const { data } = await client.post<MessageResponse>("/auth/forgot-password", { email });
+  return data;
+}
+
+export async function resetPassword(payload: ResetPasswordRequest): Promise<MessageResponse> {
+  const { data } = await client.post<MessageResponse>("/auth/reset-password", payload);
+  return data;
 }
 
 export async function getCurrentUser(): Promise<AuthUser> {

@@ -47,6 +47,10 @@ export function LoginPage() {
             {error && <Alert severity="error">{error}</Alert>}
             <TextField label="Email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
             <TextField label="Password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+            <Stack direction="row" justifyContent="space-between" flexWrap="wrap" gap={1}>
+              <Link component={RouterLink} to="/forgot-password">Forgot password?</Link>
+              <Link component={RouterLink} to="/forgot-email">Forgot email?</Link>
+            </Stack>
             <Button type="submit" variant="contained" color="primary" disabled={loading}>
               {loading ? "Signing in..." : "Sign In"}
             </Button>

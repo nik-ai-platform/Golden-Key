@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_auth_service, get_current_user, oauth2_scheme
@@ -97,17 +97,27 @@ def logout(
     return MessageResponse(message="Session revoked")
 
 
-@router.post("/password-reset", response_model=MessageResponse)
+PASSWORD_RESET_MESSAGE = (
+    "If an account exists for that email, password reset instructions have been sent."
+)
+
+
+@router.post("/forgot-password", response_model=MessageResponse)
+@router.post("/password-reset", response_model=MessageResponse, include_in_schema=False)
 def request_password_reset(
     payload: PasswordResetRequest,
+    background_tasks: BackgroundTasks,
     auth: AuthenticationService = Depends(get_auth_service),
     db: Session = Depends(get_db),
 ):
-    auth.request_password_reset(db, str(payload.email))
-    return MessageResponse(message="If the account exists, a reset email has been queued")
+    delivery = auth.request_password_reset(db, str(payload.email))
+    if delivery is not None:
+        background_tasks.add_task(auth.deliver_password_reset, delivery)
+    return MessageResponse(message=PASSWORD_RESET_MESSAGE)
 
 
-@router.post("/password-reset/confirm", response_model=MessageResponse)
+@router.post("/reset-password", response_model=MessageResponse)
+@router.post("/password-reset/confirm", response_model=MessageResponse, include_in_schema=False)
 def confirm_password_reset(
     payload: PasswordResetConfirmRequest,
     auth: AuthenticationService = Depends(get_auth_service),
@@ -116,6 +126,16 @@ def confirm_password_reset(
     if not auth.reset_password(db, payload.token, payload.new_password):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid reset token")
     return MessageResponse(message="Password updated")
+
+
+@router.post("/forgot-email", response_model=MessageResponse)
+def forgot_email():
+    return MessageResponse(
+        message=(
+            "If you no longer remember the email associated with your Golden Key account, "
+            "contact support for account recovery."
+        )
+    )
 
 
 @router.post("/email-verification", response_model=MessageResponse)

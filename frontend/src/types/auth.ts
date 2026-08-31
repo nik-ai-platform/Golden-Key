@@ -9,6 +9,15 @@ export type RegisterRequest = {
   password: string;
 };
 
+export type MessageResponse = {
+  message: string;
+};
+
+export type ResetPasswordRequest = {
+  token: string;
+  new_password: string;
+};
+
 export type AccessTokenResponse = {
   access_token: string;
   token_type: "bearer";

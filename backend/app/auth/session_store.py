@@ -9,7 +9,6 @@ class SessionStore:
         self._revoked: dict[str, float] = {}
         self._refresh_sessions: dict[str, dict] = {}
         self._email_verification_tokens: dict[str, dict] = {}
-        self._password_reset_tokens: dict[str, dict] = {}
         self._lockout: dict[str, dict] = {}
         self._lock = Lock()
 
@@ -83,20 +82,6 @@ class SessionStore:
                 self._lockout.pop(subject, None)
                 return False
             return True
-
-    def create_password_reset(self, token: str, email: str, expires_in_minutes: int) -> None:
-        with self._lock:
-            expiry = datetime.now(UTC) + timedelta(minutes=expires_in_minutes)
-            self._password_reset_tokens[token] = {"email": email, "expires_at": expiry}
-
-    def consume_password_reset(self, token: str) -> str | None:
-        with self._lock:
-            state = self._password_reset_tokens.pop(token, None)
-            if not state:
-                return None
-            if datetime.now(UTC) >= state["expires_at"]:
-                return None
-            return str(state["email"])
 
     def create_email_verification(self, token: str, email: str, expires_in_minutes: int) -> None:
         with self._lock:

@@ -1,3 +1,7 @@
+import hashlib
+import logging
+import secrets
+from dataclasses import dataclass
 from types import SimpleNamespace
 from datetime import UTC, datetime, timedelta
 
@@ -10,8 +14,20 @@ from app.auth.session_store import session_store
 from app.auth.schemas import AccessTokenResponse, AuthUser
 from app.core.config import settings
 from app.core.roles import UserRole
+from app.models.password_reset_token import PasswordResetToken
+from app.models.user import User
 from app.repositories.user_repository import UserRepository
+from app.services.mail_service import MailSender, SmtpMailSender
 from app.services.performance_metrics_service import performance_metrics
+
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class PasswordResetDelivery:
+    recipient: str
+    token: str
 
 
 class AuthenticationService:
@@ -20,10 +36,12 @@ class AuthenticationService:
         user_repository: UserRepository | None = None,
         hashing_service: HashingService | None = None,
         jwt_service: JWTService | None = None,
+        mail_sender: MailSender | None = None,
     ):
         self.user_repository = user_repository or UserRepository()
         self.hashing_service = hashing_service or HashingService()
         self.jwt_service = jwt_service or JWTService()
+        self.mail_sender = mail_sender or SmtpMailSender()
         self._demo_password_hash = self.hashing_service.hash_password(
             settings.AUTH_DEMO_PASSWORD
         )
@@ -182,29 +200,73 @@ class AuthenticationService:
                 session_store.revoke_refresh_session(refresh_jti)
                 session_store.revoke_jti(refresh_jti, refresh_exp)
 
-    def request_password_reset(self, db: Session, email: str) -> None:
-        user = self._resolve_user(db, email)
-        if user is None:
-            return
-        reset_token, _, _ = self.jwt_service.create_access_token(
-            {"sub": user.email, "uid": user.id},
-            expires_delta=timedelta(minutes=20),
-        )
-        session_store.create_password_reset(reset_token, user.email, 20)
-
-    def reset_password(self, db: Session, token: str, new_password: str) -> bool:
-        email = session_store.consume_password_reset(token)
-        if not email:
-            return False
-
+    def request_password_reset(
+        self,
+        db: Session,
+        email: str,
+    ) -> PasswordResetDelivery | None:
         user = self._resolve_user(db, email)
         if user is None or getattr(user, "id", 0) == 0:
+            return None
+
+        now = datetime.now(UTC)
+        db.query(PasswordResetToken).filter(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.used_at.is_(None),
+        ).update({PasswordResetToken.used_at: now}, synchronize_session=False)
+        token = secrets.token_urlsafe(32)
+        db.add(
+            PasswordResetToken(
+                user_id=user.id,
+                token_digest=self._reset_token_digest(token),
+                expires_at=now + timedelta(minutes=20),
+            )
+        )
+        db.commit()
+        return PasswordResetDelivery(recipient=user.email, token=token)
+
+    def deliver_password_reset(self, delivery: PasswordResetDelivery) -> None:
+        try:
+            self.mail_sender.send_password_reset(delivery.recipient, delivery.token)
+        except Exception:  # noqa: BLE001
+            logger.error("Password reset email delivery failed")
+
+    def reset_password(self, db: Session, token: str, new_password: str) -> bool:
+        if not token:
+            return False
+
+        now = datetime.now(UTC)
+        reset_token = (
+            db.query(PasswordResetToken)
+            .filter(
+                PasswordResetToken.token_digest == self._reset_token_digest(token),
+                PasswordResetToken.used_at.is_(None),
+                PasswordResetToken.expires_at > now,
+            )
+            .with_for_update()
+            .first()
+        )
+        if reset_token is None:
+            return False
+
+        user = db.get(User, reset_token.user_id)
+        if user is None or not user.is_active:
             return False
 
         user.hashed_password = self.hashing_service.hash_password(new_password)
+        reset_token.used_at = now
+        db.query(PasswordResetToken).filter(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.used_at.is_(None),
+        ).update({PasswordResetToken.used_at: now}, synchronize_session=False)
         db.add(user)
         db.commit()
+        session_store.clear_failed_logins(user.email.lower())
         return True
+
+    @staticmethod
+    def _reset_token_digest(token: str) -> str:
+        return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
     def request_email_verification(self, db: Session, email: str) -> None:
         user = self._resolve_user(db, email)
