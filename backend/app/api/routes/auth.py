@@ -1,7 +1,13 @@
+import logging
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_auth_service, get_current_user, oauth2_scheme
+from app.auth.persistent_user import (
+    PersistentUserNotFoundError,
+    resolve_existing_persistent_user,
+)
 from app.auth.schemas import (
     AccessTokenResponse,
     AuthUser,
@@ -23,6 +29,9 @@ from app.auth.service import AuthenticationService
 from app.database.session import get_db
 from app.schemas.user import UserCreate, UserResponse
 from app.services.user_service import create_user, get_user_by_email, get_user_by_username
+
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(
@@ -147,9 +156,16 @@ def configure_recovery_email(
     db: Session = Depends(get_db),
 ):
     try:
+        persistent_user = resolve_existing_persistent_user(db, current_user)
         delivery = auth.request_recovery_email_verification(
-            db, current_user.id, str(payload.recovery_email)
+            db, persistent_user.id, str(payload.recovery_email)
         )
+    except PersistentUserNotFoundError as exc:
+        logger.error("Recovery email setup failed: persistent user not found")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unable to configure recovery email",
+        ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     background_tasks.add_task(auth.deliver_recovery_email_verification, delivery)
@@ -163,7 +179,15 @@ def verify_recovery_email(
     auth: AuthenticationService = Depends(get_auth_service),
     db: Session = Depends(get_db),
 ):
-    if not auth.verify_recovery_email(db, current_user.id, payload.code):
+    try:
+        persistent_user = resolve_existing_persistent_user(db, current_user)
+    except PersistentUserNotFoundError as exc:
+        logger.error("Recovery email verification failed: persistent user not found")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=INVALID_RECOVERY_CODE_MESSAGE,
+        ) from exc
+    if not auth.verify_recovery_email(db, persistent_user.id, payload.code):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=INVALID_RECOVERY_CODE_MESSAGE,

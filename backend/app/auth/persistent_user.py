@@ -4,7 +4,27 @@ from sqlalchemy.orm import Session
 from app.auth.hashing import HashingService
 from app.auth.schemas import AuthUser
 from app.core.config import settings
+from app.models.user import User
 from app.repositories.user_repository import UserRepository
+
+
+class PersistentUserNotFoundError(Exception):
+    pass
+
+
+def resolve_existing_persistent_user(
+    db: Session,
+    current_user: AuthUser,
+) -> User:
+    if current_user.id != 0:
+        user = db.get(User, current_user.id)
+    else:
+        user = UserRepository().get_by_email(db, current_user.email.lower())
+
+    if user is None:
+        raise PersistentUserNotFoundError("Authenticated user has no persistent account")
+
+    return user
 
 
 def resolve_persistent_user_id(

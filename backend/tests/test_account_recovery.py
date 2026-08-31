@@ -255,6 +255,60 @@ def test_authenticated_user_configures_and_verifies_recovery_email(recovery_clie
     assert "secondary@example.com" not in profile.values()
 
 
+def test_synthetic_user_uses_existing_persistent_user_for_recovery(recovery_client):
+    client, session_factory, mail_sender = recovery_client
+    with session_factory() as db:
+        persistent_admin = User(
+            username="persistent-admin",
+            email="admin@example.com",
+            hashed_password=HashingService().hash_password("unused-password"),
+            role="admin",
+            is_active=True,
+        )
+        db.add(persistent_admin)
+        db.commit()
+        persistent_id = persistent_admin.id
+
+    headers = auth_headers(client, "admin@example.com", "admin123")
+    code = configure_recovery_email(
+        client, mail_sender, headers, "admin-recovery@example.com"
+    )
+
+    with session_factory() as db:
+        challenge = db.query(RecoveryEmailVerification).one()
+        user = db.get(User, persistent_id)
+        assert challenge.user_id == persistent_id
+        assert challenge.user_id != 0
+        assert user.recovery_email == "admin-recovery@example.com"
+
+    response = client.post(
+        "/api/v1/auth/recovery-email/verify",
+        json={"code": code},
+        headers=headers,
+    )
+    assert response.status_code == 200
+    with session_factory() as db:
+        assert db.get(User, persistent_id).recovery_email_verified is True
+
+
+def test_synthetic_user_without_persistent_row_fails_cleanly(recovery_client):
+    client, session_factory, mail_sender = recovery_client
+    headers = auth_headers(client, "admin@example.com", "admin123")
+
+    response = client.post(
+        "/api/v1/auth/recovery-email",
+        json={"recovery_email": "admin-recovery@example.com"},
+        headers=headers,
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Unable to configure recovery email"}
+    assert mail_sender.recovery_verifications == []
+    with session_factory() as db:
+        assert db.query(User).count() == 0
+        assert db.query(RecoveryEmailVerification).count() == 0
+
+
 def test_recovery_email_rejects_primary_and_change_resets_verification(recovery_client):
     client, session_factory, mail_sender = recovery_client
     register(client, "customer", "customer@example.com", "old-password")
