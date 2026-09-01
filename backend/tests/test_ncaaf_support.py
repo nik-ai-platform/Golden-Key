@@ -551,6 +551,50 @@ def test_ncaaf_builds_unified_spread_moneyline_and_total_predictions():
     assert specifications[2]["line_value"] == 52.5
 
 
+def test_moneyline_upset_signal_shadows_historical_rule_without_changing_pick():
+    engine = PredictionEngine()
+    engine.simulation_engine = MagicMock()
+    engine.simulation_engine.simulate.return_value = {
+        "win_probability": 42,
+        "runs": 10000,
+        "average_margin": -2.0,
+    }
+    spread_npi = {
+        "npi_score": 110,
+        "factors": [
+            {
+                "name": "Historical Rule Engine",
+                "weight": 80,
+                "score": 28,
+                "explanation": "Spreadsheet-origin rule match",
+            }
+        ],
+    }
+
+    moneyline = engine._moneyline_specification(_odds(), spread_npi)
+
+    assert moneyline["upset_signal"] == 35.0
+    assert moneyline["selection"] == "AWAY"
+    assert moneyline["american_odds"] == 230
+
+
+def test_moneyline_upset_signal_is_missing_without_independent_rule_factor():
+    engine = PredictionEngine()
+    engine.simulation_engine = MagicMock()
+    engine.simulation_engine.simulate.return_value = {
+        "win_probability": 42,
+        "runs": 10000,
+        "average_margin": -2.0,
+    }
+
+    moneyline = engine._moneyline_specification(
+        _odds(),
+        {"npi_score": 110, "factors": []},
+    )
+
+    assert moneyline["upset_signal"] is None
+
+
 @pytest.mark.parametrize(
     ("spread_home", "spread_away", "selection", "expected_line"),
     [
@@ -659,6 +703,16 @@ def test_one_ncaaf_event_persists_complete_odds_and_three_predictions():
         and prediction.sportsbook == stored_odds.sportsbook
         and prediction.odds_observed_at == stored_odds.created_at
         for prediction in predictions
+    )
+    assert next(
+        prediction.upset_signal
+        for prediction in predictions
+        if prediction.market == "moneyline"
+    ) == 25.0
+    assert all(
+        prediction.upset_signal is None
+        for prediction in predictions
+        if prediction.market != "moneyline"
     )
 
     original_lines = {

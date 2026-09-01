@@ -27,6 +27,10 @@ class PredictionCreate(PredictionBase):
     reasoning: str | None = None
 
 
+class PredictionShadowCreate(PredictionCreate):
+    upset_signal: float | None = None
+
+
 class PredictionResponse(PredictionCreate):
     id: int
     created_at: datetime

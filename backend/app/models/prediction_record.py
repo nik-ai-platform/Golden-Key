@@ -91,6 +91,11 @@ class Prediction(Base):
         nullable=True,
     )
 
+    upset_signal = Column(
+        Float,
+        nullable=True,
+    )
+
     risk_level = Column(
         String,
         nullable=True,

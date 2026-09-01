@@ -9,7 +9,7 @@ from app.models.odds import Odds
 from app.models.prediction_record import Prediction
 from app.models.prediction_result import PredictionResult
 from app.models.user_prediction import UserPrediction
-from app.schemas.prediction import PredictionCreate
+from app.schemas.prediction import PredictionShadowCreate
 from app.services.ai_analysis_engine import (
     AIAnalysisEngine
 )
@@ -233,7 +233,7 @@ class PredictionEngine:
                     "factors": factors,
                 }
             )
-            prediction = PredictionCreate(
+            prediction = PredictionShadowCreate(
                 game_id=game_id,
                 model_version=model_version,
                 reasoning=(
@@ -345,7 +345,7 @@ class PredictionEngine:
 
         moneyline = self._moneyline_specification(
             odds=odds,
-            spread_npi=spread_score,
+            spread_npi=spread_npi,
         )
         total = self._total_specification(
             sport=sport,
@@ -387,6 +387,7 @@ class PredictionEngine:
         ]
 
     def _moneyline_specification(self, odds, spread_npi):
+        spread_score = spread_npi["npi_score"]
         home_implied = self._american_implied_probability(
             odds.moneyline_home
         )
@@ -397,7 +398,7 @@ class PredictionEngine:
         fair_home = home_implied / implied_total * 100
 
         simulation = self.simulation_engine.simulate(
-            npi_score=spread_npi,
+            npi_score=spread_score,
             spread=0,
         )
         home_probability = simulation["win_probability"]
@@ -432,6 +433,9 @@ class PredictionEngine:
             "simulation_margin": simulation["average_margin"],
             "confidence_score": confidence,
             "projected_edge": round(selected_edge, 2),
+            "upset_signal": self._shadow_upset_signal(
+                spread_npi["factors"]
+            ),
             "risk_level": self.calculate_risk(confidence, selected_edge),
             "factors": [
                 {
@@ -445,6 +449,26 @@ class PredictionEngine:
                 }
             ],
         }
+
+    @staticmethod
+    def _shadow_upset_signal(factors):
+        historical_rule = next(
+            (
+                factor
+                for factor in factors
+                if factor.get("name") == "Historical Rule Engine"
+            ),
+            None,
+        )
+        if not historical_rule:
+            return None
+
+        weight = float(historical_rule.get("weight") or 0)
+        if weight <= 0:
+            return None
+
+        score = float(historical_rule.get("score") or 0)
+        return round(max(0.0, min(score / weight * 100, 100.0)), 2)
 
     def _total_specification(self, sport, odds):
         baseline = self.SPORT_TOTAL_BASELINES.get(sport, float(odds.total))
