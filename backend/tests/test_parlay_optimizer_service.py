@@ -89,7 +89,7 @@ def _add_candidate(db, index, market, *, selection=None, stale=False, edge=6.0):
     ("leg_count", "moneyline_max", "spread_min", "total_min"),
     [(2, 1, 0, 0), (4, 2, 1, 1), (6, 2, 2, 1), (8, 3, 2, 2), (10, 3, 3, 2)],
 )
-def test_optimizer_enforces_market_mix_and_unique_games(
+def test_optimizer_builds_every_supported_parlay_when_inventory_is_sufficient(
     leg_count,
     moneyline_max,
     spread_min,

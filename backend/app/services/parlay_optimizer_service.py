@@ -20,12 +20,12 @@ class ParlayOptimizerService:
     MAX_ODDS_AGE = timedelta(hours=6)
     MIN_PROJECTED_EDGE = 1.0
     BEAM_WIDTH = 500
-    MARKET_RULES = {
-        2: {"moneyline_max": 1, "spread_min": 0, "total_min": 0},
-        4: {"moneyline_max": 2, "spread_min": 1, "total_min": 1},
-        6: {"moneyline_max": 2, "spread_min": 2, "total_min": 1},
-        8: {"moneyline_max": 3, "spread_min": 2, "total_min": 2},
-        10: {"moneyline_max": 3, "spread_min": 3, "total_min": 2},
+    MARKET_MIX_RULES = {
+        2: {"max_moneylines": 1, "min_spreads": 0, "min_totals": 0},
+        4: {"max_moneylines": 2, "min_spreads": 1, "min_totals": 1},
+        6: {"max_moneylines": 2, "min_spreads": 2, "min_totals": 1},
+        8: {"max_moneylines": 3, "min_spreads": 2, "min_totals": 2},
+        10: {"max_moneylines": 3, "min_spreads": 3, "min_totals": 2},
     }
 
     def build_parlay(
@@ -197,7 +197,7 @@ class ParlayOptimizerService:
         return round(sum(components.values()), 2), components
 
     def _optimize(self, candidates: list[dict], leg_count: int) -> list[dict] | None:
-        rules = self.MARKET_RULES[leg_count]
+        rules = self.MARKET_MIX_RULES[leg_count]
         states = [([], frozenset(), {"spread": 0, "total": 0, "moneyline": 0}, 0.0)]
 
         for _ in range(leg_count):
@@ -207,10 +207,20 @@ class ParlayOptimizerService:
                     if candidate["game_id"] in game_ids:
                         continue
                     market = candidate["market"]
-                    if market == "moneyline" and counts[market] >= rules["moneyline_max"]:
-                        continue
 
                     new_legs = [*legs, candidate]
+                    if not self._partial_market_mix_is_feasible(
+                        new_legs,
+                        requested_legs=leg_count,
+                        **rules,
+                    ):
+                        continue
+                    if len(new_legs) == leg_count and not self._meets_final_market_mix(
+                        new_legs,
+                        **rules,
+                    ):
+                        continue
+
                     key = tuple(sorted(item["prediction_id"] for item in new_legs))
                     repeat_penalty = counts[market] * 1.5
                     if market == "total" and any(
@@ -242,8 +252,7 @@ class ParlayOptimizerService:
         valid = [
             state
             for state in states
-            if state[2]["spread"] >= rules["spread_min"]
-            and state[2]["total"] >= rules["total_min"]
+            if self._meets_final_market_mix(state[0], **rules)
         ]
         if not valid:
             return None
@@ -256,10 +265,50 @@ class ParlayOptimizerService:
     def _state_rank(state, rules) -> float:
         counts = state[2]
         quota_progress = (
-            min(counts["spread"], rules["spread_min"])
-            + min(counts["total"], rules["total_min"])
+            min(counts["spread"], rules["min_spreads"])
+            + min(counts["total"], rules["min_totals"])
         )
         return state[3] + quota_progress * 5
+
+    @staticmethod
+    def _partial_market_mix_is_feasible(
+        selected: list[dict],
+        *,
+        requested_legs: int,
+        min_spreads: int,
+        min_totals: int,
+        max_moneylines: int,
+    ) -> bool:
+        counts = ParlayOptimizerService._market_counts(selected)
+        remaining_slots = requested_legs - len(selected)
+        needed_spreads = max(0, min_spreads - counts["spread"])
+        needed_totals = max(0, min_totals - counts["total"])
+
+        if counts["moneyline"] > max_moneylines:
+            return False
+        return needed_spreads + needed_totals <= remaining_slots
+
+    @staticmethod
+    def _meets_final_market_mix(
+        selected: list[dict],
+        *,
+        min_spreads: int,
+        min_totals: int,
+        max_moneylines: int,
+    ) -> bool:
+        counts = ParlayOptimizerService._market_counts(selected)
+        return (
+            counts["spread"] >= min_spreads
+            and counts["total"] >= min_totals
+            and counts["moneyline"] <= max_moneylines
+        )
+
+    @staticmethod
+    def _market_counts(selected: list[dict]) -> dict[str, int]:
+        counts = {"spread": 0, "moneyline": 0, "total": 0}
+        for candidate in selected:
+            counts[candidate["market"]] += 1
+        return counts
 
     @staticmethod
     def _scaled(value, maximum: float, points: float) -> float:
