@@ -43,7 +43,7 @@ export function LoginPage() {
         <CardContent>
           <Stack spacing={2.5} component="form" onSubmit={onSubmit}>
             <Typography variant="h4">Welcome Back</Typography>
-            <Typography color="text.secondary">Sign in to access dashboard, predictions, games, intelligence, and analytics.</Typography>
+            <Typography color="text.secondary">Turn the key. Change the game.</Typography>
             {error && <Alert severity="error">{error}</Alert>}
             <TextField label="Email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
             <TextField label="Password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
