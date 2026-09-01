@@ -13,6 +13,8 @@ from app.models.odds import Odds  # noqa: F401
 from app.models.prediction_record import Prediction
 from app.models.prediction_result import PredictionResult
 from app.models.team import Team  # noqa: F401
+from app.models.user import User
+from app.models.user_prediction import UserPrediction
 from app.services.live_data_service import LiveDataService
 from app.services.npi_engine import NPIEngine
 from app.services.odds_service import NoCompleteOddsSnapshotError
@@ -213,6 +215,120 @@ def test_incomplete_future_prediction_set_is_replaced_from_exact_snapshot():
     repeated = engine.analyze_markets(db=db, game_id=game.id, persist=True)
     assert {prediction.id for prediction in repeated} == regenerated_ids
     assert db.query(Prediction).filter(Prediction.game_id == game.id).count() == 3
+
+
+def test_snapshot_selection_uses_sportsbook_priority_not_insertion_order():
+    observed_at = datetime.now(timezone.utc)
+    rows = [
+        SimpleNamespace(
+            id=99,
+            sportsbook="Fanatics",
+            created_at=observed_at,
+            spread_home=-7.5,
+            spread_away=7.5,
+            moneyline_home=-280,
+            moneyline_away=230,
+            total=52.5,
+        ),
+        SimpleNamespace(
+            id=1,
+            sportsbook="DraftKings",
+            created_at=observed_at,
+            spread_home=-8.0,
+            spread_away=8.0,
+            moneyline_home=-300,
+            moneyline_away=240,
+            total=53.0,
+        ),
+    ]
+
+    selected = PredictionEngine._select_complete_snapshot(rows)
+
+    assert selected.sportsbook == "DraftKings"
+
+
+def test_snapshot_selection_prefers_newest_batch_before_sportsbook():
+    observed_at = datetime.now(timezone.utc)
+    rows = [
+        SimpleNamespace(
+            id=1,
+            sportsbook="DraftKings",
+            created_at=observed_at,
+            spread_home=-7.5,
+            spread_away=7.5,
+            moneyline_home=-280,
+            moneyline_away=230,
+            total=52.5,
+        ),
+        SimpleNamespace(
+            id=2,
+            sportsbook="Fanatics",
+            created_at=observed_at + timedelta(minutes=1),
+            spread_home=-8.0,
+            spread_away=8.0,
+            moneyline_home=-300,
+            moneyline_away=240,
+            total=53.0,
+        ),
+    ]
+
+    selected = PredictionEngine._select_complete_snapshot(rows)
+
+    assert selected.sportsbook == "Fanatics"
+
+
+def test_saved_future_predictions_are_not_refreshed():
+    db = _session()
+    game = GameOddsImporter(
+        db=db,
+        live_data_service=MagicMock(fetch_games=MagicMock(return_value=[_event()])),
+    ).import_games("NCAAF")[0]
+    game.game_date = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=1)
+    first_snapshot = Odds(
+        game_id=game.id,
+        sportsbook="Fanatics",
+        spread_home=-7.5,
+        spread_away=7.5,
+        moneyline_home=-280,
+        moneyline_away=230,
+        total=52.5,
+        created_at=datetime.now(timezone.utc).replace(tzinfo=None),
+    )
+    db.add(first_snapshot)
+    db.commit()
+    engine = _configured_prediction_engine()
+    predictions = engine.analyze_markets(db=db, game_id=game.id, persist=True)
+    user = User(
+        username="snapshot-owner",
+        email="snapshot-owner@example.com",
+        hashed_password="test",
+    )
+    db.add(user)
+    db.flush()
+    db.add(UserPrediction(user_id=user.id, prediction_id=predictions[0].id))
+    db.add(
+        Odds(
+            game_id=game.id,
+            sportsbook="DraftKings",
+            spread_home=-9.5,
+            spread_away=9.5,
+            moneyline_home=-400,
+            moneyline_away=320,
+            total=56.5,
+            created_at=first_snapshot.created_at + timedelta(minutes=1),
+        )
+    )
+    db.commit()
+
+    returned = engine.analyze_markets(db=db, game_id=game.id, persist=True)
+
+    assert {prediction.id for prediction in returned} == {
+        prediction.id for prediction in predictions
+    }
+    assert all(
+        prediction.odds_snapshot_id == first_snapshot.id
+        for prediction in returned
+    )
 
 
 def test_settled_legacy_predictions_and_results_are_never_regenerated():
@@ -549,24 +665,29 @@ def test_one_ncaaf_event_persists_complete_odds_and_three_predictions():
         prediction.market: prediction.line_value
         for prediction in predictions
     }
-    db.add(
-        Odds(
-            game_id=game.id,
-            sportsbook="Later Sportsbook",
-            spread_home=-20.0,
-            spread_away=20.0,
-            moneyline_home=-900,
-            moneyline_away=650,
-            total=60.0,
-        )
+    later_snapshot = Odds(
+        game_id=game.id,
+        sportsbook="Later Sportsbook",
+        spread_home=-20.0,
+        spread_away=20.0,
+        moneyline_home=-900,
+        moneyline_away=650,
+        total=60.0,
+        created_at=stored_odds.created_at + timedelta(minutes=1),
     )
+    db.add(later_snapshot)
     db.commit()
     repeated = engine.analyze_markets(db=db, game_id=game.id, persist=True)
-    assert {
+    refreshed_lines = {
         prediction.market: prediction.line_value
         for prediction in repeated
-    } == original_lines
-    assert all(prediction.odds_snapshot_id == stored_odds.id for prediction in repeated)
+    }
+    assert refreshed_lines != original_lines
+    assert refreshed_lines["total"] == later_snapshot.total
+    assert all(
+        prediction.odds_snapshot_id == later_snapshot.id
+        for prediction in repeated
+    )
 
     feed = V1ReadService().get_today_predictions(
         db=db,

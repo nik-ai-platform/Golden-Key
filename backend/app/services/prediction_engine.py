@@ -8,6 +8,7 @@ from app.models.npi_factor_result import NPIFactorResult
 from app.models.odds import Odds
 from app.models.prediction_record import Prediction
 from app.models.prediction_result import PredictionResult
+from app.models.user_prediction import UserPrediction
 from app.schemas.prediction import PredictionCreate
 from app.services.ai_analysis_engine import (
     AIAnalysisEngine
@@ -32,6 +33,18 @@ class PredictionEngine:
 
     MODEL_VERSION = "NPI-4.0"
     MARKETS = ("spread", "moneyline", "total")
+    PREFERRED_SPORTSBOOKS = (
+        "draftkings",
+        "fanduel",
+        "betmgm",
+        "caesars",
+        "espnbet",
+        "fanatics",
+    )
+    SPORTSBOOK_PRIORITY = {
+        name: index
+        for index, name in enumerate(PREFERRED_SPORTSBOOKS)
+    }
     SPORT_TOTAL_BASELINES = {
         "NFL": 44.5,
         "NCAAF": 52.0,
@@ -111,9 +124,6 @@ class PredictionEngine:
                 )
                 .all()
             )
-            if self._prediction_set_has_complete_provenance(existing_predictions):
-                return self._ordered_predictions(existing_predictions)
-
             if existing_predictions:
                 now = datetime.now(timezone.utc).replace(tzinfo=None)
                 prediction_ids = [
@@ -125,22 +135,26 @@ class PredictionEngine:
                     .first()
                     is not None
                 )
-                if game.game_date <= now or game.status == "final" or has_result:
+                is_user_protected = (
+                    db.query(UserPrediction.id)
+                    .filter(UserPrediction.prediction_id.in_(prediction_ids))
+                    .first()
+                    is not None
+                )
+                if (
+                    game.game_date <= now
+                    or game.status == "final"
+                    or has_result
+                    or is_user_protected
+                ):
                     return self._ordered_predictions(existing_predictions)
 
-        odds = (
+        odds_rows = (
             db.query(Odds)
-            .filter(
-                Odds.game_id == game_id,
-                Odds.spread_home.is_not(None),
-                Odds.spread_away.is_not(None),
-                Odds.moneyline_home.is_not(None),
-                Odds.moneyline_away.is_not(None),
-                Odds.total.is_not(None),
-            )
-            .order_by(Odds.id.desc())
-            .first()
+            .filter(Odds.game_id == game_id)
+            .all()
         )
+        odds = self._select_complete_snapshot(odds_rows)
 
         if not odds:
             raise NoCompleteOddsSnapshotError(
@@ -158,6 +172,16 @@ class PredictionEngine:
             raise ValueError(
                 "Complete spread, moneyline, and total odds are required"
             )
+
+        if (
+            persist
+            and self._prediction_set_has_complete_provenance(existing_predictions)
+            and all(
+                prediction.odds_snapshot_id == odds.id
+                for prediction in existing_predictions
+            )
+        ):
+            return self._ordered_predictions(existing_predictions)
 
         if persist and existing_predictions:
             prediction_ids = [prediction.id for prediction in existing_predictions]
@@ -262,6 +286,44 @@ class PredictionEngine:
             if prediction.market in {"spread", "total"} and prediction.line_value is None:
                 return False
         return True
+
+    @classmethod
+    def _sportsbook_rank(cls, name: str | None) -> int:
+        if not name:
+            return len(cls.SPORTSBOOK_PRIORITY) + 1
+        return cls.SPORTSBOOK_PRIORITY.get(
+            name.strip().lower(),
+            len(cls.SPORTSBOOK_PRIORITY),
+        )
+
+    @classmethod
+    def _select_complete_snapshot(cls, odds_rows):
+        complete = [
+            row
+            for row in odds_rows
+            if row.created_at is not None
+            and row.spread_home is not None
+            and row.spread_away is not None
+            and row.moneyline_home is not None
+            and row.moneyline_away is not None
+            and row.total is not None
+        ]
+        if not complete:
+            return None
+
+        newest_observed_at = max(row.created_at for row in complete)
+        newest_batch = [
+            row
+            for row in complete
+            if abs((newest_observed_at - row.created_at).total_seconds()) <= 2
+        ]
+        return min(
+            newest_batch,
+            key=lambda row: (
+                cls._sportsbook_rank(row.sportsbook),
+                -(row.id or 0),
+            ),
+        )
 
     def _ordered_predictions(self, predictions):
         return sorted(

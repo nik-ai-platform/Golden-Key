@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -68,7 +68,13 @@ def test_odds_import_updates_existing_sportsbook_row():
 
 
 def test_prediction_engine_returns_existing_production_prediction():
-    game = SimpleNamespace(id=17, sport="NBA")
+    game = SimpleNamespace(
+        id=17,
+        sport="NBA",
+        game_date=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=1),
+        status="scheduled",
+    )
+    observed_at = datetime.now(timezone.utc)
     existing = [
         SimpleNamespace(
             id=41,
@@ -99,8 +105,29 @@ def test_prediction_engine_returns_existing_production_prediction():
     game_query.filter.return_value.first.return_value = game
     prediction_query = MagicMock()
     prediction_query.filter.return_value.all.return_value = existing
+    empty_query = MagicMock()
+    empty_query.filter.return_value.first.return_value = None
+    odds_query = MagicMock()
+    odds_query.filter.return_value.all.return_value = [
+        SimpleNamespace(
+            id=23,
+            sportsbook="Test Sportsbook",
+            created_at=observed_at,
+            spread_home=-4.5,
+            spread_away=4.5,
+            moneyline_home=-180,
+            moneyline_away=155,
+            total=224.5,
+        )
+    ]
     db = MagicMock()
-    db.query.side_effect = [game_query, prediction_query]
+    db.query.side_effect = [
+        game_query,
+        prediction_query,
+        empty_query,
+        empty_query,
+        odds_query,
+    ]
 
     engine = PredictionEngine()
     engine.model_runtime = MagicMock()
@@ -134,7 +161,7 @@ def test_prediction_engine_uses_default_version_without_production_model():
     game_query = MagicMock()
     game_query.filter.return_value.first.return_value = game
     odds_query = MagicMock()
-    odds_query.filter.return_value.order_by.return_value.first.return_value = odds
+    odds_query.filter.return_value.all.return_value = [odds]
     db = MagicMock()
     db.query.side_effect = [game_query, odds_query]
 
