@@ -73,24 +73,29 @@ def run_once() -> dict[str, dict[str, int | str]]:
                 "sport": summary.sport,
                 "fetched": summary.fetched,
                 "matched": summary.matched,
-                "updated": summary.updated,
+                "finalized": summary.finalized,
+                "already_final": summary.already_final,
+                "unmatched": summary.unmatched,
+                "skipped_not_final": summary.skipped_not_final,
                 "settled": summary.settled,
-                "skipped": summary.skipped,
                 "errors": summary.errors,
             }
 
             logger.info(
                 (
                     "Final score sync sport=%s "
-                    "fetched=%s matched=%s updated=%s "
-                    "settled=%s skipped=%s errors=%s"
+                    "fetched=%s matched=%s finalized=%s "
+                    "already_final=%s unmatched=%s "
+                    "skipped_not_final=%s settled=%s errors=%s"
                 ),
                 summary.sport,
                 summary.fetched,
                 summary.matched,
-                summary.updated,
+                summary.finalized,
+                summary.already_final,
+                summary.unmatched,
+                summary.skipped_not_final,
                 summary.settled,
-                summary.skipped,
                 summary.errors,
             )
 
@@ -101,9 +106,11 @@ def run_once() -> dict[str, dict[str, int | str]]:
                 "sport": sport,
                 "fetched": 0,
                 "matched": 0,
-                "updated": 0,
+                "finalized": 0,
+                "already_final": 0,
+                "unmatched": 0,
+                "skipped_not_final": 0,
                 "settled": 0,
-                "skipped": 0,
                 "errors": 1,
             }
 

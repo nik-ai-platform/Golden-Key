@@ -51,9 +51,11 @@ def test_run_once_syncs_each_configured_sport(monkeypatch):
         sport="NCAAF",
         fetched=10,
         matched=2,
-        updated=2,
+        finalized=1,
+        already_final=1,
+        unmatched=3,
+        skipped_not_final=5,
         settled=2,
-        skipped=8,
         errors=0,
     )
 
@@ -61,9 +63,11 @@ def test_run_once_syncs_each_configured_sport(monkeypatch):
         sport="NFL",
         fetched=5,
         matched=1,
-        updated=1,
+        finalized=1,
+        already_final=0,
+        unmatched=1,
+        skipped_not_final=3,
         settled=1,
-        skipped=4,
         errors=0,
     )
 
@@ -95,6 +99,10 @@ def test_run_once_syncs_each_configured_sport(monkeypatch):
     assert fake_service.sync_sport.call_count == 2
 
     assert results["NCAAF"]["settled"] == 2
+    assert results["NCAAF"]["finalized"] == 1
+    assert results["NCAAF"]["already_final"] == 1
+    assert results["NCAAF"]["unmatched"] == 3
+    assert results["NCAAF"]["skipped_not_final"] == 5
     assert results["NFL"]["settled"] == 1
 
     assert fake_db.close.call_count == 2

@@ -130,6 +130,13 @@ class ResultSettlementService:
         prediction: Prediction,
     ) -> dict:
         market = (prediction.market or "").lower()
+        if (prediction.selection or "").upper() == "PASS":
+            return {
+                "predicted_result": "PASS",
+                "actual_result": "NO_BET",
+                "outcome": "PUSH",
+                "profit_loss": 0.0,
+            }
         if market in {"spread", "ats"}:
             return self._grade_spread(game, prediction)
         if market in {"moneyline", "ml"}:
@@ -186,13 +193,6 @@ class ResultSettlementService:
         prediction: Prediction,
     ) -> dict:
         selection = (prediction.selection or "").upper()
-        if selection == "PASS":
-            return {
-                "predicted_result": "PASS",
-                "actual_result": "NO_BET",
-                "outcome": "PUSH",
-                "profit_loss": 0.0,
-            }
         spread = getattr(prediction, "line_value", None)
         if spread is None:
             raise ValueError(
