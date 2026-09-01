@@ -3,10 +3,6 @@ from app.models.prediction_record import Prediction
 from app.schemas.prediction import PredictionCreate
 
 
-class PredictionService:
-    pass
-
-
 def create_prediction(
     db: Session,
     prediction: PredictionCreate,

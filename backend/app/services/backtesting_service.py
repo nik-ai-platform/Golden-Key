@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from app.repositories import game_repository
 from app.services.model_evaluation_service import ModelEvaluationService
-from app.services.prediction_service import PredictionService
 from app.services.weight_optimization_service import WeightOptimizationService
 
 
@@ -17,13 +16,9 @@ class BacktestingService:
 
     def __init__(
         self,
-        prediction_service=None,
         evaluation_service=None,
         weight_optimization_service=None,
     ):
-        self.prediction_service = (
-            prediction_service or PredictionService()
-        )
         self.evaluation_service = (
             evaluation_service or ModelEvaluationService()
         )

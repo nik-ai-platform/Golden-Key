@@ -6,7 +6,6 @@ from app.services.model_training_service import ModelTrainingService
 from app.services.monitoring_service import MonitoringService
 from app.services.performance_metrics_service import performance_metrics
 from app.services.prediction_engine import PredictionEngine
-from app.services.prediction_service import PredictionService
 from app.services.training_dataset_service import TrainingDatasetService
 
 
@@ -15,7 +14,6 @@ class JobScheduler:
     def __init__(
         self,
         import_service=None,
-        prediction_service=None,
         prediction_engine=PredictionEngine,
         dataset_service=None,
         training_service=None,
@@ -24,10 +22,6 @@ class JobScheduler:
 
         self.import_service = (
             import_service or ImportService()
-        )
-
-        self.prediction_service = (
-            prediction_service or PredictionService()
         )
 
         self.prediction_engine = (
