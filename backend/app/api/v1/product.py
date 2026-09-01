@@ -6,6 +6,7 @@ from app.auth.persistent_user import resolve_persistent_user_id
 from app.auth.schemas import AuthUser
 from app.database.session import get_db
 from app.schemas.api_contract import (
+    DailyCardResponse,
     GameDetailResponse,
     PerformanceResponse,
     SavedPicksResponse,
@@ -20,6 +21,18 @@ router = APIRouter(
 )
 
 service = V1ReadService()
+
+
+@router.get(
+    "/daily-card",
+    response_model=DailyCardResponse,
+    dependencies=[Depends(get_current_user)],
+)
+def daily_card(
+    sport: str | None = None,
+    db: Session = Depends(get_db),
+):
+    return service.get_daily_card(db=db, sport=sport)
 
 
 @router.get(

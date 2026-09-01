@@ -26,6 +26,26 @@ export interface TodayPredictionsResponse {
   predictions: Prediction[];
 }
 
+export type DailyCardRole =
+  "BEST_BET" | "TOP_SPREAD" | "TOP_MONEYLINE" | "TOP_TOTAL" | "VALUE_PLAY" | "NEXT_BEST";
+
+export interface DailyCardPick {
+  role: DailyCardRole;
+  label: string;
+  ranking_score: number;
+  ranking_reasons: string[];
+  prediction: Prediction;
+}
+
+export interface DailyCardResponse {
+  sport: string | null;
+  generated_at: string;
+  count: number;
+  best_bet: DailyCardPick | null;
+  featured_picks: DailyCardPick[];
+  next_best: DailyCardPick[];
+}
+
 export interface GameDetail {
   game_id: number;
   sport: string;

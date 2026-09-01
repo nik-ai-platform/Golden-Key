@@ -29,6 +29,23 @@ class TodayPredictionsResponse(BaseModel):
     predictions: list[TodayPredictionItem]
 
 
+class DailyCardPick(BaseModel):
+    role: str
+    label: str
+    ranking_score: float
+    ranking_reasons: list[str]
+    prediction: TodayPredictionItem
+
+
+class DailyCardResponse(BaseModel):
+    sport: str | None = None
+    generated_at: str
+    count: int
+    best_bet: DailyCardPick | None = None
+    featured_picks: list[DailyCardPick]
+    next_best: list[DailyCardPick]
+
+
 class GameDetailResponse(BaseModel):
     game_id: int
     sport: str

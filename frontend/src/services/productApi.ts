@@ -1,5 +1,6 @@
 import { client } from "../api/client";
 import type {
+  DailyCardResponse,
   GameDetail,
   Performance,
   RemoveSavedPredictionResponse,
@@ -8,19 +9,23 @@ import type {
   UserProfile,
 } from "../types/product";
 
+export async function getDailyCard(sport?: string): Promise<DailyCardResponse> {
+  const { data } = await client.get<DailyCardResponse>("/product/daily-card", {
+    params: { sport: sport || undefined },
+  });
+  return data;
+}
+
 export async function getTodayPredictions(
   sport?: string,
   includePasses = false,
 ): Promise<TodayPredictionsResponse> {
-  const { data } = await client.get<TodayPredictionsResponse>(
-    "/product/predictions/today",
-    {
-      params: {
-        sport: sport || undefined,
-        include_passes: includePasses || undefined,
-      },
+  const { data } = await client.get<TodayPredictionsResponse>("/product/predictions/today", {
+    params: {
+      sport: sport || undefined,
+      include_passes: includePasses || undefined,
     },
-  );
+  });
   return data;
 }
 

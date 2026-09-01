@@ -20,6 +20,7 @@ def _anonymous_product_client() -> TestClient:
     "path",
     (
         "/api/v1/product/predictions/today",
+        "/api/v1/product/daily-card",
         "/api/v1/product/games/101",
         "/api/v1/product/performance",
     ),
@@ -58,6 +59,20 @@ def test_authenticated_product_reads_preserve_response_contracts(monkeypatch):
         "count": 1,
         "predictions": [prediction],
     }
+    daily_card = {
+        "sport": "WNBA",
+        "generated_at": "2026-08-30T12:00:00Z",
+        "count": 1,
+        "best_bet": {
+            "role": "BEST_BET",
+            "label": "Best Bet",
+            "ranking_score": 82.5,
+            "ranking_reasons": ["82.5% confidence"],
+            "prediction": prediction,
+        },
+        "featured_picks": [],
+        "next_best": [],
+    }
     game = {
         "game_id": 101,
         "sport": "WNBA",
@@ -80,6 +95,7 @@ def test_authenticated_product_reads_preserve_response_contracts(monkeypatch):
         "recent_results": [],
     }
     monkeypatch.setattr(product.service, "get_today_predictions", lambda **_: today)
+    monkeypatch.setattr(product.service, "get_daily_card", lambda **_: daily_card)
     monkeypatch.setattr(product.service, "get_game_detail", lambda **_: game)
     monkeypatch.setattr(product.service, "get_performance", lambda **_: performance)
     access_token, _, _ = JWTService().create_access_token(
@@ -96,6 +112,10 @@ def test_authenticated_product_reads_preserve_response_contracts(monkeypatch):
         "/api/v1/product/predictions/today?sport=WNBA",
         headers=headers,
     )
+    daily_card_response = client.get(
+        "/api/v1/product/daily-card?sport=WNBA",
+        headers=headers,
+    )
     game_response = client.get("/api/v1/product/games/101", headers=headers)
     performance_response = client.get(
         "/api/v1/product/performance",
@@ -104,6 +124,8 @@ def test_authenticated_product_reads_preserve_response_contracts(monkeypatch):
 
     assert predictions_response.status_code == 200
     assert predictions_response.json() == today
+    assert daily_card_response.status_code == 200
+    assert daily_card_response.json() == daily_card
     assert game_response.status_code == 200
     assert game_response.json() == game
     assert performance_response.status_code == 200

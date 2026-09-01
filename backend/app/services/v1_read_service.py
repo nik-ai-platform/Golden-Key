@@ -27,11 +27,158 @@ def _utc_iso(value: datetime) -> str:
 
 class V1ReadService:
 
+    LONG_MONEYLINE_ODDS = 500
+    DAILY_CARD_MARKETS = (
+        ("spread", "TOP_SPREAD", "Top Spread"),
+        ("moneyline", "TOP_MONEYLINE", "Moneyline Value"),
+        ("total", "TOP_TOTAL", "Top Total"),
+    )
+
+    def get_daily_card(
+        self,
+        db: Session,
+        sport: str | None = None,
+    ) -> dict:
+        feed = self.get_today_predictions(
+            db=db,
+            sport=sport,
+            include_passes=False,
+            allow_upcoming_fallback=False,
+        )
+        card = self._build_daily_card(feed["predictions"])
+        return {
+            "sport": sport.upper() if sport else None,
+            "generated_at": _utc_iso(datetime.now(UTC)),
+            **card,
+        }
+
+    def _build_daily_card(self, predictions: list[dict]) -> dict:
+        ranked = sorted(
+            predictions,
+            key=lambda prediction: (
+                -self._daily_card_score(prediction),
+                -float(prediction.get("confidence_score") or 0),
+                -float(prediction.get("projected_edge") or 0),
+                prediction["prediction_id"],
+            ),
+        )
+        used_ids = set()
+        primary_candidates = [
+            prediction
+            for prediction in ranked
+            if not self._is_long_moneyline(prediction)
+        ]
+        best_prediction = primary_candidates[0] if primary_candidates else None
+        best_bet = None
+        if best_prediction:
+            best_bet = self._daily_card_pick(
+                best_prediction,
+                role="BEST_BET",
+                label="Best Bet",
+            )
+            used_ids.add(best_prediction["prediction_id"])
+
+        featured_picks = []
+        for market, role, label in self.DAILY_CARD_MARKETS:
+            prediction = next(
+                (
+                    item
+                    for item in ranked
+                    if item["market"].lower() == market
+                    and item["prediction_id"] not in used_ids
+                ),
+                None,
+            )
+            if prediction:
+                featured_picks.append(
+                    self._daily_card_pick(prediction, role=role, label=label)
+                )
+                used_ids.add(prediction["prediction_id"])
+
+        value_prediction = next(
+            (
+                prediction
+                for prediction in ranked
+                if prediction["prediction_id"] not in used_ids
+                and prediction["market"].lower() == "spread"
+                and float(prediction.get("line_value") or 0) > 0
+            ),
+            None,
+        )
+        if value_prediction:
+            featured_picks.append(
+                self._daily_card_pick(
+                    value_prediction,
+                    role="VALUE_PLAY",
+                    label="Value Play",
+                )
+            )
+            used_ids.add(value_prediction["prediction_id"])
+
+        next_best = [
+            self._daily_card_pick(
+                prediction,
+                role="NEXT_BEST",
+                label="Next Best Pick",
+            )
+            for prediction in ranked
+            if prediction["prediction_id"] not in used_ids
+        ][:3]
+        return {
+            "count": len(predictions),
+            "best_bet": best_bet,
+            "featured_picks": featured_picks,
+            "next_best": next_best,
+        }
+
+    def _daily_card_pick(self, prediction: dict, *, role: str, label: str) -> dict:
+        reasons = [f"NPI {float(prediction['npi_score']):.1f} / 200"]
+        confidence = prediction.get("confidence_score")
+        edge = prediction.get("projected_edge")
+        if confidence is not None:
+            reasons.append(f"{float(confidence):.1f}% confidence")
+        if edge is not None:
+            reasons.append(f"{float(edge):.1f}% projected edge")
+        return {
+            "role": role,
+            "label": label,
+            "ranking_score": self._daily_card_score(prediction),
+            "ranking_reasons": reasons,
+            "prediction": prediction,
+        }
+
+    @staticmethod
+    def _bounded(value, lower=0.0, upper=100.0) -> float:
+        return max(lower, min(float(value or 0), upper))
+
+    def _daily_card_score(self, prediction: dict) -> float:
+        npi = self._bounded(float(prediction.get("npi_score") or 0) / 2)
+        confidence = self._bounded(prediction.get("confidence_score"))
+        simulation = self._bounded(prediction.get("simulation_probability"))
+        edge = self._bounded(
+            abs(float(prediction.get("projected_edge") or 0)) * 10
+        )
+        return round(
+            npi * 0.35
+            + confidence * 0.30
+            + simulation * 0.20
+            + edge * 0.15,
+            2,
+        )
+
+    def _is_long_moneyline(self, prediction: dict) -> bool:
+        return (
+            prediction["market"].lower() == "moneyline"
+            and float(prediction.get("american_odds") or 0)
+            >= self.LONG_MONEYLINE_ODDS
+        )
+
     def get_today_predictions(
         self,
         db: Session,
         sport: str | None = None,
         include_passes: bool = False,
+        allow_upcoming_fallback: bool = True,
     ) -> dict:
         day_start = datetime.now(timezone.utc).replace(
             hour=0,
@@ -68,7 +215,7 @@ class V1ReadService:
             Prediction.confidence_score.desc(),
             Prediction.npi_score.desc(),
         ).all()
-        if not rows and sport:
+        if not rows and sport and allow_upcoming_fallback:
             first_upcoming = query.filter(
                 Game.game_date > day_end,
             ).order_by(
