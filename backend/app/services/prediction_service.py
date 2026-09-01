@@ -27,16 +27,3 @@ def get_predictions(
         .all()
     )
 
-
-def get_prediction_by_id(
-    db: Session,
-    prediction_id: int,
-):
-    return (
-        db.query(Prediction)
-        .filter(
-            Prediction.id == prediction_id
-        )
-        .first()
-    )
-
