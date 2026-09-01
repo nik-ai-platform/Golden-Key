@@ -17,6 +17,7 @@ services:
       - golden_key_network
 
   backend:
+    image: golden-key-backend:production
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -52,9 +53,7 @@ services:
       - golden_key_network
 
   final-score-worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: golden-key-backend:production
     restart: unless-stopped
     command: ["python", "-m", "app.workers.final_score_worker"]
     environment:
@@ -83,9 +82,7 @@ services:
       - golden_key_network
 
   upcoming-game-worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: golden-key-backend:production
     restart: unless-stopped
     command: ["python", "-m", "app.workers.upcoming_game_worker"]
     environment:
