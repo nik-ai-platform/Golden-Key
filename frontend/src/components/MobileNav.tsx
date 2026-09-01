@@ -1,5 +1,6 @@
 import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
 import BookmarkBorderOutlinedIcon from "@mui/icons-material/BookmarkBorderOutlined";
+import CasinoOutlinedIcon from "@mui/icons-material/CasinoOutlined";
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
 import PersonOutlineOutlinedIcon from "@mui/icons-material/PersonOutlineOutlined";
 import SportsBasketballOutlinedIcon from "@mui/icons-material/SportsBasketballOutlined";
@@ -10,6 +11,7 @@ const items = [
   { label: "Dashboard", path: "/dashboard", icon: <DashboardOutlinedIcon /> },
   { label: "Games", path: "/games", icon: <SportsBasketballOutlinedIcon /> },
   { label: "Saved Picks", path: "/saved-picks", icon: <BookmarkBorderOutlinedIcon /> },
+  { label: "Parlays", path: "/parlays", icon: <CasinoOutlinedIcon /> },
   { label: "Performance", path: "/performance", icon: <AssessmentOutlinedIcon /> },
   { label: "Profile", path: "/profile", icon: <PersonOutlineOutlinedIcon /> },
 ];

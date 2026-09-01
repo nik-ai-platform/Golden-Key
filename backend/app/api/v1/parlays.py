@@ -1,6 +1,9 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_viewer
+from app.database.session import get_db
+from app.services.parlay_optimizer_service import ParlayOptimizerService
 from app.services.parlay_service import ParlayService
 from app.services.correlation_service import CorrelationService
 from app.services.parlay_analysis_service import ParlayAnalysisService
@@ -10,6 +13,22 @@ router = APIRouter(
     tags=["Parlays"],
     dependencies=[Depends(require_viewer)],
 )
+
+
+@router.get("/optimize")
+def optimize_parlay(
+    legs: int,
+    sport: str | None = None,
+    db: Session = Depends(get_db),
+):
+    try:
+        return ParlayOptimizerService().build_parlay(
+            db,
+            leg_count=legs,
+            sport=sport,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
 
 
 @router.post("/generate")

@@ -33,7 +33,7 @@ describe("product navigation", () => {
     const desktopNavigation = screen.getByRole("list");
     expect(
       within(desktopNavigation).getAllByRole("link").map((link) => link.textContent),
-    ).toEqual(["Dashboard", "Games", "Saved Picks", "Performance", "Profile"]);
+    ).toEqual(["Dashboard", "Games", "Saved Picks", "Parlay Optimizer", "Performance", "Profile"]);
     expect(
       within(desktopNavigation)
         .getByRole("link", { name: "Games" })
@@ -44,7 +44,7 @@ describe("product navigation", () => {
     expect(screen.getByRole("button", { name: "Sign Out" })).toBeTruthy();
     expect(screen.queryByText(/Product API/)).toBeNull();
 
-    for (const label of ["Dashboard", "Games", "Saved Picks", "Performance", "Profile"]) {
+    for (const label of ["Dashboard", "Games", "Saved Picks", "Parlay Optimizer", "Performance", "Profile"]) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
     expect(

@@ -17,6 +17,7 @@ const ProductGameDetailPage = lazy(() => import("../pages/ProductGameDetailPage"
 const ProductPerformancePage = lazy(() => import("../pages/ProductPerformancePage").then((module) => ({ default: module.ProductPerformancePage })));
 const ProductSavedPicksPage = lazy(() => import("../pages/ProductSavedPicksPage").then((module) => ({ default: module.ProductSavedPicksPage })));
 const ProductProfilePage = lazy(() => import("../pages/ProductProfilePage").then((module) => ({ default: module.ProductProfilePage })));
+const ParlayOptimizerPage = lazy(() => import("../pages/ParlayOptimizerPage").then((module) => ({ default: module.ParlayOptimizerPage })));
 
 function RouteLoader() {
   return (
@@ -45,6 +46,7 @@ export function AppRouter() {
             <Route path="/games/:gameId" element={<ProductGameDetailPage />} />
             <Route path="/performance" element={<ProductPerformancePage />} />
             <Route path="/saved-picks" element={<ProductSavedPicksPage />} />
+            <Route path="/parlays" element={<ParlayOptimizerPage />} />
           </Route>
         </Route>
         <Route path="*" element={<NotFoundPage />} />
