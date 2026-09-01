@@ -1,12 +1,11 @@
 from datetime import UTC, datetime, timedelta
 from time import perf_counter
 
-from app.repositories import game_repository
-
 from app.services.import_service import ImportService
 from app.services.model_training_service import ModelTrainingService
 from app.services.monitoring_service import MonitoringService
 from app.services.performance_metrics_service import performance_metrics
+from app.services.prediction_engine import PredictionEngine
 from app.services.prediction_outcome_service import PredictionOutcomeService
 from app.services.prediction_service import PredictionService
 from app.services.training_dataset_service import TrainingDatasetService
@@ -18,6 +17,7 @@ class JobScheduler:
         self,
         import_service=None,
         prediction_service=None,
+        prediction_engine=PredictionEngine,
         outcome_service=None,
         dataset_service=None,
         training_service=None,
@@ -30,6 +30,12 @@ class JobScheduler:
 
         self.prediction_service = (
             prediction_service or PredictionService()
+        )
+
+        self.prediction_engine = (
+            prediction_engine()
+            if isinstance(prediction_engine, type)
+            else prediction_engine
         )
 
         self.outcome_service = (
@@ -135,36 +141,14 @@ class JobScheduler:
 
     def _generate_predictions(self, db, games):
         predictions = []
-        team_ids = {
-            getattr(game, "home_team_id", None)
-            for game in games
-        } | {
-            getattr(game, "away_team_id", None)
-            for game in games
-        }
-        team_ids.discard(None)
-
-        recent_games_map = {}
-        if team_ids:
-            recent_games_map = game_repository.get_recent_games_for_teams(
-                db,
-                list(team_ids),
-                limit=10,
-            )
 
         for game in games:
-            try:
-                prediction = self.prediction_service.generate_prediction(
-                    db,
-                    game.id,
-                    preloaded_recent_games=recent_games_map,
-                )
-            except TypeError:
-                prediction = self.prediction_service.generate_prediction(
-                    db,
-                    game.id,
-                )
-            predictions.append(prediction)
+            game_predictions = self.prediction_engine.analyze_markets(
+                db,
+                game.id,
+                persist=True,
+            )
+            predictions.extend(game_predictions)
 
         self.monitor.log_scheduler(
             "Generated predictions",
