@@ -25,11 +25,13 @@ def test_today_prediction_contract():
     )
     response = TodayPredictionsResponse(
         sport="NBA",
+        slate_date="2026-08-08",
         count=1,
         predictions=[item],
     )
 
     assert response.count == 1
+    assert response.slate_date == "2026-08-08"
     assert response.predictions[0].home_team == "Boston Celtics"
     assert response.predictions[0].model_version == "NPI-4.0"
 

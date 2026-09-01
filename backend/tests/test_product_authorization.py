@@ -56,12 +56,14 @@ def test_authenticated_product_reads_preserve_response_contracts(monkeypatch):
     }
     today = {
         "sport": "WNBA",
+            "slate_date": "2026-08-30",
         "count": 1,
         "predictions": [prediction],
     }
     daily_card = {
         "sport": "WNBA",
         "generated_at": "2026-08-30T12:00:00Z",
+            "slate_date": "2026-08-30",
         "count": 1,
         "best_bet": {
             "role": "BEST_BET",

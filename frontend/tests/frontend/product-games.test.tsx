@@ -88,7 +88,7 @@ const predictions = [
 ];
 
 function response(items: Prediction[]): TodayPredictionsResponse {
-  return { sport: null, count: items.length, predictions: items };
+  return { sport: null, slate_date: "2026-09-10", count: items.length, predictions: items };
 }
 
 function renderPage() {
@@ -119,6 +119,7 @@ describe("Games decision screen", () => {
     renderPage();
 
     const cards = await screen.findAllByTestId("game-card");
+    expect(screen.getByRole("heading", { name: "September 10" })).toBeTruthy();
     expect(cards).toHaveLength(2);
     expect(cards.map((card) => card.getAttribute("data-game-id"))).toEqual([
       "2",

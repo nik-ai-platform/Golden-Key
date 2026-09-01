@@ -749,12 +749,23 @@ def test_one_ncaaf_event_persists_complete_odds_and_three_predictions():
         include_passes=True,
     )
     assert feed["sport"] == "NCAAF"
+    assert feed["slate_date"] == "2026-09-05"
     assert feed["count"] == 3
     assert {item["market"] for item in feed["predictions"]} == {
         "spread",
         "moneyline",
         "total",
     }
+
+    unfiltered_feed = V1ReadService().get_today_predictions(
+        db=db,
+        include_passes=True,
+    )
+    daily_card = V1ReadService().get_daily_card(db=db)
+    assert unfiltered_feed["slate_date"] == feed["slate_date"]
+    assert unfiltered_feed["count"] == 3
+    assert daily_card["slate_date"] == feed["slate_date"]
+    assert daily_card["count"] == 3
 
     stored_game.status = "final"
     db.commit()

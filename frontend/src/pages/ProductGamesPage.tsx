@@ -12,6 +12,14 @@ import type { Prediction } from "../types/product";
 
 const sports = ["NFL", "NBA", "NCAAF", "NCAAB", "WNBA"];
 
+function formatSlateDate(slateDate: string): string {
+  return new Date(`${slateDate}T00:00:00Z`).toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 export function ProductGamesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const sport = searchParams.get("sport") || undefined;
@@ -57,6 +65,12 @@ export function ProductGamesPage() {
         <Typography variant="h4" fontWeight={700}>
           Games
         </Typography>
+
+        {query.data ? (
+          <Typography variant="h6" sx={{ mt: 1 }}>
+            {formatSlateDate(query.data.slate_date)}
+          </Typography>
+        ) : null}
 
         <Typography color="text.secondary" sx={{ mt: 1 }}>
           Select a sport, review the matchup, and compare Nik AI&apos;s Spread,

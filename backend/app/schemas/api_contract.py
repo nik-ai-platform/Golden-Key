@@ -25,6 +25,7 @@ class TodayPredictionItem(BaseModel):
 
 class TodayPredictionsResponse(BaseModel):
     sport: str | None = None
+    slate_date: str
     count: int
     predictions: list[TodayPredictionItem]
 
@@ -40,6 +41,7 @@ class DailyCardPick(BaseModel):
 class DailyCardResponse(BaseModel):
     sport: str | None = None
     generated_at: str
+    slate_date: str
     count: int
     best_bet: DailyCardPick | None = None
     featured_picks: list[DailyCardPick]

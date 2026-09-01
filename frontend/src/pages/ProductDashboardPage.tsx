@@ -18,6 +18,16 @@ import { getDailyCard } from "../services/productApi";
 const SPORTS = ["NFL", "NBA", "NCAAF", "NCAAB", "WNBA"] as const;
 type SportFilter = "All" | (typeof SPORTS)[number];
 
+function slateLabel(slateDate: string): string {
+  const today = new Date().toISOString().slice(0, 10);
+  if (slateDate === today) return "Today's Card";
+  return `Next Slate — ${new Date(`${slateDate}T00:00:00Z`).toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  })}`;
+}
+
 export function ProductDashboardPage() {
   const [sport, setSport] = useState<SportFilter>("All");
   const query = useQuery({
@@ -46,7 +56,7 @@ export function ProductDashboardPage() {
       <Stack spacing={2}>
         <Box>
           <Typography variant="h4" fontWeight={700}>
-            Golden Key Today&apos;s Card
+            Golden Key {card ? slateLabel(card.slate_date) : "Card"}
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 0.75 }}>
             A disciplined cross-market card ranked by model strength, confidence, simulation, and
@@ -89,7 +99,7 @@ export function ProductDashboardPage() {
           {card.featured_picks.length > 0 ? (
             <Box component="section" aria-labelledby="card-markets-heading">
               <Typography id="card-markets-heading" variant="h5" fontWeight={800} sx={{ mb: 2 }}>
-                Today&apos;s Card
+                {slateLabel(card.slate_date)}
               </Typography>
               <Grid container spacing={2}>
                 {card.featured_picks.map((pick) => (

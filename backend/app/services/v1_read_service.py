@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timezone
+from datetime import UTC, date, datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session, aliased
 
@@ -43,14 +43,38 @@ class V1ReadService:
             db=db,
             sport=sport,
             include_passes=False,
-            allow_upcoming_fallback=False,
         )
         card = self._build_daily_card(feed["predictions"])
         return {
             "sport": sport.upper() if sport else None,
             "generated_at": _utc_iso(datetime.now(UTC)),
+            "slate_date": feed["slate_date"],
             **card,
         }
+
+    def resolve_slate_date(
+        self,
+        db: Session,
+        *,
+        sport: str | None = None,
+        include_passes: bool = False,
+    ) -> date:
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        today = now.date()
+        window_end = now + timedelta(days=7)
+        query = (
+            db.query(Game.game_date)
+            .join(Prediction, Prediction.game_id == Game.id)
+            .filter(Game.game_date >= now, Game.game_date <= window_end)
+            .filter(Game.status != "final")
+        )
+        if sport:
+            query = query.filter(Game.sport == sport.upper())
+        if not include_passes:
+            query = query.filter(Prediction.selection != "PASS")
+
+        first_game_date = query.order_by(Game.game_date.asc()).limit(1).scalar()
+        return first_game_date.date() if first_game_date else today
 
     def _build_daily_card(self, predictions: list[dict]) -> dict:
         ranked = sorted(
@@ -178,20 +202,25 @@ class V1ReadService:
         db: Session,
         sport: str | None = None,
         include_passes: bool = False,
-        allow_upcoming_fallback: bool = True,
     ) -> dict:
-        day_start = datetime.now(timezone.utc).replace(
-            hour=0,
-            minute=0,
-            second=0,
-            microsecond=0,
-            tzinfo=None,
+        slate_date = self.resolve_slate_date(
+            db,
+            sport=sport,
+            include_passes=include_passes,
         )
+        day_start = datetime.combine(slate_date, datetime.min.time())
         day_end = day_start.replace(
             hour=23,
             minute=59,
             second=59,
             microsecond=999999,
+        )
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        today_start = now.replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
         )
         home_team = aliased(Team)
         away_team = aliased(Team)
@@ -208,42 +237,13 @@ class V1ReadService:
         query = query.filter(Game.status != "final")
 
         rows = query.filter(
-            Game.game_date >= day_start,
+            Game.game_date >= max(day_start, now if day_start == today_start else day_start),
             Game.game_date <= day_end,
         ).order_by(
             Prediction.id.desc(),
             Prediction.confidence_score.desc(),
             Prediction.npi_score.desc(),
         ).all()
-        if not rows and sport and allow_upcoming_fallback:
-            first_upcoming = query.filter(
-                Game.game_date > day_end,
-            ).order_by(
-                Game.game_date.asc(),
-                Prediction.id.desc(),
-            ).first()
-            if first_upcoming:
-                upcoming_date = first_upcoming[1].game_date
-                upcoming_start = upcoming_date.replace(
-                    hour=0,
-                    minute=0,
-                    second=0,
-                    microsecond=0,
-                )
-                upcoming_end = upcoming_start.replace(
-                    hour=23,
-                    minute=59,
-                    second=59,
-                    microsecond=999999,
-                )
-                rows = query.filter(
-                    Game.game_date >= upcoming_start,
-                    Game.game_date <= upcoming_end,
-                ).order_by(
-                    Prediction.id.desc(),
-                    Prediction.confidence_score.desc(),
-                    Prediction.npi_score.desc(),
-                ).all()
         latest_by_game_market = {}
         for prediction, game, home, away in rows:
             latest_by_game_market.setdefault(
@@ -256,6 +256,7 @@ class V1ReadService:
         ]
         return {
             "sport": sport.upper() if sport else None,
+            "slate_date": slate_date.isoformat(),
             "count": len(items),
             "predictions": items,
         }

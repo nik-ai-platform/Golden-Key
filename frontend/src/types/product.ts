@@ -22,6 +22,7 @@ export interface Prediction {
 
 export interface TodayPredictionsResponse {
   sport: string | null;
+  slate_date: string;
   count: number;
   predictions: Prediction[];
 }
@@ -40,6 +41,7 @@ export interface DailyCardPick {
 export interface DailyCardResponse {
   sport: string | null;
   generated_at: string;
+  slate_date: string;
   count: number;
   best_bet: DailyCardPick | null;
   featured_picks: DailyCardPick[];

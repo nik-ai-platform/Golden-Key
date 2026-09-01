@@ -55,6 +55,7 @@ function pick(role: DailyCardPick["role"], label: string, item: Prediction): Dai
 const card: DailyCardResponse = {
   sport: null,
   generated_at: future(0),
+  slate_date: "2026-09-03",
   count: 6,
   best_bet: pick(
     "BEST_BET",
@@ -143,6 +144,8 @@ describe("daily card dashboard", () => {
   it("renders the primary bet, market roles, value play, and next picks", () => {
     renderDashboard();
 
+    expect(screen.getByRole("heading", { name: "Golden Key Next Slate — September 3" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Next Slate — September 3" })).toBeTruthy();
     expect(
       within(screen.getByTestId("daily-card-best-bet")).getByText("Georgia -6.5"),
     ).toBeTruthy();

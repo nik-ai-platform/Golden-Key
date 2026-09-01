@@ -86,14 +86,24 @@ def test_register_login_me_and_subscription_flow(auth_client, monkeypatch):
     monkeypatch.setattr(
         product.service,
         "get_today_predictions",
-        lambda **_: {"sport": None, "count": 0, "predictions": []},
+        lambda **_: {
+            "sport": None,
+            "slate_date": "2026-09-01",
+            "count": 0,
+            "predictions": [],
+        },
     )
     product_response = client.get(
         "/api/v1/product/predictions/today",
         headers={"Authorization": f"Bearer {tokens['access_token']}"},
     )
     assert product_response.status_code == 200
-    assert product_response.json() == {"sport": None, "count": 0, "predictions": []}
+    assert product_response.json() == {
+        "sport": None,
+        "slate_date": "2026-09-01",
+        "count": 0,
+        "predictions": [],
+    }
 
     refresh_response = client.post(
         "/api/v1/auth/refresh",
