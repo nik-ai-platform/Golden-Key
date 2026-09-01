@@ -1,8 +1,13 @@
+from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
 
+from app.models.ai_analysis import AIAnalysis
 from app.models.game import Game
+from app.models.npi_factor_result import NPIFactorResult
 from app.models.odds import Odds
 from app.models.prediction_record import Prediction
+from app.models.prediction_result import PredictionResult
 from app.schemas.prediction import PredictionCreate
 from app.services.ai_analysis_engine import (
     AIAnalysisEngine
@@ -95,7 +100,7 @@ class PredictionEngine:
                 raise
             model_version = self.MODEL_VERSION
 
-        existing_by_market = {}
+        existing_predictions = []
         if persist:
             existing_predictions = (
                 db.query(Prediction)
@@ -106,15 +111,22 @@ class PredictionEngine:
                 )
                 .all()
             )
-            existing_by_market = {
-                prediction.market: prediction
-                for prediction in existing_predictions
-            }
-            if all(market in existing_by_market for market in self.MARKETS):
-                return [
-                    existing_by_market[market]
-                    for market in self.MARKETS
+            if self._prediction_set_has_complete_provenance(existing_predictions):
+                return self._ordered_predictions(existing_predictions)
+
+            if existing_predictions:
+                now = datetime.now(timezone.utc).replace(tzinfo=None)
+                prediction_ids = [
+                    prediction.id for prediction in existing_predictions
                 ]
+                has_result = (
+                    db.query(PredictionResult.id)
+                    .filter(PredictionResult.prediction_id.in_(prediction_ids))
+                    .first()
+                    is not None
+                )
+                if game.game_date <= now or game.status == "final" or has_result:
+                    return self._ordered_predictions(existing_predictions)
 
         odds = (
             db.query(Odds)
@@ -147,6 +159,18 @@ class PredictionEngine:
                 "Complete spread, moneyline, and total odds are required"
             )
 
+        if persist and existing_predictions:
+            prediction_ids = [prediction.id for prediction in existing_predictions]
+            db.query(AIAnalysis).filter(
+                AIAnalysis.prediction_id.in_(prediction_ids)
+            ).delete(synchronize_session=False)
+            db.query(NPIFactorResult).filter(
+                NPIFactorResult.prediction_id.in_(prediction_ids)
+            ).delete(synchronize_session=False)
+            for prediction in existing_predictions:
+                db.delete(prediction)
+            db.flush()
+
         npi_result = self.npi_engine.calculate(
             db=db,
             game=game,
@@ -172,11 +196,6 @@ class PredictionEngine:
 
         for specification in specifications:
             market = specification["market"]
-            existing = existing_by_market.get(market)
-            if existing is not None:
-                results.append(existing)
-                continue
-
             factors = specification.pop("factors")
             analysis = self.ai_engine.generate_analysis(
                 {
@@ -228,6 +247,25 @@ class PredictionEngine:
 
         return sorted(
             results,
+            key=lambda item: self.MARKETS.index(item.market),
+        )
+
+    def _prediction_set_has_complete_provenance(self, predictions) -> bool:
+        if len(predictions) != len(self.MARKETS):
+            return False
+        if {prediction.market for prediction in predictions} != set(self.MARKETS):
+            return False
+
+        for prediction in predictions:
+            if prediction.odds_snapshot_id is None or prediction.american_odds is None:
+                return False
+            if prediction.market in {"spread", "total"} and prediction.line_value is None:
+                return False
+        return True
+
+    def _ordered_predictions(self, predictions):
+        return sorted(
+            predictions,
             key=lambda item: self.MARKETS.index(item.market),
         )
 

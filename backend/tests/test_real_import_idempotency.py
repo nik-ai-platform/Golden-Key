@@ -70,9 +70,30 @@ def test_odds_import_updates_existing_sportsbook_row():
 def test_prediction_engine_returns_existing_production_prediction():
     game = SimpleNamespace(id=17, sport="NBA")
     existing = [
-        SimpleNamespace(id=41, model_version="NPI-4.1", market="spread"),
-        SimpleNamespace(id=42, model_version="NPI-4.1", market="moneyline"),
-        SimpleNamespace(id=43, model_version="NPI-4.1", market="total"),
+        SimpleNamespace(
+            id=41,
+            model_version="NPI-4.1",
+            market="spread",
+            odds_snapshot_id=23,
+            american_odds=-110,
+            line_value=-4.5,
+        ),
+        SimpleNamespace(
+            id=42,
+            model_version="NPI-4.1",
+            market="moneyline",
+            odds_snapshot_id=23,
+            american_odds=-180,
+            line_value=None,
+        ),
+        SimpleNamespace(
+            id=43,
+            model_version="NPI-4.1",
+            market="total",
+            odds_snapshot_id=23,
+            american_odds=-110,
+            line_value=224.5,
+        ),
     ]
     game_query = MagicMock()
     game_query.filter.return_value.first.return_value = game

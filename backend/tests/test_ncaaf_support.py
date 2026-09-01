@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -10,6 +11,7 @@ from app.database.base import Base
 from app.models.game import Game
 from app.models.odds import Odds  # noqa: F401
 from app.models.prediction_record import Prediction
+from app.models.prediction_result import PredictionResult
 from app.models.team import Team  # noqa: F401
 from app.services.live_data_service import LiveDataService
 from app.services.npi_engine import NPIEngine
@@ -79,6 +81,42 @@ def _odds():
     )
 
 
+def _configured_prediction_engine():
+    engine = PredictionEngine()
+    engine.model_runtime = MagicMock()
+    engine.model_runtime.resolve.side_effect = ValueError(
+        "No production model configured for sport: NCAAF"
+    )
+    engine.ai_engine = MagicMock()
+    engine.ai_engine.generate_analysis.return_value = {
+        "engine_version": "test",
+        "summary": "NCAAF test analysis",
+        "explanation": "NCAAF test analysis",
+    }
+    return engine
+
+
+def _legacy_predictions(game_id):
+    return [
+        Prediction(
+            game_id=game_id,
+            model_version="NPI-4.0",
+            market=market,
+            selection=selection,
+            line_value=line_value,
+            american_odds=american_odds,
+            npi_score=120,
+            confidence_score=70,
+            projected_edge=5,
+        )
+        for market, selection, line_value, american_odds in (
+            ("spread", "HOME", -6.5, -110),
+            ("moneyline", "HOME", None, -250),
+            ("total", "OVER", 51.5, -110),
+        )
+    ]
+
+
 def test_live_data_maps_ncaaf_to_provider_identifier(monkeypatch):
     response = MagicMock()
     response.json.return_value = []
@@ -117,6 +155,111 @@ def test_ncaaf_import_is_idempotent_by_provider_game_id():
     assert first[0].id == second[0].id == games[0].id
     assert games[0].provider_game_id == "ncaaf-provider-game-1"
     assert games[0].sport == "NCAAF"
+
+
+def test_incomplete_future_prediction_set_is_replaced_from_exact_snapshot():
+    db = _session()
+    live_data = MagicMock()
+    live_data.fetch_games.return_value = [_event()]
+    game = GameOddsImporter(db=db, live_data_service=live_data).import_games("NCAAF")[0]
+    game.game_date = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=1)
+    existing = _legacy_predictions(game.id)
+    db.add_all(existing)
+    db.commit()
+    assert all(prediction.odds_snapshot_id is None for prediction in existing)
+
+    selected_snapshot = Odds(
+        game_id=game.id,
+        sportsbook="Current Sportsbook",
+        spread_home=-7.5,
+        spread_away=7.5,
+        moneyline_home=-280,
+        moneyline_away=230,
+        total=52.5,
+    )
+    db.add(selected_snapshot)
+    db.commit()
+
+    engine = _configured_prediction_engine()
+    regenerated = engine.analyze_markets(db=db, game_id=game.id, persist=True)
+    stored = db.query(Prediction).filter(Prediction.game_id == game.id).all()
+
+    assert len(regenerated) == len(stored) == 3
+    assert {prediction.market for prediction in stored} == {
+        "spread",
+        "moneyline",
+        "total",
+    }
+    assert all(
+        prediction.odds_snapshot_id == selected_snapshot.id
+        for prediction in stored
+    )
+    by_market = {prediction.market: prediction for prediction in stored}
+    expected_spread = (
+        selected_snapshot.spread_away
+        if by_market["spread"].selection == "AWAY"
+        else selected_snapshot.spread_home
+    )
+    expected_moneyline = (
+        selected_snapshot.moneyline_away
+        if by_market["moneyline"].selection == "AWAY"
+        else selected_snapshot.moneyline_home
+    )
+    assert by_market["spread"].line_value == expected_spread
+    assert by_market["moneyline"].american_odds == expected_moneyline
+    assert by_market["total"].line_value == selected_snapshot.total
+
+    regenerated_ids = {prediction.id for prediction in regenerated}
+    repeated = engine.analyze_markets(db=db, game_id=game.id, persist=True)
+    assert {prediction.id for prediction in repeated} == regenerated_ids
+    assert db.query(Prediction).filter(Prediction.game_id == game.id).count() == 3
+
+
+def test_settled_legacy_predictions_and_results_are_never_regenerated():
+    db = _session()
+    live_data = MagicMock()
+    live_data.fetch_games.return_value = [_event()]
+    game = GameOddsImporter(db=db, live_data_service=live_data).import_games("NCAAF")[0]
+    game.game_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=1)
+    game.status = "final"
+    predictions = _legacy_predictions(game.id)
+    db.add_all(predictions)
+    db.flush()
+    results = [
+        PredictionResult(
+            prediction_id=prediction.id,
+            actual_result="HOME",
+            predicted_result=prediction.selection,
+            outcome="WIN",
+            profit_loss=10,
+        )
+        for prediction in predictions
+    ]
+    db.add_all(results)
+    db.add(
+        Odds(
+            game_id=game.id,
+            sportsbook="Later Sportsbook",
+            spread_home=-8.5,
+            spread_away=8.5,
+            moneyline_home=-320,
+            moneyline_away=260,
+            total=54.5,
+        )
+    )
+    db.commit()
+    prediction_ids = {prediction.id for prediction in predictions}
+    result_ids = {result.id for result in results}
+
+    returned = _configured_prediction_engine().analyze_markets(
+        db=db,
+        game_id=game.id,
+        persist=True,
+    )
+
+    assert {prediction.id for prediction in returned} == prediction_ids
+    assert {prediction.id for prediction in db.query(Prediction).all()} == prediction_ids
+    assert {result.id for result in db.query(PredictionResult).all()} == result_ids
 
 
 def test_incomplete_bookmaker_snapshot_is_not_persisted():
