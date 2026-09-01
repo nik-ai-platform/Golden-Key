@@ -25,6 +25,8 @@ export type ParlayLeg = {
 
 export type OptimizedParlay = {
   leg_count: number;
+  generated_at: string;
+  horizon_days: number;
   sport: string | null;
   legs: ParlayLeg[];
   average_npi: number;

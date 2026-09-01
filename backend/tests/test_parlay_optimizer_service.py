@@ -14,7 +14,10 @@ from app.models.game import Game
 from app.models.odds import Odds
 from app.models.prediction_record import Prediction
 from app.models.team import Team
-from app.services.parlay_optimizer_service import ParlayOptimizerService
+from app.services.parlay_optimizer_service import (
+    ParlayOptimizationError,
+    ParlayOptimizerService,
+)
 
 
 def _session():
@@ -156,6 +159,143 @@ def test_optimizer_never_selects_two_markets_from_the_same_game():
     result = ParlayOptimizerService().build_parlay(db, leg_count=2)
 
     assert len({leg["game_id"] for leg in result["legs"]}) == 2
+
+
+def test_optimizer_preserves_prediction_game_snapshot_and_selected_price_identity():
+    db = _session()
+    fixtures = [
+        ("Nebraska", "Cincinnati", "moneyline", "HOME", None, -145),
+        ("Clemson", "Duke", "moneyline", "AWAY", None, 125),
+        ("Army", "Tarleton State", "total", "OVER", 48.5, -108),
+        ("Ohio", "Rutgers", "spread", "HOME", -3.5, -112),
+    ]
+    predictions = []
+    expected_games = {}
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    for index, (home_name, away_name, market, selection, line, price) in enumerate(
+        fixtures,
+        start=1,
+    ):
+        home = Team(name=home_name, sport="NCAAF", league="NCAAF")
+        away = Team(name=away_name, sport="NCAAF", league="NCAAF")
+        db.add_all([home, away])
+        db.flush()
+        game = Game(
+            sport="NCAAF",
+            league="NCAAF",
+            season=2026,
+            provider_game_id=f"identity-game-{index}",
+            home_team_id=home.id,
+            away_team_id=away.id,
+            game_date=now + timedelta(days=index),
+        )
+        db.add(game)
+        db.flush()
+        snapshot = Odds(
+            game_id=game.id,
+            sportsbook=f"Identity Book {index}",
+            spread_home=-3.5 - index,
+            spread_away=3.5 + index,
+            moneyline_home=-200 - index,
+            moneyline_away=180 + index,
+            total=40.0 + index,
+            created_at=now - timedelta(minutes=index),
+        )
+        db.add(snapshot)
+        db.flush()
+        prediction = Prediction(
+            game_id=game.id,
+            model_version="NPI-4.0",
+            market=market,
+            selection=selection,
+            line_value=line,
+            american_odds=price,
+            odds_snapshot_id=snapshot.id,
+            sportsbook=snapshot.sportsbook,
+            odds_observed_at=snapshot.created_at,
+            npi_score=190 - index,
+            simulation_probability=85,
+            confidence_score=90,
+            projected_edge=8,
+            risk_level="LOW",
+            reasoning=f"Identity fixture {index}.",
+        )
+        db.add(prediction)
+        db.flush()
+        predictions.append(prediction)
+        expected_games[game.id] = (home.name, away.name)
+
+    db.commit()
+    result = ParlayOptimizerService().build_parlay(
+        db,
+        leg_count=4,
+        sport="NCAAF",
+    )
+    predictions_by_id = {prediction.id: prediction for prediction in predictions}
+
+    assert {leg["prediction_id"] for leg in result["legs"]} == set(predictions_by_id)
+    for leg in result["legs"]:
+        prediction = predictions_by_id[leg["prediction_id"]]
+        expected_home, expected_away = expected_games[prediction.game_id]
+
+        assert leg["game_id"] == prediction.game_id
+        assert leg["american_odds"] == prediction.american_odds
+        assert leg["line_value"] == prediction.line_value
+        assert leg["odds_snapshot_id"] == prediction.odds_snapshot_id
+        assert leg["home_team"] == expected_home
+        assert leg["away_team"] == expected_away
+
+    legs_by_team = {leg["home_team"]: leg for leg in result["legs"]}
+    assert legs_by_team["Nebraska"]["display_selection"] == "Nebraska ML -145"
+    assert legs_by_team["Clemson"]["display_selection"] == "Duke ML +125"
+    assert legs_by_team["Army"]["display_selection"] == (
+        "Tarleton State at Army OVER 48.5"
+    )
+
+
+def test_optimizer_excludes_attractive_predictions_beyond_actionable_horizon():
+    db = _session()
+    now = datetime.now(UTC).replace(tzinfo=None)
+    near_games = []
+    for index, market in enumerate(("spread", "total", "moneyline"), start=1):
+        game, _ = _add_candidate(db, index, market)
+        game.game_date = now + timedelta(days=(1, 3, 6)[index - 1])
+        near_games.append(game)
+
+    army_navy, army_navy_prediction = _add_candidate(db, 4, "moneyline")
+    army_navy.game_date = now + timedelta(days=102)
+    army_navy_prediction.npi_score = 199
+    army_navy_prediction.confidence_score = 99
+    army_navy_prediction.simulation_probability = 0.95
+    army_navy_prediction.projected_edge = 20.0
+    db.commit()
+
+    result = ParlayOptimizerService().build_parlay(db, leg_count=2)
+    prediction_ids = {leg["prediction_id"] for leg in result["legs"]}
+
+    assert army_navy_prediction.id not in prediction_ids
+    assert result["horizon_days"] == 7
+    assert result["generated_at"] >= now
+    assert all(game.game_date <= now + timedelta(days=7) for game in near_games)
+
+
+def test_optimizer_fails_instead_of_expanding_horizon_for_insufficient_inventory():
+    db = _session()
+    now = datetime.now(UTC).replace(tzinfo=None)
+    for index, market in enumerate(("spread", "total", "moneyline"), start=1):
+        game, _ = _add_candidate(db, index, market)
+        game.game_date = now + timedelta(days=index)
+
+    distant_game, _ = _add_candidate(db, 4, "spread")
+    distant_game.game_date = now + timedelta(days=102)
+    db.commit()
+
+    with pytest.raises(
+        ParlayOptimizationError,
+        match="Not enough qualified predictions to build a 10-leg optimized parlay",
+    ):
+        ParlayOptimizerService().build_parlay(db, leg_count=10)
 
 
 def test_optimize_route_forwards_requested_legs_and_sport(monkeypatch):

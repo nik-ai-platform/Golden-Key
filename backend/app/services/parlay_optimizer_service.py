@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session, aliased
 
@@ -10,8 +10,13 @@ from app.models.prediction_record import Prediction
 from app.models.team import Team
 
 
+class ParlayOptimizationError(ValueError):
+    pass
+
+
 class ParlayOptimizerService:
     SUPPORTED_LEG_COUNTS = {2, 4, 6, 8, 10}
+    MAX_GAME_HORIZON_DAYS = 7
     MAX_ODDS_AGE = timedelta(hours=6)
     MIN_PROJECTED_EDGE = 1.0
     BEAM_WIDTH = 500
@@ -33,9 +38,20 @@ class ParlayOptimizerService:
         if leg_count not in self.SUPPORTED_LEG_COUNTS:
             raise ValueError("Leg count must be one of 2, 4, 6, 8, or 10")
 
-        candidates = self._load_candidates(db, sport=sport)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        horizon_end = now + timedelta(days=self.MAX_GAME_HORIZON_DAYS)
+        candidates = self._load_candidates(
+            db,
+            sport=sport,
+            now=now,
+            horizon_end=horizon_end,
+        )
         if len({item["game_id"] for item in candidates}) < leg_count:
-            raise ValueError("Not enough qualified games to build this parlay")
+            article = "an" if leg_count == 8 else "a"
+            raise ParlayOptimizationError(
+                "Not enough qualified predictions to build "
+                f"{article} {leg_count}-leg optimized parlay."
+            )
 
         legs = self._optimize(candidates, leg_count)
         if legs is None:
@@ -49,6 +65,8 @@ class ParlayOptimizerService:
         }
         return {
             "leg_count": leg_count,
+            "generated_at": now,
+            "horizon_days": self.MAX_GAME_HORIZON_DAYS,
             "sport": sport.upper() if sport else None,
             "legs": legs,
             "average_npi": self._average(legs, "npi_score"),
@@ -59,8 +77,13 @@ class ParlayOptimizerService:
             "market_mix": market_mix,
         }
 
-    def _load_candidates(self, db: Session, sport: str | None) -> list[dict]:
-        now = datetime.now(UTC).replace(tzinfo=None)
+    def _load_candidates(
+        self,
+        db: Session,
+        sport: str | None,
+        now: datetime,
+        horizon_end: datetime,
+    ) -> list[dict]:
         cutoff = now - self.MAX_ODDS_AGE
         home_team = aliased(Team)
         away_team = aliased(Team)
@@ -72,6 +95,7 @@ class ParlayOptimizerService:
             .join(away_team, away_team.id == Game.away_team_id)
             .filter(
                 Game.game_date >= now,
+                Game.game_date <= horizon_end,
                 Game.status != "final",
                 Prediction.market.in_(("spread", "moneyline", "total")),
                 Prediction.selection != "PASS",
@@ -92,6 +116,18 @@ class ParlayOptimizerService:
 
         candidates = []
         for prediction, game, odds, home, away in query.all():
+            if game.game_date < now:
+                continue
+            if game.game_date > horizon_end:
+                continue
+            if prediction.game_id != game.id:
+                continue
+            if prediction.odds_snapshot_id is None:
+                continue
+            if odds.game_id != prediction.game_id:
+                continue
+            if prediction.market == "moneyline" and prediction.american_odds is None:
+                continue
             if prediction.market in {"spread", "total"} and prediction.line_value is None:
                 continue
             score, components = self._score(prediction, now)
@@ -124,7 +160,7 @@ class ParlayOptimizerService:
                     "parlay_score": score,
                     "score_components": components,
                     "reasoning": prediction.reasoning,
-                    "odds_snapshot_id": odds.id,
+                    "odds_snapshot_id": prediction.odds_snapshot_id,
                     "sportsbook": prediction.sportsbook,
                     "odds_observed_at": prediction.odds_observed_at.isoformat(),
                 }
@@ -236,7 +272,7 @@ class ParlayOptimizerService:
     @staticmethod
     def _display_selection(prediction: Prediction, home: str, away: str) -> str:
         if prediction.market == "total":
-            return f"{away} / {home} {prediction.selection} {prediction.line_value:g}"
+            return f"{away} at {home} {prediction.selection} {prediction.line_value:g}"
         team = home if prediction.selection == "HOME" else away
         if prediction.market == "moneyline":
             return f"{team} ML {prediction.american_odds:+d}"

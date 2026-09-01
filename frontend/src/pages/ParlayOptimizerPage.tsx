@@ -160,6 +160,9 @@ export function ParlayOptimizerPage() {
             <Typography variant="h5" fontWeight={800}>
               {mutation.data.leg_count}-Leg Optimized Parlay
             </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Optimized from qualifying games in the next {mutation.data.horizon_days} days
+            </Typography>
           </Box>
           <Grid container spacing={2}>
             {mutation.data.legs.map((leg, index) => (

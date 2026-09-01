@@ -11,6 +11,8 @@ vi.mock("../../src/services/parlayOptimizerApi", () => ({
 
 const result = {
   leg_count: 6,
+  generated_at: "2026-09-01T12:00:00",
+  horizon_days: 7,
   sport: null,
   legs: [
     {
@@ -66,6 +68,9 @@ describe("Parlay Optimizer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Build Best Parlay" }));
 
     expect(await screen.findByText("6-Leg Optimized Parlay")).toBeTruthy();
+    expect(
+      screen.getByText("Optimized from qualifying games in the next 7 days"),
+    ).toBeTruthy();
     expect(optimizeParlay).toHaveBeenCalledWith(6);
     expect(screen.getByText("Dallas -4.5")).toBeTruthy();
     expect(screen.getByText("Strong model agreement and market edge.")).toBeTruthy();
