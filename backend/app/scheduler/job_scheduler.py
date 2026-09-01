@@ -6,7 +6,6 @@ from app.services.model_training_service import ModelTrainingService
 from app.services.monitoring_service import MonitoringService
 from app.services.performance_metrics_service import performance_metrics
 from app.services.prediction_engine import PredictionEngine
-from app.services.prediction_outcome_service import PredictionOutcomeService
 from app.services.prediction_service import PredictionService
 from app.services.training_dataset_service import TrainingDatasetService
 
@@ -18,7 +17,6 @@ class JobScheduler:
         import_service=None,
         prediction_service=None,
         prediction_engine=PredictionEngine,
-        outcome_service=None,
         dataset_service=None,
         training_service=None,
         monitor=None,
@@ -36,10 +34,6 @@ class JobScheduler:
             prediction_engine()
             if isinstance(prediction_engine, type)
             else prediction_engine
-        )
-
-        self.outcome_service = (
-            outcome_service or PredictionOutcomeService()
         )
 
         self.dataset_service = (
@@ -81,32 +75,6 @@ class JobScheduler:
             stage_results,
             lambda: self._generate_predictions(db, games),
             default_value=[],
-        )
-
-        outcomes = self._run_stage(
-            "evaluate_outcomes",
-            sport,
-            stage_results,
-            lambda: self.outcome_service.evaluate_completed_games(db),
-            default_value=[],
-        )
-        self.monitor.log_scheduler(
-            "Evaluated completed games",
-            count=len(outcomes),
-            sport=sport,
-        )
-
-        metrics = self._run_stage(
-            "refresh_analytics",
-            sport,
-            stage_results,
-            lambda: self.outcome_service.update_prediction_metrics(db),
-            default_value={},
-        )
-        self.monitor.log_scheduler(
-            "Updated prediction metrics",
-            sport=sport,
-            **metrics,
         )
 
         self._run_stage(

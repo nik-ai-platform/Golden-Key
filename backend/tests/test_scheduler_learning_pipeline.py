@@ -22,7 +22,7 @@ class _Monitor:
         self.calls.append((message, context))
 
 
-def test_scheduler_handles_missing_outcomes_and_continues_learning_steps():
+def test_scheduler_generates_predictions_and_continues_learning_steps():
     class _ImportService:
         def import_games(self, _db, _sport):
             class _Game:
@@ -41,13 +41,6 @@ def test_scheduler_handles_missing_outcomes_and_continues_learning_steps():
                 f"{game_id}-moneyline",
                 f"{game_id}-total",
             ]
-
-    class _OutcomeService:
-        def evaluate_completed_games(self, _db):
-            return []
-
-        def update_prediction_metrics(self, _db):
-            return {"winner_accuracy": 0.0, "total_outcomes": 0}
 
     class _DatasetService:
         def __init__(self):
@@ -77,7 +70,6 @@ def test_scheduler_handles_missing_outcomes_and_continues_learning_steps():
     scheduler = JobScheduler(
         import_service=_ImportService(),
         prediction_engine=prediction_engine,
-        outcome_service=_OutcomeService(),
         dataset_service=dataset_service,
         training_service=training_service,
         monitor=monitor,
@@ -93,7 +85,10 @@ def test_scheduler_handles_missing_outcomes_and_continues_learning_steps():
     assert prediction_engine.calls == [(9, True)]
     assert dataset_service.build_calls == 1
     assert training_service.calls == 1
-    assert any(call[0] == "Evaluated completed games" for call in monitor.calls)
+    assert not any(
+        call[1].get("stage") in {"evaluate_outcomes", "refresh_analytics"}
+        for call in monitor.calls
+    )
 
 
 def test_scheduler_prediction_generation_is_idempotent_with_provenance():
