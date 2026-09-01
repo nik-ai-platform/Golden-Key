@@ -15,12 +15,13 @@ from app.database.query_metrics import query_counter
 from app.database.session import SessionLocal, engine
 from app.main import app
 from app.models.game import Game
+from app.models.odds import Odds
 from app.models.team import Team
 from app.models.team_performance import TeamPerformance
 from app.repositories import game_repository
 from app.scheduler.job_scheduler import JobScheduler
 from app.services.dashboard_service import DashboardService
-from app.services.prediction_service import PredictionService
+from app.services.prediction_engine import PredictionEngine
 
 
 GOALS = {
@@ -53,7 +54,7 @@ def run() -> dict:
     }
 
     db = SessionLocal()
-    service = PredictionService()
+    prediction_engine = PredictionEngine()
     scheduler = JobScheduler()
 
     try:
@@ -64,7 +65,13 @@ def run() -> dict:
                 baseline["notes"].append("No games found; prediction_generation benchmark skipped.")
                 baseline["metrics"]["prediction_generation_ms_per_game"] = None
             else:
-                _, prediction_ms = _timed_call(lambda: service.generate_prediction(db, game.id))
+                _, prediction_ms = _timed_call(
+                    lambda: prediction_engine.analyze_markets(
+                        db,
+                        game.id,
+                        persist=True,
+                    )
+                )
                 baseline["metrics"]["prediction_generation_ms_per_game"] = prediction_ms
         baseline["metrics"]["prediction_generation_query_count"] = prediction_queries["value"]
 
@@ -113,7 +120,7 @@ def _run_sqlite_fallback(existing_baseline: dict) -> dict:
     Base.metadata.create_all(bind=sqlite_engine)
 
     db = TestingSessionLocal()
-    service = PredictionService()
+    prediction_engine = PredictionEngine()
     dashboard = DashboardService()
 
     baseline = {
@@ -126,7 +133,13 @@ def _run_sqlite_fallback(existing_baseline: dict) -> dict:
 
         with query_counter(sqlite_engine) as prediction_queries:
             first_game = game_repository.get_games(db)[0]
-            _, prediction_ms = _timed_call(lambda: service.generate_prediction(db, first_game.id))
+            _, prediction_ms = _timed_call(
+                lambda: prediction_engine.analyze_markets(
+                    db,
+                    first_game.id,
+                    persist=True,
+                )
+            )
             baseline["metrics"]["prediction_generation_ms_per_game"] = prediction_ms
         baseline["metrics"]["prediction_generation_query_count"] = prediction_queries["value"]
 
@@ -151,13 +164,6 @@ def _run_sqlite_fallback(existing_baseline: dict) -> dict:
             def import_games(self, _db, _sport):
                 return game_repository.get_games(_db)
 
-        class _OutcomeService:
-            def evaluate_completed_games(self, _db):
-                return []
-
-            def update_prediction_metrics(self, _db):
-                return {"winner_accuracy": 0.0, "total_outcomes": 0}
-
         class _DatasetService:
             def build_dataset(self, *args, **kwargs):
                 return []
@@ -171,8 +177,6 @@ def _run_sqlite_fallback(existing_baseline: dict) -> dict:
 
         scheduler = JobScheduler(
             import_service=_ImportService(),
-            prediction_service=service,
-            outcome_service=_OutcomeService(),
             dataset_service=_DatasetService(),
             training_service=_TrainingService(),
         )
@@ -217,15 +221,26 @@ def _seed_sqlite_data(db):
         ]
     )
 
+    game = Game(
+        sport="NBA",
+        league="NBA",
+        season=2026,
+        provider_game_id="baseline-game-1",
+        home_team_id=home_team.id,
+        away_team_id=away_team.id,
+        game_date=datetime(2026, 8, 1, 19, 0, 0),
+    )
+    db.add(game)
+    db.flush()
     db.add(
-        Game(
-            sport="basketball",
-            league="NBA",
-            season=2026,
-            provider_game_id="baseline-game-1",
-            home_team_id=home_team.id,
-            away_team_id=away_team.id,
-            game_date=datetime(2026, 8, 1, 19, 0, 0),
+        Odds(
+            game_id=game.id,
+            sportsbook="Performance Baseline",
+            spread_home=-2.5,
+            spread_away=2.5,
+            moneyline_home=-140,
+            moneyline_away=120,
+            total=224.5,
         )
     )
     db.commit()
