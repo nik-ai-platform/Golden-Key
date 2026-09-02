@@ -3,6 +3,7 @@ import type {
   DailyCardResponse,
   GameDetail,
   Performance,
+  PerformanceIntelligenceResponse,
   RemoveSavedPredictionResponse,
   SavedPicksResponse,
   TodayPredictionsResponse,
@@ -36,6 +37,16 @@ export async function getGameDetail(gameId: number): Promise<GameDetail> {
 
 export async function getPerformance(): Promise<Performance> {
   const { data } = await client.get<Performance>("/product/performance");
+  return data;
+}
+
+export async function getPerformanceIntelligence(
+  days: 7 | 30 | 90 = 30,
+): Promise<PerformanceIntelligenceResponse> {
+  const { data } = await client.get<PerformanceIntelligenceResponse>(
+    "/product/performance-intelligence",
+    { params: { days } },
+  );
   return data;
 }
 

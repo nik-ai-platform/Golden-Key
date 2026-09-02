@@ -127,6 +127,34 @@ export interface Performance {
   recent_results: RecentPerformanceResult[];
 }
 
+export interface PerformanceIntelligenceSummary {
+  total_bets: number;
+  wins: number;
+  losses: number;
+  pushes: number;
+  win_rate: number;
+  units_won: number;
+  roi: number;
+}
+
+export interface PerformanceIntelligenceBreakdown
+  extends PerformanceIntelligenceSummary {
+  key: string;
+}
+
+export interface PerformanceIntelligenceResponse {
+  period_days: 7 | 30 | 90;
+  generated_at: string;
+  overall: PerformanceIntelligenceSummary;
+  by_market: PerformanceIntelligenceBreakdown[];
+  by_sport: PerformanceIntelligenceBreakdown[];
+  by_npi_band: PerformanceIntelligenceBreakdown[];
+  by_confidence_band: PerformanceIntelligenceBreakdown[];
+  by_odds_band: PerformanceIntelligenceBreakdown[];
+  by_side_type: PerformanceIntelligenceBreakdown[];
+  by_model_version: PerformanceIntelligenceBreakdown[];
+}
+
 export interface UserProfile {
   id: number;
   email: string;

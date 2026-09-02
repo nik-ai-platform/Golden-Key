@@ -2,266 +2,251 @@ import {
   Box,
   Card,
   CardContent,
-  Chip,
   Grid2 as Grid,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
-import { getPerformance } from "../services/productApi";
-import type {
-  PerformanceBreakdown,
-  RecentPerformanceResult,
-} from "../types/product";
-import { formatNpi, formatProductDate } from "../utils/productFormat";
+import { getPerformanceIntelligence } from "../services/productApi";
+import type { PerformanceIntelligenceBreakdown } from "../types/product";
 
-const marketOrder = ["spread", "moneyline", "total"];
+type PeriodDays = 7 | 30 | 90;
+
+const periodOptions: PeriodDays[] = [7, 30, 90];
+const marketOrder = ["SPREAD", "MONEYLINE", "TOTAL"];
 const sportOrder = ["NFL", "NBA", "NCAAF", "NCAAB", "WNBA"];
+const sideOrder = ["Favorite", "Underdog", "Other", "Unknown"];
 
-function winRate(wins: number, losses: number): string {
-  const decisions = wins + losses;
-  return decisions ? `${(wins / decisions * 100).toFixed(1)}%` : "—";
+function formatSigned(value: number, suffix = "") {
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(2)}${suffix}`;
 }
 
-function titleCase(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+function formatSegment(value: string): string {
+  if (marketOrder.includes(value.toUpperCase())) {
+    const normalized = value.toLowerCase();
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  }
+  return value;
 }
 
-function formatScore(score: number): string {
-  return Number.isInteger(score) ? score.toFixed(0) : String(score);
+function orderRows(
+  rows: PerformanceIntelligenceBreakdown[],
+  order: string[],
+): PerformanceIntelligenceBreakdown[] {
+  return [...rows].sort((left, right) => {
+    const leftIndex = order.indexOf(left.key);
+    const rightIndex = order.indexOf(right.key);
+    const leftRank = leftIndex === -1 ? order.length : leftIndex;
+    const rightRank = rightIndex === -1 ? order.length : rightIndex;
+    return leftRank - rightRank || left.key.localeCompare(right.key);
+  });
 }
 
-function BreakdownCard({
-  breakdown,
-  recordOnly = false,
+function BreakdownTable({
+  title,
+  rows,
 }: {
-  breakdown: PerformanceBreakdown;
-  recordOnly?: boolean;
+  title?: string;
+  rows: PerformanceIntelligenceBreakdown[];
 }) {
   return (
-    <Card variant="outlined" sx={{ borderRadius: 2, height: "100%", minWidth: 0 }}>
-      <CardContent>
+    <Stack spacing={1.25} sx={{ minWidth: 0 }}>
+      {title ? (
         <Typography variant="h6" fontWeight={700}>
-          {marketOrder.includes(breakdown.name.toLowerCase())
-            ? titleCase(breakdown.name)
-            : breakdown.name.toUpperCase()}
+          {title}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          Settled
-        </Typography>
-        <Typography variant="h5" fontWeight={700}>
-          {breakdown.settled}
-        </Typography>
-        {recordOnly ? (
-          <Typography sx={{ mt: 1 }}>
-            Record <strong>{breakdown.wins}-{breakdown.losses}-{breakdown.pushes}</strong>
-          </Typography>
-        ) : (
-          <Typography sx={{ mt: 1 }}>
-            {breakdown.wins} W · {breakdown.losses} L · {breakdown.pushes} P
-          </Typography>
-        )}
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          Win Rate {winRate(breakdown.wins, breakdown.losses)}
-        </Typography>
-      </CardContent>
-    </Card>
-  );
-}
-
-function outcomeColor(outcome: RecentPerformanceResult["outcome"]) {
-  if (outcome === "WIN") return "success";
-  if (outcome === "LOSS") return "error";
-  return "warning";
-}
-
-function RecentResultCard({ result }: { result: RecentPerformanceResult }) {
-  const hasFinalScore = result.away_score != null && result.home_score != null;
-
-  return (
-    <Card
-      data-testid="recent-result"
-      data-prediction-id={result.prediction_id}
-      variant="outlined"
-      sx={{ borderRadius: 2, minWidth: 0 }}
-    >
-      <CardContent>
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          justifyContent="space-between"
-          alignItems={{ sm: "flex-start" }}
-          spacing={2}
-        >
-          <Box sx={{ minWidth: 0 }}>
-            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-              <Chip label={result.sport} size="small" variant="outlined" />
-              <Chip
-                label={result.outcome}
-                size="small"
-                color={outcomeColor(result.outcome)}
-              />
-            </Stack>
-            <Typography
-              variant="h6"
-              fontWeight={700}
-              sx={{ mt: 1, overflowWrap: "anywhere" }}
-            >
-              {result.away_team} @ {result.home_team}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {formatProductDate(result.game_date)}
-            </Typography>
-            {hasFinalScore ? (
-              <Typography variant="body2" fontWeight={700} sx={{ mt: 0.5 }}>
-                Final: {formatScore(result.away_score!)} - {formatScore(result.home_score!)}
-              </Typography>
-            ) : null}
-          </Box>
-
-          <Box sx={{ minWidth: { sm: 240 }, maxWidth: "100%" }}>
-            <Typography variant="caption" color="text.secondary">
-              {titleCase(result.market)}
-            </Typography>
-            <Typography fontWeight={700} sx={{ overflowWrap: "anywhere" }}>
-              {result.display_selection}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              NPI {formatNpi(result.npi_score)}
-            </Typography>
-          </Box>
-        </Stack>
-      </CardContent>
-    </Card>
+      ) : null}
+      <TableContainer
+        sx={{
+          border: 1,
+          borderColor: "divider",
+          borderRadius: 2,
+          overflowX: "auto",
+        }}
+      >
+        <Table size="small" aria-label={`${title ?? "Performance"} table`} sx={{ minWidth: 680 }}>
+          <TableHead>
+            <TableRow>
+              <TableCell>Segment</TableCell>
+              <TableCell align="right">Bets</TableCell>
+              <TableCell align="right">W-L-P</TableCell>
+              <TableCell align="right">Win Rate</TableCell>
+              <TableCell align="right">Units</TableCell>
+              <TableCell align="right">ROI</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {rows.length ? (
+              rows.map((row) => (
+                <TableRow key={row.key}>
+                  <TableCell component="th" scope="row" sx={{ fontWeight: 700 }}>
+                    {formatSegment(row.key)}
+                  </TableCell>
+                  <TableCell align="right">{row.total_bets}</TableCell>
+                  <TableCell align="right">
+                    {row.wins}-{row.losses}-{row.pushes}
+                  </TableCell>
+                  <TableCell align="right">{row.win_rate.toFixed(2)}%</TableCell>
+                  <TableCell align="right">{formatSigned(row.units_won, " units")}</TableCell>
+                  <TableCell align="right">{formatSigned(row.roi, "%")}</TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={6}>No settled predictions in this period.</TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Stack>
   );
 }
 
 export function ProductPerformancePage() {
+  const [periodDays, setPeriodDays] = useState<PeriodDays>(30);
   const query = useQuery({
-    queryKey: ["product", "performance"],
-    queryFn: getPerformance,
+    queryKey: ["product", "performance-intelligence", periodDays],
+    queryFn: () => getPerformanceIntelligence(periodDays),
   });
-
-  if (query.isLoading) {
-    return <LoadingState message="Loading performance..." />;
-  }
-
-  if (query.isError) {
-    return (
-      <ErrorState
-        kind="network"
-        detail="Unable to load performance right now."
-        onRetry={() => void query.refetch()}
-      />
-    );
-  }
-
-  const performance = query.data!;
-  const markets = performance.market_performance
-    .filter((item) => marketOrder.includes(item.name.toLowerCase()))
-    .sort(
-      (left, right) =>
-        marketOrder.indexOf(left.name.toLowerCase()) -
-        marketOrder.indexOf(right.name.toLowerCase()),
-    );
-  const sports = performance.sport_performance
-    .filter((item) => sportOrder.includes(item.name.toUpperCase()))
-    .sort(
-      (left, right) =>
-        sportOrder.indexOf(left.name.toUpperCase()) -
-        sportOrder.indexOf(right.name.toUpperCase()),
-    );
-  const recentResults = [...performance.recent_results]
-    .sort(
-      (left, right) =>
-        new Date(right.game_date).getTime() - new Date(left.game_date).getTime(),
-    )
-    .slice(0, 10);
 
   return (
     <Stack spacing={4}>
-      <Box>
-        <Typography variant="h4" fontWeight={700}>
-          Performance
-        </Typography>
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        justifyContent="space-between"
+        alignItems={{ sm: "flex-end" }}
+        spacing={2}
+      >
+        <Box>
+          <Typography variant="h4" fontWeight={700}>
+            Performance Intelligence
+          </Typography>
+          <Typography color="text.secondary" sx={{ mt: 1 }}>
+            Settled model performance across markets, sports, and signal strength.
+          </Typography>
+        </Box>
 
-        <Typography color="text.secondary" sx={{ mt: 1 }}>
-          Results from settled Golden Key predictions.
-        </Typography>
-      </Box>
+        <ToggleButtonGroup
+          value={periodDays}
+          exclusive
+          size="small"
+          aria-label="Performance period"
+          onChange={(_, value: PeriodDays | null) => {
+            if (value !== null) setPeriodDays(value);
+          }}
+        >
+          {periodOptions.map((days) => (
+            <ToggleButton key={days} value={days} aria-label={`${days} days`}>
+              {days} Days
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+      </Stack>
 
-      {!performance.total_predictions ? (
-        <EmptyState title="No settled Golden Key predictions are available yet." />
-      ) : (
+      {query.isLoading ? <LoadingState message="Loading performance intelligence..." /> : null}
+
+      {query.isError ? (
+        <ErrorState
+          kind="network"
+          detail="Unable to load performance intelligence right now."
+          onRetry={() => void query.refetch()}
+        />
+      ) : null}
+
+      {query.data && !query.data.overall.total_bets ? (
+        <EmptyState title="No settled predictions in this period." />
+      ) : null}
+
+      {query.data?.overall.total_bets ? (
         <>
-          <Grid container spacing={2}>
-            {[
-              ["Total Settled", performance.total_predictions],
-              ["Wins", performance.wins],
-              ["Losses", performance.losses],
-              ["Pushes", performance.pushes],
-              ["Win Rate", winRate(performance.wins, performance.losses)],
-            ].map(([label, value]) => (
-              <Grid key={label} size={{ xs: 12, sm: 6, md: 2.4 }}>
-                <Card variant="outlined" sx={{ borderRadius: 2, height: "100%" }}>
-                  <CardContent>
-                    <Typography variant="body2" color="text.secondary">
-                      {label}
-                    </Typography>
-                    <Typography variant="h4" fontWeight={700} sx={{ mt: 0.5 }}>
-                      {value}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-
-          {markets.length ? (
-            <Stack component="section" aria-labelledby="market-performance" spacing={2}>
-              <Typography id="market-performance" variant="h5" fontWeight={700}>
-                Market Performance
-              </Typography>
-              <Grid container spacing={2}>
-                {markets.map((market) => (
-                  <Grid key={market.name} size={{ xs: 12, md: 4 }}>
-                    <BreakdownCard breakdown={market} />
-                  </Grid>
-                ))}
-              </Grid>
-            </Stack>
-          ) : null}
-
-          {sports.length ? (
-            <Stack component="section" aria-labelledby="sport-performance" spacing={2}>
-              <Typography id="sport-performance" variant="h5" fontWeight={700}>
-                Sport Performance
-              </Typography>
-              <Grid container spacing={2}>
-                {sports.map((sport) => (
-                  <Grid key={sport.name} size={{ xs: 12, sm: 6, md: 4 }}>
-                    <BreakdownCard breakdown={sport} recordOnly />
-                  </Grid>
-                ))}
-              </Grid>
-            </Stack>
-          ) : null}
-
-          {recentResults.length ? (
-            <Stack component="section" aria-labelledby="recent-results" spacing={2}>
-              <Typography id="recent-results" variant="h5" fontWeight={700}>
-                Recent Results
-              </Typography>
-              {recentResults.map((result) => (
-                <RecentResultCard key={result.prediction_id} result={result} />
+          <Stack component="section" aria-labelledby="overall-performance" spacing={2}>
+            <Typography id="overall-performance" variant="h5" fontWeight={700}>
+              Overall
+            </Typography>
+            <Grid container spacing={2}>
+              {[
+                ["Total Bets", String(query.data.overall.total_bets)],
+                ["Win Rate", `${query.data.overall.win_rate.toFixed(2)}%`],
+                ["Units Won", formatSigned(query.data.overall.units_won, " units")],
+                ["ROI", formatSigned(query.data.overall.roi, "%")],
+              ].map(([label, value]) => (
+                <Grid key={label} size={{ xs: 12, sm: 6, lg: 3 }}>
+                  <Card variant="outlined" sx={{ borderRadius: 2, height: "100%" }}>
+                    <CardContent>
+                      <Typography variant="body2" color="text.secondary">
+                        {label}
+                      </Typography>
+                      <Typography variant="h5" fontWeight={700} sx={{ mt: 0.75 }}>
+                        {value}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
               ))}
-            </Stack>
-          ) : null}
+            </Grid>
+          </Stack>
+
+          <Stack component="section" aria-labelledby="market-performance" spacing={2}>
+            <Typography id="market-performance" variant="h5" fontWeight={700}>
+              Market Performance
+            </Typography>
+            <BreakdownTable rows={orderRows(query.data.by_market, marketOrder)} />
+          </Stack>
+
+          <Stack component="section" aria-labelledby="model-strength" spacing={2}>
+            <Typography id="model-strength" variant="h5" fontWeight={700}>
+              Model Strength
+            </Typography>
+            <Grid container spacing={3}>
+              <Grid size={{ xs: 12 }}>
+                <BreakdownTable title="NPI Bands" rows={query.data.by_npi_band} />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <BreakdownTable title="Confidence Bands" rows={query.data.by_confidence_band} />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <BreakdownTable title="Odds Bands" rows={query.data.by_odds_band} />
+              </Grid>
+            </Grid>
+          </Stack>
+
+          <Stack component="section" aria-labelledby="sport-performance" spacing={2}>
+            <Typography id="sport-performance" variant="h5" fontWeight={700}>
+              Sport Performance
+            </Typography>
+            <BreakdownTable rows={orderRows(query.data.by_sport, sportOrder)} />
+          </Stack>
+
+          <Stack component="section" aria-labelledby="bet-profile" spacing={2}>
+            <Typography id="bet-profile" variant="h5" fontWeight={700}>
+              Bet Profile
+            </Typography>
+            <BreakdownTable rows={orderRows(query.data.by_side_type, sideOrder)} />
+          </Stack>
+
+          <Stack component="section" aria-labelledby="model-version" spacing={2}>
+            <Typography id="model-version" variant="h5" fontWeight={700}>
+              Model Version
+            </Typography>
+            <BreakdownTable rows={query.data.by_model_version} />
+          </Stack>
         </>
-      )}
+      ) : null}
     </Stack>
   );
 }

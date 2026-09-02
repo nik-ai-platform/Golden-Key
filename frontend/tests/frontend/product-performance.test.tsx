@@ -1,81 +1,54 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProductPerformancePage } from "../../src/pages/ProductPerformancePage";
-import { getPerformance } from "../../src/services/productApi";
+import { getPerformanceIntelligence } from "../../src/services/productApi";
 import type {
-  Performance,
-  RecentPerformanceResult,
+  PerformanceIntelligenceBreakdown,
+  PerformanceIntelligenceResponse,
 } from "../../src/types/product";
 
 vi.mock("../../src/services/productApi", () => ({
-  getPerformance: vi.fn(),
+  getPerformanceIntelligence: vi.fn(),
 }));
 
-function recentResult(
-  overrides: Partial<RecentPerformanceResult>,
-): RecentPerformanceResult {
+function breakdown(
+  key: string,
+  overrides: Partial<PerformanceIntelligenceBreakdown> = {},
+): PerformanceIntelligenceBreakdown {
   return {
-    prediction_id: 1,
-    game_id: 10,
-    sport: "NFL",
-    game_date: "2026-09-08T00:15:00Z",
-    home_team: "Seattle Seahawks",
-    away_team: "New England Patriots",
-    market: "spread",
-    display_selection: "Seattle Seahawks -3.5",
-    npi_score: 142,
-    outcome: "WIN",
-    home_score: 24,
-    away_score: 17,
+    key,
+    total_bets: 2,
+    wins: 1,
+    losses: 1,
+    pushes: 0,
+    win_rate: 47.25,
+    units_won: -1.2,
+    roi: -4.3,
     ...overrides,
   };
 }
 
-const performance: Performance = {
-  total_predictions: 6,
-  wins: 3,
-  losses: 2,
-  pushes: 1,
-  accuracy: 60,
-  profit_loss: 125.5,
-  market_performance: [
-    { name: "total", settled: 2, wins: 1, losses: 1, pushes: 0, win_rate: 50 },
-    { name: "spread", settled: 2, wins: 1, losses: 1, pushes: 0, win_rate: 50 },
-    { name: "moneyline", settled: 2, wins: 1, losses: 0, pushes: 1, win_rate: 100 },
-  ],
-  sport_performance: [
-    { name: "NBA", settled: 3, wins: 1, losses: 1, pushes: 1, win_rate: 50 },
-    { name: "NFL", settled: 3, wins: 2, losses: 1, pushes: 0, win_rate: 66.67 },
-  ],
-  recent_results: [
-    recentResult({ prediction_id: 1, outcome: "WIN" }),
-    recentResult({
-      prediction_id: 2,
-      game_date: "2026-09-10T00:15:00Z",
-      away_team: "Dallas Cowboys",
-      home_team: "Philadelphia Eagles",
-      market: "moneyline",
-      display_selection: "Dallas Cowboys ML",
-      outcome: "LOSS",
-      home_score: 27,
-      away_score: 20,
-    }),
-    recentResult({
-      prediction_id: 3,
-      game_date: "2026-09-09T00:15:00Z",
-      sport: "NBA",
-      away_team: "New York Knicks",
-      home_team: "Boston Celtics",
-      market: "total",
-      display_selection: "OVER 218.5",
-      npi_score: 175,
-      outcome: "PUSH",
-      home_score: 109,
-      away_score: 109,
-    }),
-  ],
+const performance: PerformanceIntelligenceResponse = {
+  period_days: 30,
+  generated_at: "2026-09-02T00:52:25Z",
+  overall: {
+    total_bets: 6,
+    wins: 3,
+    losses: 2,
+    pushes: 1,
+    win_rate: 61.23,
+    units_won: 3.42,
+    roi: 8.55,
+  },
+  by_market: [breakdown("TOTAL"), breakdown("SPREAD"), breakdown("MONEYLINE")],
+  by_sport: [breakdown("NBA"), breakdown("NFL"), breakdown("NCAAF")],
+  by_npi_band: [breakdown("150-174")],
+  by_confidence_band: [breakdown("80-89")],
+  by_odds_band: [breakdown("+200 to +499")],
+  by_side_type: [breakdown("Underdog"), breakdown("Favorite")],
+  by_model_version: [breakdown("NPI-4.0")],
 };
 
 function renderPage() {
@@ -91,108 +64,92 @@ function renderPage() {
 
 function summaryValue(label: string): string | null {
   const card = screen.getByText(label, { selector: "p" }).closest(".MuiCard-root");
-  return within(card as HTMLElement).getByRole("heading", { level: 4 }).textContent;
+  return within(card as HTMLElement).getByRole("heading", { level: 5 }).textContent;
 }
 
-describe("Performance results summary", () => {
+describe("Performance Intelligence", () => {
   beforeEach(() => {
-    vi.mocked(getPerformance).mockResolvedValue(performance);
+    vi.mocked(getPerformanceIntelligence).mockResolvedValue(performance);
   });
 
-  it("renders settled totals and excludes pushes from the win-rate denominator", async () => {
+  it("renders backend-provided overall metrics without recalculating them", async () => {
     renderPage();
-    await screen.findByRole("heading", { name: "Performance" });
+    await screen.findByText("Total Bets");
 
-    expect(summaryValue("Total Settled")).toBe("6");
-    expect(summaryValue("Wins")).toBe("3");
-    expect(summaryValue("Losses")).toBe("2");
-    expect(summaryValue("Pushes")).toBe("1");
-    expect(summaryValue("Win Rate")).toBe("60.0%");
-    expect(screen.queryByText(/profit|roi|\$/i)).toBeNull();
+    expect(summaryValue("Total Bets")).toBe("6");
+    expect(summaryValue("Win Rate")).toBe("61.23%");
+    expect(summaryValue("Units Won")).toBe("+3.42 units");
+    expect(summaryValue("ROI")).toBe("+8.55%");
   });
 
-  it("renders populated market and sport breakdowns only", async () => {
+  it("renders every backend breakdown in compact tables", async () => {
     renderPage();
-    const marketSection = await screen.findByRole("region", {
-      name: "Market Performance",
-    });
-    const sportSection = screen.getByRole("region", { name: "Sport Performance" });
+    const market = await screen.findByRole("region", { name: "Market Performance" });
+    const modelStrength = screen.getByRole("region", { name: "Model Strength" });
+    const sport = screen.getByRole("region", { name: "Sport Performance" });
+    const betProfile = screen.getByRole("region", { name: "Bet Profile" });
+    const modelVersion = screen.getByRole("region", { name: "Model Version" });
 
-    for (const market of ["Spread", "Moneyline", "Total"]) {
-      expect(within(marketSection).getByRole("heading", { name: market })).toBeTruthy();
-    }
-    expect(within(marketSection).getByText("1 W · 0 L · 1 P")).toBeTruthy();
-    expect(within(sportSection).getByRole("heading", { name: "NFL" })).toBeTruthy();
-    expect(within(sportSection).getByRole("heading", { name: "NBA" })).toBeTruthy();
-    expect(
-      within(sportSection).getByText(
-        (_, element) => element?.tagName === "P" && element.textContent === "Record 2-1-0",
-      ),
-    ).toBeTruthy();
-    expect(within(sportSection).queryByText("WNBA")).toBeNull();
+    expect(within(market).getByText("Spread")).toBeTruthy();
+    expect(within(market).getByText("Moneyline")).toBeTruthy();
+    expect(within(market).getByText("Total")).toBeTruthy();
+    expect(within(modelStrength).getByText("NPI Bands")).toBeTruthy();
+    expect(within(modelStrength).getByText("150-174")).toBeTruthy();
+    expect(within(modelStrength).getByText("80-89")).toBeTruthy();
+    expect(within(modelStrength).getByText("+200 to +499")).toBeTruthy();
+    expect(within(sport).getByText("NFL")).toBeTruthy();
+    expect(within(sport).getByText("NCAAF")).toBeTruthy();
+    expect(within(betProfile).getByText("Favorite")).toBeTruthy();
+    expect(within(betProfile).getByText("Underdog")).toBeTruthy();
+    expect(within(modelVersion).getByText("NPI-4.0")).toBeTruthy();
+    expect(screen.getAllByText("-1.20 units").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("-4.30%").length).toBeGreaterThan(0);
   });
 
-  it("renders authoritative recent results newest first", async () => {
+  it("refetches the backend when the selected period changes", async () => {
     renderPage();
-    const section = await screen.findByRole("region", { name: "Recent Results" });
-    const rows = within(section).getAllByTestId("recent-result");
+    await waitFor(() => expect(getPerformanceIntelligence).toHaveBeenCalledWith(30));
 
-    expect(rows.map((row) => row.getAttribute("data-prediction-id"))).toEqual([
-      "2",
-      "3",
-      "1",
-    ]);
-    expect(within(section).getByText("Dallas Cowboys ML")).toBeTruthy();
-    expect(within(section).queryByText("HOME")).toBeNull();
-    expect(within(section).queryByText("AWAY")).toBeNull();
-    expect(within(section).getByText("NPI 175.0 / 200")).toBeTruthy();
-    for (const outcome of ["WIN", "LOSS", "PUSH"]) {
-      expect(within(section).getByText(outcome)).toBeTruthy();
-    }
-    expect(within(section).getByText("Final: 20 - 27")).toBeTruthy();
-  });
+    fireEvent.click(screen.getByRole("button", { name: "7 days" }));
 
-  it("shows an em dash when settled results contain no decisions", async () => {
-    vi.mocked(getPerformance).mockResolvedValue({
-      ...performance,
-      total_predictions: 2,
-      wins: 0,
-      losses: 0,
-      pushes: 2,
-      accuracy: 0,
-    });
-    renderPage();
-
-    await screen.findByRole("heading", { name: "Performance" });
-    expect(summaryValue("Win Rate")).toBe("—");
+    await waitFor(() => expect(getPerformanceIntelligence).toHaveBeenCalledWith(7));
   });
 
   it("shows loading, empty, and friendly error states", async () => {
-    vi.mocked(getPerformance).mockImplementation(() => new Promise(() => undefined));
+    vi.mocked(getPerformanceIntelligence).mockImplementation(() => new Promise(() => undefined));
     const loading = renderPage();
-    expect(screen.getByText("Loading performance...")).toBeTruthy();
+    expect(screen.getByText("Loading performance intelligence...")).toBeTruthy();
 
     loading.unmount();
-    vi.mocked(getPerformance).mockResolvedValue({
+    vi.mocked(getPerformanceIntelligence).mockResolvedValue({
       ...performance,
-      total_predictions: 0,
-      wins: 0,
-      losses: 0,
-      pushes: 0,
-      market_performance: [],
-      sport_performance: [],
-      recent_results: [],
+      overall: {
+        total_bets: 0,
+        wins: 0,
+        losses: 0,
+        pushes: 0,
+        win_rate: 0,
+        units_won: 0,
+        roi: 0,
+      },
+      by_market: [],
+      by_sport: [],
+      by_npi_band: [],
+      by_confidence_band: [],
+      by_odds_band: [],
+      by_side_type: [],
+      by_model_version: [],
     });
     const empty = renderPage();
-    expect(
-      await screen.findByText("No settled Golden Key predictions are available yet."),
-    ).toBeTruthy();
+    expect(await screen.findByText("No settled predictions in this period.")).toBeTruthy();
     expect(screen.queryByText("Market Performance")).toBeNull();
 
     empty.unmount();
-    vi.mocked(getPerformance).mockRejectedValue(new Error("database detail"));
+    vi.mocked(getPerformanceIntelligence).mockRejectedValue(new Error("database detail"));
     renderPage();
-    expect(await screen.findByText("Unable to load performance right now.")).toBeTruthy();
+    expect(
+      await screen.findByText("Unable to load performance intelligence right now."),
+    ).toBeTruthy();
     expect(screen.queryByText("database detail")).toBeNull();
   });
 });
