@@ -79,6 +79,7 @@ class PredictionEngine:
         game_id: int,
         *,
         persist: bool = True,
+        force_regenerate: bool = False,
     ):
 
         game = (
@@ -176,6 +177,7 @@ class PredictionEngine:
 
         if (
             persist
+            and not force_regenerate
             and self._prediction_set_has_complete_provenance(existing_predictions)
             and all(
                 prediction.odds_snapshot_id == odds.id

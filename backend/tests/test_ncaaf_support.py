@@ -217,6 +217,64 @@ def test_incomplete_future_prediction_set_is_replaced_from_exact_snapshot():
     assert db.query(Prediction).filter(Prediction.game_id == game.id).count() == 3
 
 
+def test_force_regenerates_same_snapshot_with_corrected_moneyline():
+    db = _session()
+    game = GameOddsImporter(
+        db=db,
+        live_data_service=MagicMock(fetch_games=MagicMock(return_value=[_event()])),
+    ).import_games("NCAAF")[0]
+    game.game_date = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=1)
+    snapshot = Odds(
+        game_id=game.id,
+        sportsbook="Fanatics",
+        spread_home=-18.5,
+        spread_away=18.5,
+        moneyline_home=-1200,
+        moneyline_away=750,
+        total=52.5,
+    )
+    db.add(snapshot)
+    db.commit()
+    engine = _configured_prediction_engine()
+    original = engine.analyze_markets(db=db, game_id=game.id, persist=True)
+    original_ids = {prediction.id for prediction in original}
+    original_moneyline = next(
+        prediction for prediction in original if prediction.market == "moneyline"
+    )
+    original_moneyline.selection = "AWAY"
+    original_moneyline.american_odds = 750
+    original_moneyline.simulation_probability = 56.78
+    original_moneyline.projected_edge = 53.17
+    db.commit()
+
+    repeated = engine.analyze_markets(db=db, game_id=game.id, persist=True)
+    assert {prediction.id for prediction in repeated} == original_ids
+    assert next(
+        prediction for prediction in repeated if prediction.market == "moneyline"
+    ).simulation_probability == 56.78
+
+    regenerated = engine.analyze_markets(
+        db=db,
+        game_id=game.id,
+        persist=True,
+        force_regenerate=True,
+    )
+    moneyline = next(
+        prediction for prediction in regenerated if prediction.market == "moneyline"
+    )
+
+    assert len(regenerated) == 3
+    assert all(
+        regenerated_prediction is not original_prediction
+        for regenerated_prediction in regenerated
+        for original_prediction in original
+    )
+    assert moneyline.selection == "HOME"
+    assert moneyline.american_odds == -1200
+    assert moneyline.simulation_probability == pytest.approx(93.84, abs=0.01)
+    assert moneyline.projected_edge == pytest.approx(5.15, abs=0.01)
+
+
 def test_snapshot_selection_uses_sportsbook_priority_not_insertion_order():
     observed_at = datetime.now(timezone.utc)
     rows = [
@@ -277,7 +335,7 @@ def test_snapshot_selection_prefers_newest_batch_before_sportsbook():
     assert selected.sportsbook == "Fanatics"
 
 
-def test_saved_future_predictions_are_not_refreshed():
+def test_force_does_not_refresh_saved_future_predictions():
     db = _session()
     game = GameOddsImporter(
         db=db,
@@ -320,7 +378,12 @@ def test_saved_future_predictions_are_not_refreshed():
     )
     db.commit()
 
-    returned = engine.analyze_markets(db=db, game_id=game.id, persist=True)
+    returned = engine.analyze_markets(
+        db=db,
+        game_id=game.id,
+        persist=True,
+        force_regenerate=True,
+    )
 
     assert {prediction.id for prediction in returned} == {
         prediction.id for prediction in predictions
@@ -331,13 +394,12 @@ def test_saved_future_predictions_are_not_refreshed():
     )
 
 
-def test_settled_legacy_predictions_and_results_are_never_regenerated():
+def test_force_does_not_regenerate_settled_future_predictions():
     db = _session()
     live_data = MagicMock()
     live_data.fetch_games.return_value = [_event()]
     game = GameOddsImporter(db=db, live_data_service=live_data).import_games("NCAAF")[0]
-    game.game_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=1)
-    game.status = "final"
+    game.game_date = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=1)
     predictions = _legacy_predictions(game.id)
     db.add_all(predictions)
     db.flush()
@@ -371,11 +433,54 @@ def test_settled_legacy_predictions_and_results_are_never_regenerated():
         db=db,
         game_id=game.id,
         persist=True,
+        force_regenerate=True,
     )
 
     assert {prediction.id for prediction in returned} == prediction_ids
     assert {prediction.id for prediction in db.query(Prediction).all()} == prediction_ids
     assert {result.id for result in db.query(PredictionResult).all()} == result_ids
+
+
+@pytest.mark.parametrize(
+    ("game_date", "status"),
+    [
+        (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=1), "scheduled"),
+        (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=1), "final"),
+    ],
+)
+def test_force_does_not_regenerate_started_or_final_games(game_date, status):
+    db = _session()
+    game = GameOddsImporter(
+        db=db,
+        live_data_service=MagicMock(fetch_games=MagicMock(return_value=[_event()])),
+    ).import_games("NCAAF")[0]
+    game.game_date = game_date
+    game.status = status
+    predictions = _legacy_predictions(game.id)
+    db.add_all(predictions)
+    db.add(
+        Odds(
+            game_id=game.id,
+            sportsbook="Fanatics",
+            spread_home=-18.5,
+            spread_away=18.5,
+            moneyline_home=-1200,
+            moneyline_away=750,
+            total=52.5,
+        )
+    )
+    db.commit()
+    prediction_ids = {prediction.id for prediction in predictions}
+
+    returned = _configured_prediction_engine().analyze_markets(
+        db=db,
+        game_id=game.id,
+        persist=True,
+        force_regenerate=True,
+    )
+
+    assert {prediction.id for prediction in returned} == prediction_ids
+    assert {prediction.id for prediction in db.query(Prediction).all()} == prediction_ids
 
 
 def test_incomplete_bookmaker_snapshot_is_not_persisted():
