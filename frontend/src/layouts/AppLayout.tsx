@@ -144,7 +144,7 @@ export function AppLayout() {
         {navigation()}
       </Drawer>
 
-      <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, sm: 3 }, pb: { xs: 11, sm: 3 }, mt: 8 }}>
+      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, sm: 3 }, pb: { xs: 11, sm: 3 }, mt: 8 }}>
         <Outlet />
         <Box component="footer" sx={{ mt: 4, pt: 2, borderTop: "1px solid", borderTopColor: "divider" }}>
           <Typography variant="caption" color="text.secondary">

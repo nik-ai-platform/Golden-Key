@@ -152,6 +152,8 @@ describe("daily card dashboard", () => {
     expect(
       within(screen.getByTestId("daily-card-top-spread")).getByText("Alabama -4.5"),
     ).toBeTruthy();
+    expect(screen.getByTestId("daily-card-best-bet").dataset.emphasis).toBe("premium");
+    expect(screen.getByTestId("daily-card-top-spread").dataset.emphasis).toBe("default");
     expect(within(screen.getByTestId("daily-card-top-total")).getByText("OVER 47.5")).toBeTruthy();
     expect(within(screen.getByTestId("daily-card-value-play")).getByText("Duke +3.5")).toBeTruthy();
     expect(screen.getAllByTestId("next-best-pick")).toHaveLength(1);

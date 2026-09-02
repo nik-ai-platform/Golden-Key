@@ -10,36 +10,58 @@ import { SavePickButton } from "./SavePickButton";
 interface DailyCardPickCardProps {
   pick: DailyCardPick;
   prominent?: boolean;
+  emphasis?: "default" | "featured" | "premium" | "analytics";
 }
 
-export function DailyCardPickCard({ pick, prominent = false }: DailyCardPickCardProps) {
+export function DailyCardPickCard({
+  pick,
+  prominent = false,
+  emphasis = "default",
+}: DailyCardPickCardProps) {
   const prediction = pick.prediction;
   const odds = formatAmericanOdds(prediction.american_odds);
+  const resolvedEmphasis = prominent ? "premium" : emphasis;
+  const isPremium = resolvedEmphasis === "premium";
+  const emphasisColor = {
+    default: "var(--gk-border)",
+    featured: "var(--gk-gold)",
+    premium: "var(--gk-gold-bright)",
+    analytics: "var(--gk-analytics)",
+  }[resolvedEmphasis];
+  const emphasisBackground = {
+    default: "var(--gk-surface)",
+    featured: "var(--gk-gold-soft)",
+    premium: "var(--gk-surface-raised)",
+    analytics: "var(--gk-analytics-soft)",
+  }[resolvedEmphasis];
 
   return (
     <Card
+      className={`gk-card${isPremium ? " gk-best-bet" : ""}`}
       variant="outlined"
+      data-emphasis={resolvedEmphasis}
       data-testid={`daily-card-${pick.role.toLowerCase().replace(/_/g, "-")}`}
       sx={{
         height: "100%",
-        borderColor: prominent ? "primary.main" : "divider",
-        borderRadius: 2,
-        backgroundColor: "background.paper",
+        borderColor: emphasisColor,
+        borderRadius: "var(--gk-radius-sm)",
+        backgroundColor: emphasisBackground,
+        boxShadow: isPremium ? "0 16px 44px rgba(214, 173, 69, 0.12)" : "none",
       }}
     >
       <CardContent
         sx={{
-          p: { xs: 2.25, md: prominent ? 3.5 : 2.5 },
-          "&:last-child": { pb: { xs: 2.25, md: prominent ? 3.5 : 2.5 } },
+          p: { xs: 2.25, md: isPremium ? 3.5 : 2.5 },
+          "&:last-child": { pb: { xs: 2.25, md: isPremium ? 3.5 : 2.5 } },
         }}
       >
-        <Stack spacing={prominent ? 3 : 2.25}>
+        <Stack spacing={isPremium ? 3 : 2.25}>
           <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1}>
             <Box>
               <Typography variant="overline" color="primary.main" fontWeight={800}>
                 {pick.label}
               </Typography>
-              <Typography variant={prominent ? "h4" : "h6"} fontWeight={800} sx={{ mt: 0.25 }}>
+              <Typography variant={isPremium ? "h4" : "h6"} fontWeight={800} sx={{ mt: 0.25 }}>
                 {prediction.display_selection}
               </Typography>
             </Box>
@@ -85,7 +107,7 @@ export function DailyCardPickCard({ pick, prominent = false }: DailyCardPickCard
             <Button
               component={RouterLink}
               to={`/games/${prediction.game_id}`}
-              variant={prominent ? "contained" : "outlined"}
+              variant={isPremium ? "contained" : "outlined"}
               startIcon={<InsightsOutlinedIcon />}
             >
               View Game Analysis

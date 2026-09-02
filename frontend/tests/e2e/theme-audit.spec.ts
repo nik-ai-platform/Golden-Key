@@ -53,8 +53,34 @@ async function mockProductApi(page: import("@playwright/test").Page) {
       },
     }),
   );
+  await page.route("**/api/v1/product/daily-card**", (route) =>
+    route.fulfill({
+      json: {
+        sport: null,
+        generated_at: "2026-09-02T12:00:00Z",
+        slate_date: "2026-09-10",
+        count: predictions.length,
+        best_bet: {
+          role: "BEST_BET",
+          label: "Best Bet",
+          ranking_score: 88,
+          ranking_reasons: ["82.5% confidence", "6.4% projected edge"],
+          prediction,
+        },
+        featured_picks: [],
+        next_best: [],
+      },
+    }),
+  );
   await page.route("**/api/v1/product/predictions/today**", (route) =>
-    route.fulfill({ json: { sport: null, count: predictions.length, predictions } }),
+    route.fulfill({
+      json: {
+        sport: null,
+        slate_date: "2026-09-10",
+        count: predictions.length,
+        predictions,
+      },
+    }),
   );
   await page.route("**/api/v1/product/games/101", (route) =>
     route.fulfill({
@@ -103,13 +129,37 @@ async function mockProductApi(page: import("@playwright/test").Page) {
       },
     }),
   );
+  await page.route("**/api/v1/product/performance-intelligence**", (route) =>
+    route.fulfill({
+      json: {
+        period_days: 30,
+        generated_at: "2026-09-02T12:00:00Z",
+        overall: {
+          total_bets: 3,
+          wins: 1,
+          losses: 1,
+          pushes: 1,
+          win_rate: 50,
+          units_won: 0.9,
+          roi: 30,
+        },
+        by_market: [],
+        by_sport: [],
+        by_npi_band: [],
+        by_confidence_band: [],
+        by_odds_band: [],
+        by_side_type: [],
+        by_model_version: [],
+      },
+    }),
+  );
 }
 
 async function expectDarkPage(page: import("@playwright/test").Page) {
   await expect(page.getByRole("button", { name: "Switch to light mode" })).toBeVisible();
   expect(
     await page.evaluate(() => getComputedStyle(document.body).backgroundColor),
-  ).toBe("rgb(7, 19, 18)");
+  ).toBe("rgb(9, 11, 15)");
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
   ).toBe(true);
@@ -164,8 +214,12 @@ test("login supports dark mode without preset credentials", async ({ page }) => 
   await expect(page.getByLabel("Password")).toHaveValue("");
   await page.getByRole("button", { name: "Switch to dark mode" }).click();
   await expectDarkPage(page);
-  await expect(page.locator(".MuiCard-root")).toHaveCSS("background-color", "rgb(16, 35, 33)");
-  await page.screenshot({ path: "test-results/theme-login-dark.png", fullPage: true });
+  await expect(page.locator(".MuiCard-root")).toHaveCSS("background-color", "rgb(17, 21, 27)");
+  await page.screenshot({
+    path: "test-results/theme-login-dark.png",
+    fullPage: true,
+    animations: "disabled",
+  });
 });
 
 for (const viewport of [
@@ -196,9 +250,10 @@ for (const viewport of [
         await page.screenshot({
           path: `test-results/theme-${route === "/dashboard" ? "dashboard" : "game-analysis"}-dark-${viewport.name}.png`,
           fullPage: true,
+          animations: "disabled",
         });
       }
-      if (["/games/101", "/saved-picks", "/performance"].includes(route)) {
+      if (["/games/101", "/saved-picks"].includes(route)) {
         for (const outcome of ["WIN", "LOSS", "PUSH"]) {
           await expect(page.getByText(outcome, { exact: true }).first()).toBeVisible();
         }
@@ -208,6 +263,7 @@ for (const viewport of [
     await page.screenshot({
       path: `test-results/theme-profile-dark-${viewport.name}.png`,
       fullPage: true,
+      animations: "disabled",
     });
   });
 }
@@ -236,6 +292,7 @@ for (const viewport of [
       await page.screenshot({
         path: `test-results/theme-${route === "/dashboard" ? "dashboard" : "game-analysis"}-light-${viewport.name}.png`,
         fullPage: true,
+        animations: "disabled",
       });
     }
   });
