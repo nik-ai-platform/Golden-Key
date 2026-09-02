@@ -29,6 +29,8 @@ function prediction(overrides: Partial<Prediction>): Prediction {
     display_selection: "Seattle Seahawks -3.5",
     line_value: -3.5,
     american_odds: -110,
+    sportsbook: "DraftKings",
+    odds_observed_at: "2026-09-01T20:32:00Z",
     model_version: "NPI-4.0",
     npi_score: 175,
     confidence_score: 83,
@@ -134,6 +136,12 @@ describe("Game Analysis", () => {
     expect(screen.queryByText("AWAY")).toBeNull();
     expect(screen.getAllByText("American odds -110")).toHaveLength(2);
     expect(screen.getByText("American odds +125")).toBeTruthy();
+    expect(screen.getAllByText("Sportsbook: DraftKings")).toHaveLength(3);
+    expect(
+      screen.getAllByText(
+        `Observed: ${new Date("2026-09-01T20:32:00Z").toLocaleString()}`,
+      ),
+    ).toHaveLength(3);
     expect(screen.getByText("175.0 / 200")).toBeTruthy();
     expect(screen.getAllByTestId("pick-metrics")).toHaveLength(3);
     expect(screen.getAllByText("Confidence")).toHaveLength(3);

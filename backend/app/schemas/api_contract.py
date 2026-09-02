@@ -13,6 +13,8 @@ class TodayPredictionItem(BaseModel):
     display_selection: str = ""
     line_value: float | None = None
     american_odds: int | None = None
+    sportsbook: str | None = None
+    odds_observed_at: str | None = None
     model_version: str
     npi_score: float
     confidence_score: float | None = None

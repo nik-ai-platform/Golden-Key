@@ -64,7 +64,7 @@ function BreakdownTable({
   rows: PerformanceIntelligenceBreakdown[];
 }) {
   return (
-    <Stack spacing={1.25} sx={{ minWidth: 0 }}>
+    <Stack spacing={1.25} sx={{ minWidth: 0, width: "100%" }}>
       {title ? (
         <Typography variant="h6" fontWeight={700}>
           {title}
@@ -76,9 +76,10 @@ function BreakdownTable({
           borderColor: "divider",
           borderRadius: 2,
           overflowX: "auto",
+          width: "100%",
         }}
       >
-        <Table size="small" aria-label={`${title ?? "Performance"} table`} sx={{ minWidth: 680 }}>
+        <Table size="small" aria-label={`${title ?? "Performance"} table`} sx={{ minWidth: 640 }}>
           <TableHead>
             <TableRow>
               <TableCell>Segment</TableCell>
@@ -125,12 +126,13 @@ export function ProductPerformancePage() {
   });
 
   return (
-    <Stack spacing={4}>
+    <Stack spacing={4} sx={{ minWidth: 0, width: "100%" }}>
       <Stack
         direction={{ xs: "column", sm: "row" }}
         justifyContent="space-between"
         alignItems={{ sm: "flex-end" }}
         spacing={2}
+        sx={{ minWidth: 0, width: "100%" }}
       >
         <Box>
           <Typography variant="h4" fontWeight={700}>
@@ -174,18 +176,31 @@ export function ProductPerformancePage() {
 
       {query.data?.overall.total_bets ? (
         <>
-          <Stack component="section" aria-labelledby="overall-performance" spacing={2}>
+          <Stack component="section" aria-labelledby="overall-performance" spacing={2} sx={{ minWidth: 0, width: "100%" }}>
             <Typography id="overall-performance" variant="h5" fontWeight={700}>
               Overall
             </Typography>
-            <Grid container spacing={2}>
+            <Box
+              data-testid="overall-metrics-grid"
+              sx={{
+                display: "grid",
+                gap: 2,
+                gridTemplateColumns: {
+                  xs: "1fr",
+                  sm: "repeat(2, minmax(0, 1fr))",
+                  md: "repeat(4, minmax(0, 1fr))",
+                },
+                minWidth: 0,
+                width: "100%",
+              }}
+            >
               {[
                 ["Total Bets", String(query.data.overall.total_bets)],
                 ["Win Rate", `${query.data.overall.win_rate.toFixed(2)}%`],
                 ["Units Won", formatSigned(query.data.overall.units_won, " units")],
                 ["ROI", formatSigned(query.data.overall.roi, "%")],
               ].map(([label, value]) => (
-                <Grid key={label} size={{ xs: 12, sm: 6, lg: 3 }}>
+                <Box key={label} sx={{ minWidth: 0 }}>
                   <Card variant="outlined" sx={{ borderRadius: 2, height: "100%" }}>
                     <CardContent>
                       <Typography variant="body2" color="text.secondary">
@@ -196,50 +211,50 @@ export function ProductPerformancePage() {
                       </Typography>
                     </CardContent>
                   </Card>
-                </Grid>
+                </Box>
               ))}
-            </Grid>
+            </Box>
           </Stack>
 
-          <Stack component="section" aria-labelledby="market-performance" spacing={2}>
+          <Stack component="section" aria-labelledby="market-performance" spacing={2} sx={{ minWidth: 0, width: "100%" }}>
             <Typography id="market-performance" variant="h5" fontWeight={700}>
               Market Performance
             </Typography>
             <BreakdownTable rows={orderRows(query.data.by_market, marketOrder)} />
           </Stack>
 
-          <Stack component="section" aria-labelledby="model-strength" spacing={2}>
+          <Stack component="section" aria-labelledby="model-strength" spacing={2} sx={{ minWidth: 0, width: "100%" }}>
             <Typography id="model-strength" variant="h5" fontWeight={700}>
               Model Strength
             </Typography>
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12 }}>
+            <Grid container spacing={3} sx={{ minWidth: 0, width: "100%" }}>
+              <Grid size={{ xs: 12 }} sx={{ minWidth: 0 }}>
                 <BreakdownTable title="NPI Bands" rows={query.data.by_npi_band} />
               </Grid>
-              <Grid size={{ xs: 12 }}>
+              <Grid size={{ xs: 12 }} sx={{ minWidth: 0 }}>
                 <BreakdownTable title="Confidence Bands" rows={query.data.by_confidence_band} />
               </Grid>
-              <Grid size={{ xs: 12 }}>
+              <Grid size={{ xs: 12 }} sx={{ minWidth: 0 }}>
                 <BreakdownTable title="Odds Bands" rows={query.data.by_odds_band} />
               </Grid>
             </Grid>
           </Stack>
 
-          <Stack component="section" aria-labelledby="sport-performance" spacing={2}>
+          <Stack component="section" aria-labelledby="sport-performance" spacing={2} sx={{ minWidth: 0, width: "100%" }}>
             <Typography id="sport-performance" variant="h5" fontWeight={700}>
               Sport Performance
             </Typography>
             <BreakdownTable rows={orderRows(query.data.by_sport, sportOrder)} />
           </Stack>
 
-          <Stack component="section" aria-labelledby="bet-profile" spacing={2}>
+          <Stack component="section" aria-labelledby="bet-profile" spacing={2} sx={{ minWidth: 0, width: "100%" }}>
             <Typography id="bet-profile" variant="h5" fontWeight={700}>
               Bet Profile
             </Typography>
             <BreakdownTable rows={orderRows(query.data.by_side_type, sideOrder)} />
           </Stack>
 
-          <Stack component="section" aria-labelledby="model-version" spacing={2}>
+          <Stack component="section" aria-labelledby="model-version" spacing={2} sx={{ minWidth: 0, width: "100%" }}>
             <Typography id="model-version" variant="h5" fontWeight={700}>
               Model Version
             </Typography>

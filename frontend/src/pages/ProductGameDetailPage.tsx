@@ -95,6 +95,16 @@ function MarketCard({
                 American odds {formatAmericanOdds(prediction.american_odds)}
               </Typography>
             ) : null}
+            {prediction.sportsbook ? (
+              <Typography variant="body2">
+                Sportsbook: {prediction.sportsbook}
+              </Typography>
+            ) : null}
+            {prediction.odds_observed_at ? (
+              <Typography variant="body2">
+                Observed: {new Date(prediction.odds_observed_at).toLocaleString()}
+              </Typography>
+            ) : null}
           </Box>
 
           <PickMetrics

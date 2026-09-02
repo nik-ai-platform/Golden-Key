@@ -10,6 +10,8 @@ export interface Prediction {
   display_selection: string;
   line_value: number | null;
   american_odds: number | null;
+  sportsbook: string | null;
+  odds_observed_at: string | null;
   model_version: string;
   npi_score: number;
   confidence_score: number | null;

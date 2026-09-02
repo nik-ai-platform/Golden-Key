@@ -106,6 +106,21 @@ describe("Performance Intelligence", () => {
     expect(screen.getAllByText("-4.30%").length).toBeGreaterThan(0);
   });
 
+  it("contains wide tables within scrollable section wrappers", async () => {
+    renderPage();
+    await screen.findByText("Total Bets");
+
+    const metricsStyle = getComputedStyle(screen.getByTestId("overall-metrics-grid"));
+    expect(metricsStyle.display).toBe("grid");
+    expect(metricsStyle.minWidth).toBe("0px");
+    expect(metricsStyle.width).toBe("100%");
+    for (const table of screen.getAllByRole("table")) {
+      expect(getComputedStyle(table).minWidth).toBe("640px");
+      expect(getComputedStyle(table.parentElement!).overflowX).toBe("auto");
+      expect(getComputedStyle(table.parentElement!).width).toBe("100%");
+    }
+  });
+
   it("refetches the backend when the selected period changes", async () => {
     renderPage();
     await waitFor(() => expect(getPerformanceIntelligence).toHaveBeenCalledWith(30));

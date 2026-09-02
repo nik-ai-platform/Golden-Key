@@ -9,7 +9,7 @@ from app.models.team import Team
 from app.models.user_prediction import UserPrediction
 
 
-def _utc_iso(value: datetime) -> str:
+def _utc_iso(value: datetime | None) -> str | None:
     """
     Serialize game timestamps as explicit UTC.
 
@@ -17,6 +17,8 @@ def _utc_iso(value: datetime) -> str:
     Adding the UTC timezone before serialization prevents browsers
     from interpreting the stored UTC clock time as local time.
     """
+    if value is None:
+        return None
     if value.tzinfo is None:
         value = value.replace(tzinfo=UTC)
     else:
@@ -688,6 +690,8 @@ class V1ReadService:
             ),
             "line_value": prediction.line_value,
             "american_odds": prediction.american_odds,
+            "sportsbook": prediction.sportsbook,
+            "odds_observed_at": _utc_iso(prediction.odds_observed_at),
             "model_version": prediction.model_version,
             "npi_score": float(prediction.npi_score),
             "confidence_score": prediction.confidence_score,

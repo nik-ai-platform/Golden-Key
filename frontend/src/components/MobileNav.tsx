@@ -23,7 +23,20 @@ export function MobileNav() {
 
   return (
     <Paper elevation={8} sx={{ display: { xs: "block", sm: "none" }, position: "fixed", left: 0, right: 0, bottom: 0, zIndex: (theme) => theme.zIndex.appBar }}>
-      <BottomNavigation showLabels value={activePath} onChange={(_, path: string) => navigate(path)}>
+      <BottomNavigation
+        showLabels
+        value={activePath}
+        onChange={(_, path: string) => navigate(path)}
+        sx={{
+          overflowX: "auto",
+          overflowY: "hidden",
+          justifyContent: "flex-start",
+          "&::-webkit-scrollbar": {
+            display: "none",
+          },
+          scrollbarWidth: "none",
+        }}
+      >
         {items.map((item) => (
           <BottomNavigationAction
             key={item.path}
@@ -31,6 +44,10 @@ export function MobileNav() {
             label={item.label}
             icon={item.icon}
             aria-current={activePath === item.path ? "page" : undefined}
+            sx={{
+              minWidth: 72,
+              flexShrink: 0,
+            }}
           />
         ))}
       </BottomNavigation>
