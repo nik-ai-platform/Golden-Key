@@ -487,6 +487,184 @@ class V1ReadService:
             ],
         }
 
+    def get_performance_intelligence(
+        self,
+        db,
+        days: int = 30,
+    ) -> dict:
+        if days not in {7, 30, 90}:
+            days = 30
+
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        cutoff = now - timedelta(days=days)
+
+        rows = (
+            db.query(Prediction, PredictionResult, Game)
+            .join(
+                PredictionResult,
+                PredictionResult.prediction_id == Prediction.id,
+            )
+            .join(
+                Game,
+                Game.id == Prediction.game_id,
+            )
+            .filter(PredictionResult.created_at >= cutoff)
+            .filter(PredictionResult.outcome.in_(["WIN", "LOSS", "PUSH"]))
+            .all()
+        )
+
+        def summarize(items) -> dict:
+            wins = 0
+            losses = 0
+            pushes = 0
+            units_won = 0.0
+
+            for prediction, result, game in items:
+                outcome = (result.outcome or "").upper()
+
+                if outcome == "WIN":
+                    wins += 1
+                elif outcome == "LOSS":
+                    losses += 1
+                elif outcome == "PUSH":
+                    pushes += 1
+
+                units_won += float(result.profit_loss or 0.0) / 100.0
+
+            graded = wins + losses
+            total_bets = wins + losses + pushes
+
+            win_rate = (
+                round((wins / graded) * 100.0, 2)
+                if graded
+                else 0.0
+            )
+
+            roi = (
+                round((units_won / total_bets) * 100.0, 2)
+                if total_bets
+                else 0.0
+            )
+
+            return {
+                "total_bets": total_bets,
+                "wins": wins,
+                "losses": losses,
+                "pushes": pushes,
+                "win_rate": win_rate,
+                "units_won": round(units_won, 2),
+                "roi": roi,
+            }
+
+        def grouped(items, key_fn) -> list[dict]:
+            buckets: dict[str, list] = {}
+
+            for item in items:
+                key = key_fn(*item)
+
+                if key is None:
+                    continue
+
+                key = str(key)
+                buckets.setdefault(key, []).append(item)
+
+            return [
+                {
+                    "key": key,
+                    **summarize(bucket),
+                }
+                for key, bucket in sorted(buckets.items())
+            ]
+
+        def npi_band(prediction, result, game):
+            value = prediction.npi_score
+
+            if value is None:
+                return "Unknown"
+            if value < 100:
+                return "0-99"
+            if value < 125:
+                return "100-124"
+            if value < 150:
+                return "125-149"
+            if value < 175:
+                return "150-174"
+            return "175-200"
+
+        def confidence_band(prediction, result, game):
+            value = prediction.confidence_score
+
+            if value is None:
+                return "Unknown"
+            if value < 60:
+                return "<60"
+            if value < 70:
+                return "60-69"
+            if value < 80:
+                return "70-79"
+            if value < 90:
+                return "80-89"
+            return "90-100"
+
+        def odds_band(prediction, result, game):
+            odds = prediction.american_odds
+
+            if odds is None:
+                return "Unknown"
+
+            odds = int(odds)
+
+            if odds >= 500:
+                return "+500 or longer"
+            if odds >= 200:
+                return "+200 to +499"
+            if odds >= 100:
+                return "+100 to +199"
+            if odds <= -200:
+                return "-200 or shorter"
+            if odds <= -101:
+                return "-101 to -199"
+
+            return "Other"
+
+        def side_type(prediction, result, game):
+            market = (prediction.market or "").upper()
+            selection = (prediction.selection or "").strip().upper()
+            odds = prediction.american_odds
+
+            if market not in {"SPREAD", "MONEYLINE"}:
+                return "Other"
+
+            if odds is not None:
+                if odds > 0:
+                    return "Underdog"
+                if odds < 0:
+                    return "Favorite"
+
+            return "Unknown"
+
+        return {
+            "period_days": days,
+            "generated_at": now.isoformat() + "Z",
+            "overall": summarize(rows),
+            "by_market": grouped(
+                rows,
+                lambda p, r, g: (p.market or "Unknown").upper(),
+            ),
+            "by_sport": grouped(
+                rows,
+                lambda p, r, g: (g.sport or "Unknown").upper(),
+            ),
+            "by_npi_band": grouped(rows, npi_band),
+            "by_confidence_band": grouped(rows, confidence_band),
+            "by_odds_band": grouped(rows, odds_band),
+            "by_side_type": grouped(rows, side_type),
+            "by_model_version": grouped(
+                rows,
+                lambda p, r, g: p.model_version or "Unknown",
+            ),
+        }
+
     def _prediction_item(
         self,
         prediction: Prediction,

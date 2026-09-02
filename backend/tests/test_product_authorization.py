@@ -23,6 +23,7 @@ def _anonymous_product_client() -> TestClient:
         "/api/v1/product/daily-card",
         "/api/v1/product/games/101",
         "/api/v1/product/performance",
+        "/api/v1/product/performance-intelligence",
     ),
 )
 def test_product_reads_reject_anonymous_requests(path):
@@ -96,10 +97,38 @@ def test_authenticated_product_reads_preserve_response_contracts(monkeypatch):
         "sport_performance": [],
         "recent_results": [],
     }
+    performance_intelligence = {
+        "period_days": 7,
+        "generated_at": "2026-08-30T12:00:00Z",
+        "overall": {
+            "total_bets": 3,
+            "wins": 1,
+            "losses": 1,
+            "pushes": 1,
+            "win_rate": 50.0,
+            "units_won": 0.5,
+            "roi": 16.67,
+        },
+        "by_market": [],
+        "by_sport": [],
+        "by_npi_band": [],
+        "by_confidence_band": [],
+        "by_odds_band": [],
+        "by_side_type": [],
+        "by_model_version": [],
+    }
     monkeypatch.setattr(product.service, "get_today_predictions", lambda **_: today)
     monkeypatch.setattr(product.service, "get_daily_card", lambda **_: daily_card)
     monkeypatch.setattr(product.service, "get_game_detail", lambda **_: game)
     monkeypatch.setattr(product.service, "get_performance", lambda **_: performance)
+    monkeypatch.setattr(
+        product.service,
+        "get_performance_intelligence",
+        lambda _, days=30: {
+            **performance_intelligence,
+            "period_days": days,
+        },
+    )
     access_token, _, _ = JWTService().create_access_token(
         {
             "sub": settings.AUTH_DEMO_EMAIL,
@@ -123,6 +152,10 @@ def test_authenticated_product_reads_preserve_response_contracts(monkeypatch):
         "/api/v1/product/performance",
         headers=headers,
     )
+    performance_intelligence_response = client.get(
+        "/api/v1/product/performance-intelligence?days=7",
+        headers=headers,
+    )
 
     assert predictions_response.status_code == 200
     assert predictions_response.json() == today
@@ -132,3 +165,5 @@ def test_authenticated_product_reads_preserve_response_contracts(monkeypatch):
     assert game_response.json() == game
     assert performance_response.status_code == 200
     assert performance_response.json() == performance
+    assert performance_intelligence_response.status_code == 200
+    assert performance_intelligence_response.json() == performance_intelligence

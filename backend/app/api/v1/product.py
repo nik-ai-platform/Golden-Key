@@ -101,3 +101,15 @@ def performance(
     db: Session = Depends(get_db),
 ):
     return service.get_performance(db=db)
+
+
+@router.get("/performance-intelligence")
+def get_performance_intelligence(
+    days: int = 30,
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    return service.get_performance_intelligence(
+        db,
+        days=days,
+    )

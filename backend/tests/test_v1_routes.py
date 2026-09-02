@@ -13,6 +13,7 @@ def test_required_product_routes_exist():
         "/api/v1/product/games/{game_id}",
         "/api/v1/product/me/saved-picks",
         "/api/v1/product/performance",
+        "/api/v1/product/performance-intelligence",
         "/api/v1/version",
     }
 
