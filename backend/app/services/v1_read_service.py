@@ -61,7 +61,7 @@ class V1ReadService:
     ) -> date:
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         today = now.date()
-        window_end = now + timedelta(days=7)
+        window_end = now + timedelta(days=14)
         query = (
             db.query(Game.game_date)
             .join(Prediction, Prediction.game_id == Game.id)

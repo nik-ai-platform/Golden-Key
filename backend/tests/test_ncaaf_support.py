@@ -38,7 +38,7 @@ def _event(with_odds=False):
         "id": "ncaaf-provider-game-1",
         "home_team": "Texas Longhorns",
         "away_team": "Ohio State Buckeyes",
-        "commence_time": "2026-09-05T19:30:00Z",
+        "commence_time": "2026-09-10T19:30:00Z",
         "bookmakers": [],
     }
     if with_odds:
@@ -749,7 +749,7 @@ def test_one_ncaaf_event_persists_complete_odds_and_three_predictions():
         include_passes=True,
     )
     assert feed["sport"] == "NCAAF"
-    assert feed["slate_date"] == "2026-09-05"
+    assert feed["slate_date"] == "2026-09-10"
     assert feed["count"] == 3
     assert {item["market"] for item in feed["predictions"]} == {
         "spread",
