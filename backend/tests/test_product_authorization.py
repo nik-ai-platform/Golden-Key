@@ -46,6 +46,8 @@ def test_authenticated_product_reads_preserve_response_contracts(monkeypatch):
         "display_selection": "Minnesota Lynx",
         "line_value": None,
         "american_odds": 125,
+        "sportsbook": None,
+        "odds_observed_at": None,
         "model_version": "NPI-4.0",
         "npi_score": 168.0,
         "confidence_score": 82.5,

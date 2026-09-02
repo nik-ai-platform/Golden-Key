@@ -206,18 +206,11 @@ def test_prediction_engine_builds_three_independent_market_decisions():
     )
     engine = PredictionEngine()
     engine.simulation_engine = MagicMock()
-    engine.simulation_engine.simulate.side_effect = [
-        {
-            "win_probability": 60,
-            "runs": 10000,
-            "average_margin": 3.0,
-        },
-        {
-            "win_probability": 45,
-            "runs": 10000,
-            "average_margin": -1.5,
-        },
-    ]
+    engine.simulation_engine.simulate.return_value = {
+        "win_probability": 60,
+        "runs": 10000,
+        "average_margin": 3.0,
+    }
     spread_npi = {
         "npi_score": 77.25,
         "factors": [],
@@ -237,7 +230,7 @@ def test_prediction_engine_builds_three_independent_market_decisions():
     assert len({item["npi_score"] for item in specifications}) == 3
     assert specifications[0]["selection"] == "HOME"
     assert specifications[0]["line_value"] == -9.5
-    assert specifications[1]["selection"] == "AWAY"
-    assert specifications[1]["american_odds"] == 340
+    assert specifications[1]["selection"] == "PASS"
+    assert specifications[1]["american_odds"] == -470
     assert specifications[2]["selection"] == "UNDER"
     assert specifications[2]["line_value"] == 173.5

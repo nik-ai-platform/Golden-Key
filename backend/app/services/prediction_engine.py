@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import math
 
 from sqlalchemy.orm import Session
 
@@ -387,7 +388,6 @@ class PredictionEngine:
         ]
 
     def _moneyline_specification(self, odds, spread_npi):
-        spread_score = spread_npi["npi_score"]
         home_implied = self._american_implied_probability(
             odds.moneyline_home
         )
@@ -397,20 +397,41 @@ class PredictionEngine:
         implied_total = home_implied + away_implied
         fair_home = home_implied / implied_total * 100
 
-        simulation = self.simulation_engine.simulate(
-            npi_score=spread_score,
-            spread=0,
+        home_probability = self._spread_home_win_probability(
+            odds.spread_home
         )
-        home_probability = simulation["win_probability"]
         home_edge = home_probability - fair_home
-        if abs(home_edge) < 3:
-            selection = "PASS"
-        else:
-            selection = "HOME" if home_edge > 0 else "AWAY"
+        candidate_side = "HOME" if home_edge >= 0 else "AWAY"
         selected_probability = (
-            home_probability if selection != "AWAY" else 100 - home_probability
+            home_probability
+            if candidate_side == "HOME"
+            else 100 - home_probability
         )
-        selected_edge = abs(home_edge)
+        selected_market_probability = (
+            fair_home
+            if candidate_side == "HOME"
+            else 100 - fair_home
+        )
+        selected_edge = selected_probability - selected_market_probability
+        selected_price = (
+            odds.moneyline_home
+            if candidate_side == "HOME"
+            else odds.moneyline_away
+        )
+        expected_value = self._moneyline_expected_value(
+            selected_probability,
+            selected_price,
+        )
+        selection = (
+            candidate_side
+            if selected_edge >= 3 and expected_value > 0
+            else "PASS"
+        )
+        simulation = {
+            "win_probability": round(selected_probability, 2),
+            "runs": 0,
+            "average_margin": round(-float(odds.spread_home), 2),
+        }
         npi_score = self._bounded_npi(100 + selected_edge * 2)
         confidence = self.calculate_confidence(
             npi_score,
@@ -421,11 +442,7 @@ class PredictionEngine:
             "market": "moneyline",
             "selection": selection,
             "line_value": None,
-            "american_odds": (
-                odds.moneyline_home
-                if selection != "AWAY"
-                else odds.moneyline_away
-            ),
+            "american_odds": selected_price,
             "npi_score": npi_score,
             "win_probability": round(selected_probability, 2),
             "simulation_probability": round(selected_probability, 2),
@@ -443,8 +460,10 @@ class PredictionEngine:
                     "weight": 200,
                     "score": npi_score,
                     "explanation": (
-                        f"Model probability {home_probability:.2f}% versus "
-                        f"vig-free home probability {fair_home:.2f}%"
+                        f"{candidate_side.title()} model probability "
+                        f"{selected_probability:.2f}% versus vig-free "
+                        f"probability {selected_market_probability:.2f}%; "
+                        f"expected value {expected_value:.2f}%"
                     ),
                 }
             ],
@@ -522,6 +541,25 @@ class PredictionEngine:
         if price < 0:
             return abs(price) / (abs(price) + 100) * 100
         return 100 / (price + 100) * 100
+
+    @staticmethod
+    def _spread_home_win_probability(spread_home):
+        expected_home_margin = -float(spread_home)
+        z_score = (
+            expected_home_margin
+            / SimulationEngine.MARGIN_STANDARD_DEVIATION
+        )
+        return 0.5 * (1 + math.erf(z_score / math.sqrt(2))) * 100
+
+    @staticmethod
+    def _moneyline_expected_value(probability, american_odds):
+        win_probability = float(probability) / 100
+        price = float(american_odds)
+        profit = price / 100 if price > 0 else 100 / abs(price)
+        return round(
+            (win_probability * profit - (1 - win_probability)) * 100,
+            2,
+        )
 
     def _bounded_npi(self, score):
         return round(max(0.0, min(float(score), 200.0)), 2)

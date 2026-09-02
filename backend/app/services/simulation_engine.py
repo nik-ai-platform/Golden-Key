@@ -5,6 +5,7 @@ import statistics
 class SimulationEngine:
 
     DEFAULT_RUNS = 10000
+    MARGIN_STANDARD_DEVIATION = 12
 
     def simulate(
         self,
@@ -23,14 +24,14 @@ class SimulationEngine:
 
             random_variance = random.gauss(
                 0,
-                12
+                self.MARGIN_STANDARD_DEVIATION
             )
 
             simulated_margin = (
                 advantage
                 +
                 random_variance
-                -
+                +
                 spread
             )
 

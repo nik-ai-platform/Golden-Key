@@ -521,18 +521,11 @@ def test_ncaaf_uses_default_npi_profile_and_stays_on_200_point_scale(
 def test_ncaaf_builds_unified_spread_moneyline_and_total_predictions():
     engine = PredictionEngine()
     engine.simulation_engine = MagicMock()
-    engine.simulation_engine.simulate.side_effect = [
-        {
-            "win_probability": 62,
-            "runs": 10000,
-            "average_margin": 4.0,
-        },
-        {
-            "win_probability": 58,
-            "runs": 10000,
-            "average_margin": 2.0,
-        },
-    ]
+    engine.simulation_engine.simulate.return_value = {
+        "win_probability": 62,
+        "runs": 10000,
+        "average_margin": 4.0,
+    }
 
     specifications = engine._market_specifications(
         sport="NCAAF",
@@ -553,12 +546,11 @@ def test_ncaaf_builds_unified_spread_moneyline_and_total_predictions():
 
 def test_moneyline_upset_signal_shadows_historical_rule_without_changing_pick():
     engine = PredictionEngine()
-    engine.simulation_engine = MagicMock()
-    engine.simulation_engine.simulate.return_value = {
-        "win_probability": 42,
-        "runs": 10000,
-        "average_margin": -2.0,
-    }
+    odds = _odds()
+    odds.spread_home = -3.5
+    odds.spread_away = 3.5
+    odds.moneyline_home = -220
+    odds.moneyline_away = 180
     spread_npi = {
         "npi_score": 110,
         "factors": [
@@ -571,21 +563,15 @@ def test_moneyline_upset_signal_shadows_historical_rule_without_changing_pick():
         ],
     }
 
-    moneyline = engine._moneyline_specification(_odds(), spread_npi)
+    moneyline = engine._moneyline_specification(odds, spread_npi)
 
     assert moneyline["upset_signal"] == 35.0
     assert moneyline["selection"] == "AWAY"
-    assert moneyline["american_odds"] == 230
+    assert moneyline["american_odds"] == 180
 
 
 def test_moneyline_upset_signal_is_missing_without_independent_rule_factor():
     engine = PredictionEngine()
-    engine.simulation_engine = MagicMock()
-    engine.simulation_engine.simulate.return_value = {
-        "win_probability": 42,
-        "runs": 10000,
-        "average_margin": -2.0,
-    }
 
     moneyline = engine._moneyline_specification(
         _odds(),
@@ -593,6 +579,65 @@ def test_moneyline_upset_signal_is_missing_without_independent_rule_factor():
     )
 
     assert moneyline["upset_signal"] is None
+
+
+def test_moneyline_large_favorite_does_not_select_road_longshot():
+    odds = _odds()
+    odds.spread_home = -18.5
+    odds.spread_away = 18.5
+    odds.moneyline_home = -1200
+    odds.moneyline_away = 750
+
+    moneyline = PredictionEngine()._moneyline_specification(
+        odds,
+        {"npi_score": 68.5, "factors": []},
+    )
+    different_npi = PredictionEngine()._moneyline_specification(
+        odds,
+        {"npi_score": 200, "factors": []},
+    )
+
+    assert moneyline["selection"] == "HOME"
+    assert moneyline["win_probability"] == pytest.approx(93.84, abs=0.01)
+    assert different_npi["win_probability"] == moneyline["win_probability"]
+    assert moneyline["american_odds"] == -1200
+    assert moneyline["projected_edge"] == pytest.approx(5.15, abs=0.01)
+
+
+def test_moneyline_legitimate_moderate_underdog_remains_eligible():
+    odds = _odds()
+    odds.spread_home = -3.5
+    odds.spread_away = 3.5
+    odds.moneyline_home = -220
+    odds.moneyline_away = 180
+
+    moneyline = PredictionEngine()._moneyline_specification(
+        odds,
+        {"npi_score": 200, "factors": []},
+    )
+
+    assert moneyline["selection"] == "AWAY"
+    assert moneyline["win_probability"] == pytest.approx(38.53, abs=0.01)
+    assert moneyline["american_odds"] == 180
+    assert moneyline["projected_edge"] == pytest.approx(4.34, abs=0.01)
+
+
+def test_moneyline_requires_positive_expected_value():
+    odds = _odds()
+    odds.spread_home = -23.5
+    odds.spread_away = 23.5
+    odds.moneyline_home = -4000
+    odds.moneyline_away = 1600
+
+    moneyline = PredictionEngine()._moneyline_specification(
+        odds,
+        {"npi_score": 50, "factors": []},
+    )
+
+    assert moneyline["selection"] == "PASS"
+    assert moneyline["win_probability"] == pytest.approx(97.49, abs=0.01)
+    assert moneyline["american_odds"] == -4000
+    assert moneyline["projected_edge"] == pytest.approx(3.18, abs=0.01)
 
 
 @pytest.mark.parametrize(
