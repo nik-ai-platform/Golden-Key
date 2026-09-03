@@ -8,6 +8,7 @@ interface PickMetricsProps {
   simulationProbability: number | null;
   projectedEdge: number | null;
   riskLevel: string | null;
+  focused?: boolean;
 }
 
 function formatPercentage(value: number | null): string {
@@ -51,13 +52,60 @@ export function PickMetrics({
   simulationProbability,
   projectedEdge,
   riskLevel,
+  focused = false,
 }: PickMetricsProps) {
   const risk = riskLabel(riskLevel);
+  const keyMetrics = [
+    { label: "NPI", value: Number.isFinite(npi) ? Math.round(npi).toString() : "—" },
+    { label: "Confidence", value: formatPercentage(confidence) },
+    { label: "Edge", value: formatEdge(projectedEdge) },
+  ];
   const metrics = [
     { label: "Confidence", value: formatPercentage(confidence) },
     { label: "Simulation", value: formatPercentage(simulationProbability) },
     { label: "Edge", value: formatEdge(projectedEdge) },
   ];
+
+  if (focused) {
+    return (
+      <Box
+        data-testid="pick-metrics"
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+          borderBlock: "1px solid",
+          borderColor: "var(--gk-border)",
+          py: 1.5,
+        }}
+      >
+        {keyMetrics.map((metric, index) => (
+          <Box
+            key={metric.label}
+            sx={{
+              minWidth: 0,
+              px: { xs: index === 0 ? 0 : 1, sm: index === 0 ? 0 : 1.25 },
+              borderLeft: index === 0 ? 0 : "1px solid var(--gk-border)",
+            }}
+          >
+            <Typography sx={{ ...labelSx, overflowWrap: "normal", whiteSpace: "nowrap" }}>
+              {metric.label}
+            </Typography>
+            <Typography
+              sx={{
+                color: metric.label === "Edge" ? "var(--gk-analytics)" : "text.primary",
+                fontSize: { xs: "1rem", sm: "1.15rem" },
+                fontWeight: 800,
+                lineHeight: 1.4,
+                overflowWrap: "anywhere",
+              }}
+            >
+              {metric.value}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
+    );
+  }
 
   return (
     <Box

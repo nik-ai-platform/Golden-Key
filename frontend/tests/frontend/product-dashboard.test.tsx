@@ -144,8 +144,11 @@ describe("daily card dashboard", () => {
   it("renders the primary bet, market roles, value play, and next picks", () => {
     renderDashboard();
 
-    expect(screen.getByRole("heading", { name: "Golden Key Next Slate — September 3" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Next Slate — September 3" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Today's Intelligence" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Best Bet" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Market Leaders" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Model Intelligence" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Today's Games" })).toBeTruthy();
     expect(
       within(screen.getByTestId("daily-card-best-bet")).getByText("Georgia -6.5"),
     ).toBeTruthy();
@@ -153,10 +156,12 @@ describe("daily card dashboard", () => {
       within(screen.getByTestId("daily-card-top-spread")).getByText("Alabama -4.5"),
     ).toBeTruthy();
     expect(screen.getByTestId("daily-card-best-bet").dataset.emphasis).toBe("premium");
-    expect(screen.getByTestId("daily-card-top-spread").dataset.emphasis).toBe("default");
+    expect(screen.getAllByTestId("daily-card-top-spread")[0].dataset.emphasis).toBe("featured");
     expect(within(screen.getByTestId("daily-card-top-total")).getByText("OVER 47.5")).toBeTruthy();
-    expect(within(screen.getByTestId("daily-card-value-play")).getByText("Duke +3.5")).toBeTruthy();
+    expect(within(screen.getByTestId("daily-game-value-play")).getByText("Duke +3.5")).toBeTruthy();
     expect(screen.getAllByTestId("next-best-pick")).toHaveLength(1);
+    expect(screen.getByText("6 ranked signals")).toBeTruthy();
+    expect(screen.getByText("NPI Leaders")).toBeTruthy();
   });
 
   it("keeps a long moneyline in Moneyline Value instead of Best Bet", () => {

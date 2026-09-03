@@ -40,6 +40,29 @@ const predictions = [
   },
 ];
 
+function dailyCardPick(
+  role: "TOP_SPREAD" | "TOP_MONEYLINE" | "TOP_TOTAL" | "VALUE_PLAY" | "NEXT_BEST",
+  label: string,
+  predictionId: number,
+  market: string,
+  displaySelection: string,
+) {
+  return {
+    role,
+    label,
+    ranking_score: 84,
+    ranking_reasons: ["Strong model signal", "Positive projected edge"],
+    prediction: {
+      ...prediction,
+      prediction_id: predictionId,
+      game_id: predictionId,
+      market,
+      display_selection: displaySelection,
+      npi_score: 168 - (predictionId - 60) * 3,
+    },
+  };
+}
+
 async function mockProductApi(page: import("@playwright/test").Page) {
   await page.route("**/api/v1/users/me", (route) =>
     route.fulfill({
@@ -59,7 +82,7 @@ async function mockProductApi(page: import("@playwright/test").Page) {
         sport: null,
         generated_at: "2026-09-02T12:00:00Z",
         slate_date: "2026-09-10",
-        count: predictions.length,
+        count: 6,
         best_bet: {
           role: "BEST_BET",
           label: "Best Bet",
@@ -67,8 +90,15 @@ async function mockProductApi(page: import("@playwright/test").Page) {
           ranking_reasons: ["82.5% confidence", "6.4% projected edge"],
           prediction,
         },
-        featured_picks: [],
-        next_best: [],
+        featured_picks: [
+          dailyCardPick("TOP_SPREAD", "Top Spread", 60, "spread", "Buffalo Bills -2.5"),
+          dailyCardPick("TOP_MONEYLINE", "Moneyline Value", 61, "moneyline", "Chicago Bears ML"),
+          dailyCardPick("TOP_TOTAL", "Top Total", 62, "total", "OVER 44.5"),
+          dailyCardPick("VALUE_PLAY", "Value Play", 63, "spread", "Miami Dolphins +4.5"),
+        ],
+        next_best: [
+          dailyCardPick("NEXT_BEST", "Next Best Pick", 64, "spread", "Denver Broncos -1.5"),
+        ],
       },
     }),
   );
@@ -208,6 +238,23 @@ async function expectCompactMetrics(
   ).toBe(true);
 }
 
+async function expectDashboardMetrics(page: import("@playwright/test").Page) {
+  const container = page.getByTestId("pick-metrics").first();
+
+  await expect(container).toBeVisible();
+  for (const label of ["NPI", "Confidence", "Edge"]) {
+    await expect(container.getByText(label, { exact: true })).toBeVisible();
+  }
+  expect(
+    await container.evaluate(
+      (element) => getComputedStyle(element).gridTemplateColumns.split(" ").length,
+    ),
+  ).toBe(3);
+  expect(
+    await container.evaluate((element) => element.scrollWidth <= element.clientWidth),
+  ).toBe(true);
+}
+
 test("login supports dark mode without preset credentials", async ({ page }) => {
   await page.goto("/login");
   await expect(page.getByLabel("Email")).toHaveValue("");
@@ -246,7 +293,14 @@ for (const viewport of [
       await expectDarkPage(page);
       await expect(page.locator("main")).toBeVisible();
       if (["/dashboard", "/games/101"].includes(route)) {
-        await expectCompactMetrics(page, viewport.name === "desktop" ? 4 : 2);
+        if (route === "/dashboard") {
+          await expectDashboardMetrics(page);
+          for (const heading of ["Best Bet", "Market Leaders", "Model Intelligence", "Today's Games"]) {
+            await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+          }
+        } else {
+          await expectCompactMetrics(page, viewport.name === "desktop" ? 4 : 2);
+        }
         await page.screenshot({
           path: `test-results/theme-${route === "/dashboard" ? "dashboard" : "game-analysis"}-dark-${viewport.name}.png`,
           fullPage: true,
@@ -283,7 +337,11 @@ for (const viewport of [
     for (const route of ["/dashboard", "/games/101"]) {
       await page.goto(route);
       await expect(page.getByRole("button", { name: "Switch to dark mode" })).toBeVisible();
-      await expectCompactMetrics(page, viewport.name === "desktop" ? 4 : 2);
+      if (route === "/dashboard") {
+        await expectDashboardMetrics(page);
+      } else {
+        await expectCompactMetrics(page, viewport.name === "desktop" ? 4 : 2);
+      }
       expect(
         await page.evaluate(() =>
           document.documentElement.scrollWidth <= document.documentElement.clientWidth,
