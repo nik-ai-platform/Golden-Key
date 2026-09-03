@@ -5,6 +5,32 @@ import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { register } from "../services/authService";
 import { useAuth } from "../hooks/useAuth";
 
+type ApiRequestError = {
+  status?: number;
+  message?: string;
+};
+
+function getRegistrationErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof (error as ApiRequestError).message === "string"
+  ) {
+    const message = (error as ApiRequestError).message?.trim();
+
+    if (message) {
+      return message;
+    }
+  }
+
+  return "Registration failed. Please try again.";
+}
+
 export function RegisterPage() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -25,8 +51,8 @@ export function RegisterPage() {
     try {
       await register({ username, email, password });
       navigate("/login", { replace: true });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Registration failed");
+    } catch (caught: unknown) {
+      setError(getRegistrationErrorMessage(caught));
     } finally {
       setLoading(false);
     }
