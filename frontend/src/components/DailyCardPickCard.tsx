@@ -5,8 +5,10 @@ import { Link as RouterLink } from "react-router-dom";
 
 import type { DailyCardPick } from "../types/product";
 import { formatAmericanOdds, formatProductDate } from "../utils/productFormat";
+import { getPredictionTeamIdentity } from "../utils/teamIdentity";
 import { PickMetrics } from "./PickMetrics";
 import { SavePickButton } from "./SavePickButton";
+import { TeamAccent } from "./TeamAccent";
 
 interface DailyCardPickCardProps {
   pick: DailyCardPick;
@@ -28,20 +30,7 @@ export function DailyCardPickCard({
   const isHero = presentation === "hero";
   const isCompact = presentation === "compact";
   const isRow = presentation === "row";
-  const isSideSelection = prediction.selection === "HOME" || prediction.selection === "AWAY";
-  const selectionTeam = prediction.selection === "HOME"
-    ? prediction.home_team
-    : prediction.selection === "AWAY"
-      ? prediction.away_team
-      : prediction.display_selection;
-  const opponent = prediction.selection === "HOME"
-    ? prediction.away_team
-    : prediction.selection === "AWAY"
-      ? prediction.home_team
-      : null;
-  const selectionDetail = isSideSelection
-    ? prediction.display_selection.replace(selectionTeam, "").trim()
-    : null;
+  const teamIdentity = getPredictionTeamIdentity(prediction);
   const emphasisColor = {
     default: "var(--gk-border)",
     featured: "var(--gk-gold)",
@@ -55,6 +44,161 @@ export function DailyCardPickCard({
     analytics: "var(--gk-analytics-soft)",
   }[resolvedEmphasis];
   const testIdPrefix = isRow ? "daily-game" : "daily-card";
+
+  if (isHero) {
+    return (
+      <Card
+        className="gk-card gk-best-bet"
+        variant="outlined"
+        data-emphasis={resolvedEmphasis}
+        data-testid={`${testIdPrefix}-${pick.role.toLowerCase().replace(/_/g, "-")}`}
+        sx={{
+          position: "relative",
+          borderColor: "var(--gk-gold)",
+          borderRadius: "var(--gk-radius-sm)",
+          backgroundColor: "var(--gk-surface-raised)",
+          boxShadow: "0 14px 42px rgba(214, 173, 69, 0.10)",
+          overflow: "hidden",
+        }}
+      >
+        <TeamAccent identity={teamIdentity} variant="glow" testId="best-bet-team-accent" />
+        <Box sx={{ height: 3, backgroundColor: "var(--gk-gold-bright)" }} />
+        <CardContent sx={{ position: "relative", p: { xs: 2, md: 2.5 }, "&:last-child": { pb: { xs: 2, md: 2.5 } } }}>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "minmax(0, 1fr)", md: "minmax(0, 1.6fr) minmax(300px, 0.75fr)" },
+              gap: { xs: 2, md: 3 },
+            }}
+          >
+            <Stack spacing={1.5} justifyContent="space-between" minWidth={0}>
+              <Box>
+                <Typography
+                  variant="overline"
+                  color="primary.main"
+                  fontWeight={900}
+                  sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+                >
+                  <StarRoundedIcon sx={{ fontSize: 16 }} />
+                  {pick.label}
+                </Typography>
+                <Typography
+                  component="p"
+                  sx={{ mt: 0.5, fontSize: { xs: "1.75rem", sm: "2.35rem" }, fontWeight: 900, lineHeight: 1.05 }}
+                >
+                  {prediction.display_selection}
+                </Typography>
+                <Typography color="text.secondary" sx={{ mt: 0.75, fontWeight: 650 }}>
+                  {prediction.away_team} @ {prediction.home_team}
+                </Typography>
+              </Box>
+              <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                <Chip label={prediction.market} size="small" sx={{ textTransform: "capitalize" }} />
+                {odds ? <Chip label={`Odds ${odds}`} size="small" variant="outlined" /> : null}
+                <Chip label={`NPI ${Math.round(prediction.npi_score)}`} size="small" variant="outlined" />
+              </Stack>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap aria-label="Why this pick ranks here">
+                {pick.ranking_reasons.map((reason) => (
+                  <Typography key={reason} variant="caption" color="text.secondary">{reason}</Typography>
+                ))}
+              </Stack>
+            </Stack>
+
+            <Stack spacing={1.5} justifyContent="space-between" sx={{ borderLeft: { md: "1px solid var(--gk-border)" }, pl: { md: 3 } }}>
+              <PickMetrics
+                npi={prediction.npi_score}
+                confidence={prediction.confidence_score}
+                simulationProbability={prediction.simulation_probability}
+                projectedEdge={prediction.projected_edge}
+                riskLevel={prediction.risk_level}
+                hero
+              />
+              <Stack direction="row" spacing={1} justifyContent={{ md: "flex-end" }} flexWrap="wrap" useFlexGap>
+                <SavePickButton predictionId={prediction.prediction_id} />
+                <Button component={RouterLink} to={`/games/${prediction.game_id}`} variant="contained" endIcon={<ArrowForwardRoundedIcon />}>
+                  View Analysis
+                </Button>
+              </Stack>
+            </Stack>
+          </Box>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isCompact) {
+    const winProbability = prediction.simulation_probability == null
+      ? "—"
+      : `${prediction.simulation_probability.toFixed(1)}%`;
+    const edge = prediction.projected_edge == null
+      ? "—"
+      : `${prediction.projected_edge > 0 ? "+" : ""}${prediction.projected_edge.toFixed(1)}%`;
+
+    return (
+      <Card
+        className="gk-card"
+        variant="outlined"
+        data-emphasis={resolvedEmphasis}
+        data-testid={`${testIdPrefix}-${pick.role.toLowerCase().replace(/_/g, "-")}`}
+        sx={{ borderColor: "var(--gk-border)", backgroundColor: "var(--gk-surface)", borderRadius: 0 }}
+      >
+        <Box
+          sx={{
+            display: { xs: "block", md: "grid" },
+            gridTemplateColumns: { md: "minmax(190px, 1.5fr) minmax(220px, 1.4fr) 90px 110px 90px" },
+            alignItems: "center",
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, px: { xs: 2, md: 1.5 }, pt: { xs: 2, md: 1.25 }, pb: { xs: 0, md: 1.25 }, minWidth: 0 }}>
+            <TeamAccent identity={teamIdentity} variant="dot" testId="market-leader-team-accent" />
+            <Box minWidth={0}>
+              <Typography variant="overline" color="primary.main" fontWeight={900}>{pick.label}</Typography>
+              <Typography fontWeight={850} noWrap>{prediction.display_selection}</Typography>
+            </Box>
+          </Box>
+          <Box sx={{ px: { xs: 2, md: 1.5 }, py: { xs: 1, md: 1.25 }, minWidth: 0 }}>
+            <Typography variant="body2" fontWeight={700} noWrap>{prediction.away_team} @ {prediction.home_team}</Typography>
+            <Typography variant="caption" color="text.secondary">{formatProductDate(prediction.game_date)}</Typography>
+          </Box>
+          {[
+            { label: "Odds", value: odds ?? "—", color: "text.primary" },
+            { label: "Win prob", value: winProbability, color: "text.primary" },
+            { label: "Edge", value: edge, color: "var(--gk-analytics)" },
+          ].map((metric) => (
+            <Box key={metric.label} sx={{ display: { xs: "none", md: "block" }, px: 1.5, py: 1.25, borderLeft: "1px solid var(--gk-border)" }}>
+              <Typography fontFamily="monospace" fontWeight={800} color={metric.color}>
+                {metric.label === "Odds" ? (
+                  <Box
+                    component="span"
+                    sx={{ display: "none" }}
+                  >
+                    Odds{" "}
+                  </Box>
+                ) : null}
+                {metric.value}
+              </Typography>
+            </Box>
+          ))}
+          <Box sx={{ display: { md: "none" }, px: 2, pb: 1 }}>
+            <PickMetrics
+              npi={prediction.npi_score}
+              confidence={prediction.confidence_score}
+              simulationProbability={prediction.simulation_probability}
+              projectedEdge={prediction.projected_edge}
+              riskLevel={prediction.risk_level}
+              focused
+            />
+          </Box>
+          <Stack direction="row" spacing={1} sx={{ display: { md: "none" }, px: 2, pb: 2 }}>
+            <SavePickButton predictionId={prediction.prediction_id} />
+            <Button component={RouterLink} to={`/games/${prediction.game_id}`} variant="text" endIcon={<ArrowForwardRoundedIcon />}>
+              View Analysis
+            </Button>
+          </Stack>
+        </Box>
+      </Card>
+    );
+  }
 
   return (
     <Card
@@ -71,7 +215,6 @@ export function DailyCardPickCard({
         overflow: "hidden",
       }}
     >
-      {isHero ? <Box sx={{ height: 3, backgroundColor: "var(--gk-gold-bright)" }} /> : null}
       <CardContent
         sx={{
           p: { xs: 2, sm: 2.5 },
@@ -81,7 +224,7 @@ export function DailyCardPickCard({
         <Stack
           direction={isRow ? { xs: "column", md: "row" } : "column"}
           alignItems={isRow ? { xs: "stretch", md: "center" } : "stretch"}
-          spacing={isHero ? { xs: 3, sm: 2 } : 2}
+          spacing={2}
         >
           <Stack
             direction="row"
@@ -91,42 +234,36 @@ export function DailyCardPickCard({
             sx={{ flex: isRow ? "1 1 32%" : undefined, minWidth: 0 }}
           >
             <Box>
+              {isRow ? (
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <TeamAccent identity={teamIdentity} variant="bar" testId="game-row-team-accent" />
+                  <Box minWidth={0}>
+                    <Typography
+                      variant="overline"
+                      color="text.secondary"
+                      fontWeight={900}
+                    >
+                      {pick.label}
+                    </Typography>
+                    <Typography variant="h6" fontWeight={850} sx={{ mt: 0.5 }}>
+                      {prediction.display_selection}
+                    </Typography>
+                  </Box>
+                </Stack>
+              ) : (
+                <>
               <Typography
                 variant="overline"
-                color={isHero ? "primary.main" : "text.secondary"}
+                color="text.secondary"
                 fontWeight={900}
                 sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
               >
-                {isHero ? <StarRoundedIcon sx={{ fontSize: 16 }} /> : null}
-                {isCompact ? prediction.market : pick.label}
+                {pick.label}
               </Typography>
-              {isHero ? (
-                <Box sx={{ mt: 1.5 }}>
-                  <Typography
-                    component="p"
-                    sx={{ fontSize: { xs: "1.55rem", sm: "2rem" }, fontWeight: 900, lineHeight: 1.05 }}
-                  >
-                    {selectionTeam}
-                  </Typography>
-                  {selectionDetail ? (
-                    <Typography
-                      component="p"
-                      color="primary.main"
-                      sx={{ fontSize: { xs: "2rem", sm: "2.75rem" }, fontWeight: 900, lineHeight: 1.15 }}
-                    >
-                      {selectionDetail}
-                    </Typography>
-                  ) : null}
-                  <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                    {opponent
-                      ? `vs ${opponent}`
-                      : `${prediction.away_team} @ ${prediction.home_team}`}
-                  </Typography>
-                </Box>
-              ) : (
-                <Typography variant={isRow ? "h6" : "h5"} fontWeight={850} sx={{ mt: 0.5 }}>
-                  {prediction.display_selection}
-                </Typography>
+              <Typography variant={isRow ? "h6" : "h5"} fontWeight={850} sx={{ mt: 0.5 }}>
+                {prediction.display_selection}
+              </Typography>
+                </>
               )}
             </Box>
             {!isCompact ? (
@@ -139,8 +276,7 @@ export function DailyCardPickCard({
             ) : null}
           </Stack>
 
-          {!isHero ? (
-            <Box sx={{ flex: isRow ? "1 1 24%" : undefined, minWidth: 0 }}>
+          <Box sx={{ flex: isRow ? "1 1 24%" : undefined, minWidth: 0 }}>
               <Typography variant="body2" fontWeight={700}>
                 {prediction.away_team} @ {prediction.home_team}
               </Typography>
@@ -148,8 +284,7 @@ export function DailyCardPickCard({
               {formatProductDate(prediction.game_date)}
               {odds ? ` · Odds ${odds}` : ""}
             </Typography>
-            </Box>
-          ) : null}
+          </Box>
 
           <Box sx={{ flex: isRow ? "1 1 28%" : undefined, minWidth: 0 }}>
             <PickMetrics
@@ -162,7 +297,7 @@ export function DailyCardPickCard({
             />
           </Box>
 
-          {presentation === "standard" || isHero ? (
+          {presentation === "standard" ? (
             <Stack
               direction="row"
               spacing={1}

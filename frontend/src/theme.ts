@@ -147,6 +147,22 @@ export function createAppTheme(mode: PaletteMode) {
           root: {
             backgroundImage: "none",
             borderColor: "var(--gk-border)",
+            borderRadius: "var(--gk-radius-sm)",
+          },
+        },
+      },
+      MuiToolbar: {
+        styleOverrides: {
+          root: {
+            minHeight: 56,
+          },
+        },
+      },
+      MuiToggleButton: {
+        styleOverrides: {
+          root: {
+            minHeight: 34,
+            padding: "5px 12px",
           },
         },
       },

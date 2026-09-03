@@ -1,4 +1,4 @@
-import { Box, Chip, Divider, Typography } from "@mui/material";
+import { Box, Chip, Divider, LinearProgress, Stack, Typography } from "@mui/material";
 
 import { formatConfidence, formatNpi } from "../utils/productFormat";
 
@@ -9,6 +9,7 @@ interface PickMetricsProps {
   projectedEdge: number | null;
   riskLevel: string | null;
   focused?: boolean;
+  hero?: boolean;
 }
 
 function formatPercentage(value: number | null): string {
@@ -53,6 +54,7 @@ export function PickMetrics({
   projectedEdge,
   riskLevel,
   focused = false,
+  hero = false,
 }: PickMetricsProps) {
   const risk = riskLabel(riskLevel);
   const keyMetrics = [
@@ -65,6 +67,71 @@ export function PickMetrics({
     { label: "Simulation", value: formatPercentage(simulationProbability) },
     { label: "Edge", value: formatEdge(projectedEdge) },
   ];
+
+  if (hero) {
+    const confidenceValue = confidence == null || !Number.isFinite(confidence)
+      ? 0
+      : Math.max(0, Math.min(confidence, 100));
+
+    return (
+      <Box data-testid="pick-metrics">
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1fr)",
+            border: "1px solid var(--gk-border-strong)",
+            backgroundColor: "rgba(0, 0, 0, 0.18)",
+          }}
+        >
+          {[
+            { label: "Edge", value: formatEdge(projectedEdge) },
+            { label: "Win probability", value: formatPercentage(simulationProbability) },
+          ].map((metric, index) => (
+            <Box
+              key={metric.label}
+              sx={{
+                minWidth: 0,
+                px: { xs: 1.5, sm: 2 },
+                py: { xs: 1, sm: 1.25 },
+                borderTop: index === 0 ? 0 : "1px solid var(--gk-border-strong)",
+              }}
+            >
+              <Typography sx={{ ...labelSx, whiteSpace: "nowrap" }}>{metric.label}</Typography>
+              <Typography
+                sx={{
+                  mt: 0.25,
+                  color: index === 0 ? "var(--gk-gold-bright)" : "text.primary",
+                  fontSize: { xs: "1.3rem", sm: "1.65rem" },
+                  fontWeight: 900,
+                  lineHeight: 1.15,
+                }}
+              >
+                {metric.value}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+        <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mt: 1.25 }}>
+          <Box sx={{ minWidth: 88 }}>
+            <Typography sx={labelSx}>Confidence</Typography>
+            <Typography fontWeight={850}>{formatPercentage(confidence)}</Typography>
+          </Box>
+          <LinearProgress
+            variant="determinate"
+            value={confidenceValue}
+            aria-label="Confidence"
+            sx={{
+              flexGrow: 1,
+              height: 5,
+              borderRadius: 0,
+              backgroundColor: "var(--gk-border)",
+              "& .MuiLinearProgress-bar": { backgroundColor: "var(--gk-gold)" },
+            }}
+          />
+        </Stack>
+      </Box>
+    );
+  }
 
   if (focused) {
     return (

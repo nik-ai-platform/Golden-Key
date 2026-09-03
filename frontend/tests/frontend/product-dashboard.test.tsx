@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProductDashboardPage } from "../../src/pages/ProductDashboardPage";
-import type { DailyCardPick, DailyCardResponse, Prediction } from "../../src/types/product";
+import type { DailyCardPick, DailyCardResponse, Prediction, TodayPredictionsResponse } from "../../src/types/product";
 
 vi.mock("@tanstack/react-query", () => ({
   useQuery: vi.fn(),
@@ -119,6 +119,48 @@ const card: DailyCardResponse = {
   ],
 };
 
+const gamePredictions: Prediction[] = [
+  prediction({
+    prediction_id: 2,
+    game_id: 10,
+    home_team: "Buffalo Bills",
+    away_team: "Miami Dolphins",
+    display_selection: "Buffalo Bills -3.5",
+    line_value: -3.5,
+  }),
+  prediction({
+    prediction_id: 7,
+    game_id: 10,
+    home_team: "Buffalo Bills",
+    away_team: "Miami Dolphins",
+    market: "moneyline",
+    selection: "AWAY",
+    display_selection: "Miami Dolphins ML",
+    line_value: null,
+    american_odds: 145,
+  }),
+  prediction({
+    prediction_id: 4,
+    game_id: 10,
+    home_team: "Buffalo Bills",
+    away_team: "Miami Dolphins",
+    market: "total",
+    selection: "OVER",
+    display_selection: "OVER 47.5",
+    line_value: 47.5,
+  }),
+  prediction({
+    prediction_id: 8,
+    game_id: 11,
+    sport: "NBA",
+    home_team: "Denver Nuggets",
+    away_team: "Los Angeles Lakers",
+    selection: "AWAY",
+    display_selection: "Los Angeles Lakers +2.5",
+    line_value: 2.5,
+  }),
+];
+
 function queryResult(data: DailyCardResponse | undefined, isError = false) {
   return {
     data,
@@ -126,6 +168,33 @@ function queryResult(data: DailyCardResponse | undefined, isError = false) {
     isError,
     refetch: vi.fn(),
   } as ReturnType<typeof useQuery>;
+}
+
+function predictionsResult(items: Prediction[]) {
+  return {
+    data: {
+      sport: null,
+      slate_date: "2026-09-03",
+      count: items.length,
+      predictions: items,
+    } satisfies TodayPredictionsResponse,
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  } as ReturnType<typeof useQuery>;
+}
+
+function mockQueries(
+  dailyCard: DailyCardResponse | undefined = card,
+  predictions: Prediction[] = gamePredictions,
+  dailyCardError = false,
+) {
+  vi.mocked(useQuery).mockImplementation((options) => {
+    const queryKey = (options as { queryKey: unknown[] }).queryKey;
+    return queryKey[1] === "daily-card"
+      ? queryResult(dailyCard, dailyCardError)
+      : predictionsResult(predictions);
+  });
 }
 
 function renderDashboard() {
@@ -138,7 +207,7 @@ function renderDashboard() {
 
 describe("daily card dashboard", () => {
   beforeEach(() => {
-    vi.mocked(useQuery).mockReturnValue(queryResult(card));
+    mockQueries();
   });
 
   it("renders the primary bet, market roles, value play, and next picks", () => {
@@ -158,10 +227,32 @@ describe("daily card dashboard", () => {
     expect(screen.getByTestId("daily-card-best-bet").dataset.emphasis).toBe("premium");
     expect(screen.getAllByTestId("daily-card-top-spread")[0].dataset.emphasis).toBe("featured");
     expect(within(screen.getByTestId("daily-card-top-total")).getByText("OVER 47.5")).toBeTruthy();
-    expect(within(screen.getByTestId("daily-game-value-play")).getByText("Duke +3.5")).toBeTruthy();
-    expect(screen.getAllByTestId("next-best-pick")).toHaveLength(1);
-    expect(screen.getByText("6 ranked signals")).toBeTruthy();
-    expect(screen.getByText("NPI Leaders")).toBeTruthy();
+    expect(screen.getAllByTestId("sportsbook-game")).toHaveLength(2);
+    expect(screen.getByRole("heading", { name: "Prediction Summary" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "100% positive edge" })).toBeTruthy();
+    expect(screen.getByText("6 measured signals")).toBeTruthy();
+    expect(screen.getByText("NPI Top 5")).toBeTruthy();
+    expect(screen.getByText("200.0")).toBeTruthy();
+    expect(screen.getByText("Avg Confidence")).toBeTruthy();
+    expect(screen.getByTestId("best-bet-team-accent")).toBeTruthy();
+    expect(screen.getAllByTestId("market-leader-team-accent")).toHaveLength(3);
+    expect(screen.getAllByTestId("npi-team-accent")).toHaveLength(5);
+  });
+
+  it("renders one dense game board row per game with only real market values", () => {
+    renderDashboard();
+
+    const games = screen.getAllByTestId("sportsbook-game");
+    expect(games.map((game) => game.dataset.gameId)).toEqual(["10", "11"]);
+    expect(within(games[0]).getByText("Buffalo Bills")).toBeTruthy();
+    expect(within(games[0]).getByText("Miami Dolphins")).toBeTruthy();
+    expect(within(games[0]).getByText("-3.5 -110")).toBeTruthy();
+    expect(within(games[0]).getByText("+145")).toBeTruthy();
+    expect(within(games[0]).getByText("O 47.5 -110")).toBeTruthy();
+    expect(screen.getAllByTestId("game-10-spread-value").filter((cell) => cell.dataset.recommended === "true")).toHaveLength(1);
+    expect(screen.getAllByTestId("game-10-moneyline-value").every((cell) => cell.dataset.recommended === "false")).toBe(true);
+    expect(screen.getAllByTestId("game-11-moneyline-value").every((cell) => cell.textContent === "—")).toBe(true);
+    expect(screen.getAllByTestId("game-11-total-value").every((cell) => cell.textContent === "—")).toBe(true);
   });
 
   it("keeps a long moneyline in Moneyline Value instead of Best Bet", () => {
@@ -173,35 +264,59 @@ describe("daily card dashboard", () => {
     expect(moneyline.textContent).toContain("Odds +1300");
   });
 
+  it("derives the edge distribution from measured predictions", () => {
+    const mixedPicks = card.featured_picks.map((item, index) => ({
+      ...item,
+      prediction: {
+        ...item.prediction,
+        projected_edge: [4, -2, 0, 3][index],
+      },
+    }));
+    mockQueries(
+      {
+        ...card,
+        best_bet: null,
+        featured_picks: mixedPicks,
+        next_best: [],
+      },
+      gamePredictions,
+    );
+
+    renderDashboard();
+
+    expect(screen.getByRole("img", { name: "50% positive edge" })).toBeTruthy();
+    expect(screen.getAllByText("25%", { selector: "p" })).toHaveLength(2);
+    expect(screen.getByText("4 measured signals")).toBeTruthy();
+  });
+
   it("shows ranking reasons and requeries when sport changes", () => {
     renderDashboard();
     const bestBet = screen.getByTestId("daily-card-best-bet");
     expect(within(bestBet).getByText("NPI 188.0 / 200")).toBeTruthy();
     expect(within(bestBet).getByText("91.0% confidence")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "NFL" }));
-    expect(vi.mocked(useQuery).mock.calls.at(-1)?.[0].queryKey).toEqual([
-      "product",
-      "daily-card",
-      "NFL",
-    ]);
+    expect(vi.mocked(useQuery).mock.calls.some(([options]) =>
+      JSON.stringify(options.queryKey) === JSON.stringify(["product", "daily-card", "NFL"]),
+    )).toBe(true);
   });
 
   it("renders a focused empty state", () => {
-    vi.mocked(useQuery).mockReturnValue(queryResult({ ...card, count: 0, best_bet: null }));
+    mockQueries({ ...card, count: 0, best_bet: null }, []);
     renderDashboard();
 
     expect(screen.getByText("No upcoming predictions are currently available.")).toBeTruthy();
   });
 
   it("shows Moneyline Value when longshots are the only available picks", () => {
-    vi.mocked(useQuery).mockReturnValue(
-      queryResult({
+    mockQueries(
+      {
         ...card,
         count: 1,
         best_bet: null,
         featured_picks: [card.featured_picks[1]],
         next_best: [],
-      }),
+      },
+      [gamePredictions[1]],
     );
     renderDashboard();
 
@@ -212,7 +327,7 @@ describe("daily card dashboard", () => {
   });
 
   it("renders a friendly API error", () => {
-    vi.mocked(useQuery).mockReturnValue(queryResult(undefined, true));
+    mockQueries(undefined, [], true);
     renderDashboard();
 
     expect(screen.getByText("Unable to load today's card right now.")).toBeTruthy();
