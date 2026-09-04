@@ -452,6 +452,25 @@ class AuthenticationService:
         session_store.clear_failed_logins(user.email.lower())
         return True
 
+    def change_password(
+        self,
+        db: Session,
+        user: User,
+        current_password: str,
+        new_password: str,
+    ) -> bool:
+        if not user.id or not self.hashing_service.verify_password(
+            current_password,
+            user.hashed_password,
+        ):
+            return False
+
+        user.hashed_password = self.hashing_service.hash_password(new_password)
+        db.add(user)
+        db.commit()
+        session_store.clear_failed_logins(user.email.lower())
+        return True
+
     @staticmethod
     def _reset_token_digest(token: str) -> str:
         return hashlib.sha256(token.encode("utf-8")).hexdigest()

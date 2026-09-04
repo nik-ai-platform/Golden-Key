@@ -18,6 +18,11 @@ export type ResetPasswordRequest = {
   new_password: string;
 };
 
+export type ChangePasswordRequest = {
+  current_password: string;
+  new_password: string;
+};
+
 export type ForgotEmailVerifyRequest = {
   recovery_email: string;
   code: string;

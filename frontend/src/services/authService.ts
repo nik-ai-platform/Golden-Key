@@ -2,6 +2,7 @@ import { client } from "../api/client";
 import type {
   AccessTokenResponse,
   AuthUser,
+  ChangePasswordRequest,
   ForgotEmailVerifyRequest,
   LoginRequest,
   MessageResponse,
@@ -26,6 +27,11 @@ export async function forgotPassword(email: string): Promise<MessageResponse> {
 
 export async function resetPassword(payload: ResetPasswordRequest): Promise<MessageResponse> {
   const { data } = await client.post<MessageResponse>("/auth/reset-password", payload);
+  return data;
+}
+
+export async function changePassword(payload: ChangePasswordRequest): Promise<MessageResponse> {
+  const { data } = await client.post<MessageResponse>("/auth/change-password", payload);
   return data;
 }
 

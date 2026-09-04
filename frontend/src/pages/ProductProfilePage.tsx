@@ -18,7 +18,21 @@ import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
 import { useAuth } from "../hooks/useAuth";
 import { getProfile } from "../services/productApi";
-import { setRecoveryEmail, verifyRecoveryEmail } from "../services/authService";
+import { changePassword, setRecoveryEmail, verifyRecoveryEmail } from "../services/authService";
+
+function getPasswordChangeErrorMessage(error: unknown): string {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string" &&
+    error.message.trim()
+  ) {
+    return error.message;
+  }
+
+  return "Unable to change password.";
+}
 
 export function ProductProfilePage() {
   const { logout } = useAuth();
@@ -28,6 +42,12 @@ export function ProductProfilePage() {
   const [recoveryMessage, setRecoveryMessage] = useState("");
   const [recoveryError, setRecoveryError] = useState("");
   const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   const query = useQuery({
     queryKey: ["product", "profile"],
@@ -81,6 +101,32 @@ export function ProductProfilePage() {
       setRecoveryError("The verification code is invalid or expired.");
     } finally {
       setRecoveryLoading(false);
+    }
+  }
+
+  async function submitPasswordChange(event: FormEvent) {
+    event.preventDefault();
+    setPasswordError("");
+    setPasswordMessage("");
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords must match.");
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const response = await changePassword({
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      setPasswordMessage(response.message);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error: unknown) {
+      setPasswordError(getPasswordChangeErrorMessage(error));
+    } finally {
+      setPasswordLoading(false);
     }
   }
 
@@ -202,6 +248,48 @@ export function ProductProfilePage() {
                 </Button>
               </Stack>
             ) : null}
+
+            <Divider />
+
+            <Stack spacing={2} component="form" onSubmit={submitPasswordChange}>
+              <Box>
+                <Typography variant="h6" fontWeight={700}>Change Password</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  Use at least 8 characters for your new password.
+                </Typography>
+              </Box>
+              {passwordMessage ? <Alert severity="success">{passwordMessage}</Alert> : null}
+              {passwordError ? <Alert severity="error">{passwordError}</Alert> : null}
+              <TextField
+                label="Current password"
+                type="password"
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+                required
+              />
+              <TextField
+                label="New password"
+                type="password"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                inputProps={{ minLength: 8, maxLength: 256 }}
+                required
+              />
+              <TextField
+                label="Confirm new password"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                inputProps={{ minLength: 8, maxLength: 256 }}
+                required
+              />
+              <Button type="submit" variant="contained" disabled={passwordLoading}>
+                {passwordLoading ? "Changing..." : "Change Password"}
+              </Button>
+            </Stack>
 
             <Divider />
 

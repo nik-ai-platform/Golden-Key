@@ -15,6 +15,7 @@ import * as productApi from "../../src/services/productApi";
 vi.mock("../../src/services/authService", () => ({
   forgotPassword: vi.fn(),
   resetPassword: vi.fn(),
+  changePassword: vi.fn(),
   forgotEmail: vi.fn(),
   verifyForgotEmail: vi.fn(),
   setRecoveryEmail: vi.fn(),
@@ -185,5 +186,109 @@ describe("account recovery", () => {
 
     expect(await screen.findByText("Verified")).toBeTruthy();
     expect(screen.getByText("s********@example.com")).toBeTruthy();
+  });
+
+  it("renders change-password fields and blocks mismatched confirmation", async () => {
+    vi.mocked(productApi.getProfile).mockResolvedValue({
+      id: 1,
+      username: "customer",
+      email: "customer@example.com",
+      premium: false,
+    });
+    renderProfile();
+
+    fireEvent.change(await screen.findByLabelText(/^Current password/), {
+      target: { value: "old-password" },
+    });
+    fireEvent.change(screen.getByLabelText(/^New password/), {
+      target: { value: "new-password" },
+    });
+    fireEvent.change(screen.getByLabelText(/^Confirm new password/), {
+      target: { value: "different-password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Change Password" }));
+
+    expect(await screen.findByText("Passwords must match.")).toBeTruthy();
+    expect(authService.changePassword).not.toHaveBeenCalled();
+  });
+
+  it("changes the password, shows success, and clears all fields", async () => {
+    vi.mocked(productApi.getProfile).mockResolvedValue({
+      id: 1,
+      username: "customer",
+      email: "customer@example.com",
+      premium: false,
+    });
+    vi.mocked(authService.changePassword).mockResolvedValue({ message: "Password updated" });
+    renderProfile();
+
+    const currentPassword = await screen.findByLabelText(/^Current password/);
+    const newPassword = screen.getByLabelText(/^New password/);
+    const confirmPassword = screen.getByLabelText(/^Confirm new password/);
+    fireEvent.change(currentPassword, { target: { value: "old-password" } });
+    fireEvent.change(newPassword, { target: { value: "new-secure-password" } });
+    fireEvent.change(confirmPassword, { target: { value: "new-secure-password" } });
+    fireEvent.click(screen.getByRole("button", { name: "Change Password" }));
+
+    await waitFor(() => expect(authService.changePassword).toHaveBeenCalledWith({
+      current_password: "old-password",
+      new_password: "new-secure-password",
+    }));
+    expect(await screen.findByText("Password updated")).toBeTruthy();
+    expect((currentPassword as HTMLInputElement).value).toBe("");
+    expect((newPassword as HTMLInputElement).value).toBe("");
+    expect((confirmPassword as HTMLInputElement).value).toBe("");
+  });
+
+  it("displays a backend password-change error without clearing fields", async () => {
+    vi.mocked(productApi.getProfile).mockResolvedValue({
+      id: 1,
+      username: "customer",
+      email: "customer@example.com",
+      premium: false,
+    });
+    vi.mocked(authService.changePassword).mockRejectedValue({
+      status: 400,
+      message: "Current password is incorrect",
+    });
+    renderProfile();
+
+    const currentPassword = await screen.findByLabelText(/^Current password/);
+    fireEvent.change(currentPassword, { target: { value: "wrong-password" } });
+    fireEvent.change(screen.getByLabelText(/^New password/), {
+      target: { value: "new-secure-password" },
+    });
+    fireEvent.change(screen.getByLabelText(/^Confirm new password/), {
+      target: { value: "new-secure-password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Change Password" }));
+
+    expect(await screen.findByText("Current password is incorrect")).toBeTruthy();
+    expect((currentPassword as HTMLInputElement).value).toBe("wrong-password");
+  });
+
+  it("disables password submission and shows a loading label while pending", async () => {
+    vi.mocked(productApi.getProfile).mockResolvedValue({
+      id: 1,
+      username: "customer",
+      email: "customer@example.com",
+      premium: false,
+    });
+    vi.mocked(authService.changePassword).mockReturnValue(new Promise(() => undefined));
+    renderProfile();
+
+    fireEvent.change(await screen.findByLabelText(/^Current password/), {
+      target: { value: "old-password" },
+    });
+    fireEvent.change(screen.getByLabelText(/^New password/), {
+      target: { value: "new-secure-password" },
+    });
+    fireEvent.change(screen.getByLabelText(/^Confirm new password/), {
+      target: { value: "new-secure-password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Change Password" }));
+
+    const pendingButton = await screen.findByRole("button", { name: "Changing..." });
+    expect((pendingButton as HTMLButtonElement).disabled).toBe(true);
   });
 });

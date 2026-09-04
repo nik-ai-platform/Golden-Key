@@ -18,6 +18,7 @@ from app.auth.schemas import (
     LoginRequest,
     LogoutRequest,
     MessageResponse,
+    PasswordChangeRequest,
     PasswordResetConfirmRequest,
     PasswordResetRequest,
     RecoveryCodeRequest,
@@ -146,6 +147,41 @@ def confirm_password_reset(
 ):
     if not auth.reset_password(db, payload.token, payload.new_password):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid reset token")
+    return MessageResponse(message="Password updated")
+
+
+@router.post("/change-password", response_model=MessageResponse)
+def change_password(
+    payload: PasswordChangeRequest,
+    current_user: AuthUser = Depends(get_current_user),
+    auth: AuthenticationService = Depends(get_auth_service),
+    db: Session = Depends(get_db),
+):
+    if current_user.id == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unable to change password",
+        )
+
+    try:
+        persistent_user = resolve_existing_persistent_user(db, current_user)
+    except PersistentUserNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unable to change password",
+        ) from exc
+
+    if not auth.change_password(
+        db,
+        persistent_user,
+        payload.current_password,
+        payload.new_password,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        )
+
     return MessageResponse(message="Password updated")
 
 

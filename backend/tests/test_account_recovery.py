@@ -169,6 +169,103 @@ def test_valid_token_changes_password_once_with_canonical_hash(recovery_client):
         assert stored.used_at is not None
 
 
+def test_change_password_requires_authentication(recovery_client):
+    client, _, _ = recovery_client
+
+    response = client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "old-password", "new_password": "new-password"},
+    )
+
+    assert response.status_code == 401
+
+
+def test_authenticated_user_changes_password(recovery_client):
+    client, session_factory, _ = recovery_client
+    register(client, "customer", "customer@example.com", "old-password")
+    headers = auth_headers(client, "customer@example.com", "old-password")
+    with session_factory() as db:
+        original_hash = db.query(User).filter(User.email == "customer@example.com").one().hashed_password
+
+    response = client.post(
+        "/api/v1/auth/change-password",
+        json={
+            "current_password": "old-password",
+            "new_password": "new-secure-password",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"message": "Password updated"}
+    with session_factory() as db:
+        user = db.query(User).filter(User.email == "customer@example.com").one()
+        assert user.hashed_password != original_hash
+        assert user.hashed_password != "new-secure-password"
+        assert user.hashed_password.startswith("$argon2")
+        assert HashingService().verify_password("new-secure-password", user.hashed_password)
+    assert client.post(
+        "/api/v1/auth/login",
+        json={"email": "customer@example.com", "password": "old-password"},
+    ).status_code == 401
+    assert client.post(
+        "/api/v1/auth/login",
+        json={"email": "customer@example.com", "password": "new-secure-password"},
+    ).status_code == 200
+
+
+def test_change_password_rejects_incorrect_current_password(recovery_client):
+    client, session_factory, _ = recovery_client
+    register(client, "customer", "customer@example.com", "old-password")
+    headers = auth_headers(client, "customer@example.com", "old-password")
+    with session_factory() as db:
+        original_hash = db.query(User).filter(User.email == "customer@example.com").one().hashed_password
+
+    response = client.post(
+        "/api/v1/auth/change-password",
+        json={
+            "current_password": "incorrect-password",
+            "new_password": "new-secure-password",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Current password is incorrect"}
+    with session_factory() as db:
+        user = db.query(User).filter(User.email == "customer@example.com").one()
+        assert user.hashed_password == original_hash
+
+
+@pytest.mark.parametrize("new_password", ["1234567", "x" * 257])
+def test_change_password_validates_new_password_length(recovery_client, new_password):
+    client, _, _ = recovery_client
+    register(client, "customer", "customer@example.com", "old-password")
+    headers = auth_headers(client, "customer@example.com", "old-password")
+
+    response = client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "old-password", "new_password": new_password},
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+
+
+def test_synthetic_user_cannot_change_password(recovery_client):
+    client, _, _ = recovery_client
+    headers = auth_headers(client, "admin@example.com", "admin123")
+
+    response = client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "admin123", "new_password": "new-admin-password"},
+        headers=headers,
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Unable to change password"}
+
+
 def test_expired_malformed_and_cross_account_tokens_are_rejected(recovery_client):
     client, session_factory, mail_sender = recovery_client
     register(client, "first", "first@example.com", "first-password")

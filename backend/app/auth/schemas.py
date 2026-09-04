@@ -33,6 +33,11 @@ class PasswordResetConfirmRequest(BaseModel):
     new_password: str = Field(min_length=8, max_length=256)
 
 
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=256)
+
+
 class RecoveryEmailRequest(BaseModel):
     recovery_email: EmailStr
 
