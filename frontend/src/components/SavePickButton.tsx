@@ -16,7 +16,6 @@ export function SavePickButton({ predictionId }: SavePickButtonProps) {
   const savedPicks = useQuery({
     queryKey: ["product", "saved-picks"],
     queryFn: getSavedPicks,
-    enabled: false,
   });
   const saved =
     savedAfterMutation ||
