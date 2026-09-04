@@ -1,4 +1,5 @@
 import { Box, Stack, Typography } from "@mui/material";
+import { Link as RouterLink } from "react-router-dom";
 
 import { NEUTRAL_TEAM_IDENTITY } from "../data/teamIdentity";
 import type { Prediction } from "../types/product";
@@ -165,7 +166,20 @@ export function SportsbookGamesBoard({ predictions, recommendedPredictionIds }: 
               {formatTime(game.game_date)}
             </Typography>
 
-            <Stack spacing={0.25} sx={{ mb: { xs: 1.25, md: 0 } }}>
+            <Stack
+              component={RouterLink}
+              to={`/games/${game.game_id}`}
+              aria-label={`View analysis for ${game.away_team} at ${game.home_team}`}
+              spacing={0.25}
+              sx={{
+                mb: { xs: 1.25, md: 0 },
+                color: "inherit",
+                textDecoration: "none",
+                borderRadius: 1,
+                "&:hover .MuiTypography-root": { color: "var(--gk-gold-bright)" },
+                "&:focus-visible": { outline: "2px solid var(--gk-gold)", outlineOffset: 2 },
+              }}
+            >
               <TeamRow prediction={game} team={game.away_team} />
               <TeamRow prediction={game} team={game.home_team} />
             </Stack>

@@ -244,6 +244,18 @@ describe("daily card dashboard", () => {
 
     const games = screen.getAllByTestId("sportsbook-game");
     expect(games.map((game) => game.dataset.gameId)).toEqual(["10", "11"]);
+    const matchupLinks = screen.getAllByRole("link", { name: /View analysis for/ });
+    expect(matchupLinks).toHaveLength(2);
+    expect(
+      within(games[0]).getByRole("link", {
+        name: "View analysis for Miami Dolphins at Buffalo Bills",
+      }).getAttribute("href"),
+    ).toBe("/games/10");
+    expect(
+      within(games[1]).getByRole("link", {
+        name: "View analysis for Los Angeles Lakers at Denver Nuggets",
+      }).getAttribute("href"),
+    ).toBe("/games/11");
     expect(within(games[0]).getByText("Buffalo Bills")).toBeTruthy();
     expect(within(games[0]).getByText("Miami Dolphins")).toBeTruthy();
     expect(within(games[0]).getByText("-3.5 -110")).toBeTruthy();
