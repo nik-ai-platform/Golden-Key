@@ -37,10 +37,10 @@ function riskColor(
 
 const labelSx = {
   color: "text.secondary",
-  fontSize: "0.72rem",
+  fontSize: "0.65rem",
   fontWeight: 600,
-  letterSpacing: "0.04em",
-  lineHeight: 1.25,
+  letterSpacing: "0.02em",
+  lineHeight: 1.15,
   overflowWrap: "normal",
   wordBreak: "normal",
   textTransform: "uppercase",
