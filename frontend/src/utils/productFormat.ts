@@ -25,8 +25,14 @@ export function formatConfidence(value: number | null): string {
   return value == null ? "Not rated" : `${value.toFixed(1)}%`;
 }
 
-export function formatProjectedEdge(value: number | null, market?: string): string {
-  if (value == null || !Number.isFinite(value)) return "—";
-  const unit = market?.toLowerCase() === "total" ? "pts" : "pp";
-  return `${value > 0 ? "+" : ""}${value.toFixed(1)} ${unit}`;
+export function customerFacingReasoning(value: string | null): string | null {
+  if (!value) return null;
+  const sanitized = value
+    .replace(
+      /(?:^|\s)Projected market edge:\s*[+-]?\d+(?:\.\d+)?%?\.(?=\s|$)/gi,
+      " ",
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+  return sanitized || null;
 }

@@ -1,7 +1,7 @@
 import { Box, Chip, Divider, LinearProgress, Stack, Typography } from "@mui/material";
 
 import type { PredictionMetric } from "../data/predictionMetricEducation";
-import { formatConfidence, formatNpi, formatProjectedEdge } from "../utils/productFormat";
+import { formatConfidence, formatNpi } from "../utils/productFormat";
 import { MetricInfoControl } from "./MetricInfoControl";
 
 interface PickMetricsProps {
@@ -82,7 +82,6 @@ export function PickMetrics({
   npi,
   confidence,
   simulationProbability,
-  projectedEdge,
   riskLevel,
   market,
   focused = false,
@@ -92,12 +91,10 @@ export function PickMetrics({
   const keyMetrics = [
     { label: "NPI", value: Number.isFinite(npi) ? Math.round(npi).toString() : "—", metric: "npi" as const },
     { label: "Confidence", value: formatPercentage(confidence), metric: "confidence" as const },
-    { label: "Edge", value: formatProjectedEdge(projectedEdge, market), metric: "projectedEdge" as const },
   ];
   const metrics = [
     { label: "Confidence", value: formatPercentage(confidence), metric: "confidence" as const },
     { label: "Model Probability", value: formatPercentage(simulationProbability), metric: "modelProbability" as const },
-    { label: "Edge", value: formatProjectedEdge(projectedEdge, market), metric: "projectedEdge" as const },
   ];
 
   if (hero) {
@@ -116,23 +113,21 @@ export function PickMetrics({
           }}
         >
           {[
-            { label: "Edge", value: formatProjectedEdge(projectedEdge, market), metric: "projectedEdge" as const },
             { label: "Model Probability", value: formatPercentage(simulationProbability), metric: "modelProbability" as const },
-          ].map((metric, index) => (
+          ].map((metric) => (
             <Box
               key={metric.label}
               sx={{
                 minWidth: 0,
                 px: { xs: 1.5, sm: 2 },
                 py: { xs: 1, sm: 1.25 },
-                borderTop: index === 0 ? 0 : "1px solid var(--gk-border-strong)",
               }}
             >
               <MetricLabel label={metric.label} metric={metric.metric} market={market} />
               <Typography
                 sx={{
                   mt: 0.25,
-                  color: index === 0 ? "var(--gk-gold-bright)" : "text.primary",
+                  color: "text.primary",
                   fontSize: { xs: "1.3rem", sm: "1.65rem" },
                   fontWeight: 900,
                   lineHeight: 1.15,
@@ -171,7 +166,7 @@ export function PickMetrics({
         data-testid="pick-metrics"
         sx={{
           display: "grid",
-          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
           borderBlock: "1px solid",
           borderColor: "var(--gk-border)",
           py: 1.5,
@@ -189,7 +184,7 @@ export function PickMetrics({
             <MetricLabel label={metric.label} metric={metric.metric} market={market} />
             <Typography
               sx={{
-                color: metric.label === "Edge" ? "var(--gk-analytics)" : "text.primary",
+                color: "text.primary",
                 fontSize: { xs: "1rem", sm: "1.15rem" },
                 fontWeight: 800,
                 lineHeight: 1.4,
@@ -229,7 +224,7 @@ export function PickMetrics({
         data-testid="supporting-metrics"
         sx={{
           display: "grid",
-          gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" },
+          gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(3, minmax(0, 1fr))" },
           columnGap: { xs: 2, md: 0.75 },
           rowGap: 1.5,
         }}

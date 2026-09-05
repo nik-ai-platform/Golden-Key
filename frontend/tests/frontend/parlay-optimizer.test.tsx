@@ -33,7 +33,7 @@ const result = {
       projected_edge: 7.2,
       risk_level: "LOW",
       parlay_score: 91,
-      reasoning: "Strong model agreement and market edge.",
+      reasoning: "Projected market edge: 7.2%. Strong model agreement and market edge.",
       sportsbook: "Test Book",
       odds_observed_at: "2026-09-01T12:00:00",
     },
@@ -74,6 +74,14 @@ describe("Parlay Optimizer", () => {
     expect(optimizeParlay).toHaveBeenCalledWith(6);
     expect(screen.getByText("Dallas -4.5")).toBeTruthy();
     expect(screen.getByText("Strong model agreement and market edge.")).toBeTruthy();
+    expect(screen.queryByText(/projected market edge/i)).toBeNull();
+    expect(screen.queryByText("Edge")).toBeNull();
+    expect(screen.queryByText("Average Edge")).toBeNull();
+    expect(screen.getByText("NPI")).toBeTruthy();
+    expect(screen.getByText("Confidence")).toBeTruthy();
+    expect(screen.getByText("Combined Odds")).toBeTruthy();
+    expect(screen.getByText("+4200")).toBeTruthy();
+    expect(screen.getByText("Risk")).toBeTruthy();
     expect(screen.getByText("Spreads: 3")).toBeTruthy();
     expect(screen.getByText("Totals: 2")).toBeTruthy();
     expect(screen.getByText("Moneylines: 1")).toBeTruthy();

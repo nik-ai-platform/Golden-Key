@@ -155,16 +155,15 @@ describe("Performance Intelligence", () => {
     expect(within(section).getByText("Measures probability accuracy. Lower is better.")).toBeTruthy();
   });
 
-  it("renders NPI, confidence, edge, and probability calibration tables", async () => {
+  it("renders NPI, confidence, and probability calibration tables", async () => {
     renderPage();
     const section = await screen.findByRole("region", { name: "NPI 4.0 Spread Performance" });
 
     expect(within(section).getByRole("table", { name: "NPI Performance table" })).toBeTruthy();
     expect(within(section).getByRole("table", { name: "Confidence Performance table" })).toBeTruthy();
-    expect(within(section).getByRole("table", { name: "Projected Edge Performance table" })).toBeTruthy();
+    expect(within(section).queryByRole("table", { name: "Projected Edge Performance table" })).toBeNull();
     expect(within(section).getByRole("table", { name: "Model Probability Calibration table" })).toBeTruthy();
     expect(within(section).getByText("0-99")).toBeTruthy();
-    expect(within(section).getByText("10-14.9")).toBeTruthy();
     expect(within(section).getByText("60-64.9")).toBeTruthy();
     expect(within(section).getByText("62.50%")).toBeTruthy();
   });

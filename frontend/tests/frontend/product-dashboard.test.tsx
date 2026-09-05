@@ -234,9 +234,7 @@ describe("daily card dashboard", () => {
     expect(screen.getAllByTestId("daily-card-top-spread")[0].dataset.emphasis).toBe("featured");
     expect(within(screen.getByTestId("daily-card-top-total")).getByText("OVER 47.5")).toBeTruthy();
     expect(screen.getAllByTestId("sportsbook-game")).toHaveLength(2);
-    expect(screen.getByRole("heading", { name: "Prediction Summary" })).toBeTruthy();
-    expect(screen.getByRole("img", { name: "100% positive edge" })).toBeTruthy();
-    expect(screen.getByText("6 measured signals")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Prediction Summary" })).toBeNull();
     expect(screen.getByText("NPI Top 5")).toBeTruthy();
     expect(screen.getByText("200.0")).toBeTruthy();
     expect(screen.getByText("Avg Confidence")).toBeTruthy();
@@ -300,37 +298,12 @@ describe("daily card dashboard", () => {
     }
   });
 
-  it("derives the edge distribution from measured predictions", () => {
-    const mixedPicks = card.featured_picks.map((item, index) => ({
-      ...item,
-      prediction: {
-        ...item.prediction,
-        projected_edge: [4, -2, 0, 3][index],
-      },
-    }));
-    mockQueries(
-      {
-        ...card,
-        best_bet: null,
-        featured_picks: mixedPicks,
-        next_best: [],
-      },
-      gamePredictions,
-    );
-
-    renderDashboard();
-
-    expect(screen.getByRole("img", { name: "50% positive edge" })).toBeTruthy();
-    expect(screen.getAllByText("25%", { selector: "p" })).toHaveLength(2);
-    expect(screen.getByText("4 measured signals")).toBeTruthy();
-  });
-
   it("shows ranking reasons and requeries when sport changes", () => {
     renderDashboard();
     const bestBet = screen.getByTestId("daily-card-best-bet");
     expect(within(bestBet).getByText("NPI 188.0 / 200")).toBeTruthy();
     expect(within(bestBet).getByText("91.0% confidence")).toBeTruthy();
-    expect(within(bestBet).getByText("Projected edge +8.4 pp")).toBeTruthy();
+    expect(within(bestBet).queryByText(/projected edge/i)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "NFL" }));
     expect(vi.mocked(useQuery).mock.calls.some(([options]) =>
       JSON.stringify(options.queryKey) === JSON.stringify(["product", "daily-card", "NFL"]),
@@ -342,13 +315,10 @@ describe("daily card dashboard", () => {
 
     expect(screen.getAllByRole("button", { name: "Learn about NPI" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Learn about Confidence Rating" }).length).toBeGreaterThan(0);
-    const edgeControls = screen.getAllByRole("button", { name: "Learn about Projected Edge" });
-    expect(edgeControls.length).toBeGreaterThan(0);
-    fireEvent.click(edgeControls[0]);
-
-    expect(await screen.findByText(/difference between Golden Key's estimate and the relevant market benchmark/i)).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Learn about Model Probability" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Learn about Projected Edge" })).toBeNull();
     expect(screen.getByText("Georgia -6.5")).toBeTruthy();
-    expect(screen.getByText("Projected edge +8.4 pp")).toBeTruthy();
+    expect(screen.queryByText(/projected edge/i)).toBeNull();
   });
 
   it("renders a focused empty state", () => {

@@ -4,7 +4,7 @@ import { Box, Button, Card, CardContent, Chip, Stack, Typography } from "@mui/ma
 import { Link as RouterLink } from "react-router-dom";
 
 import type { DailyCardPick } from "../types/product";
-import { formatAmericanOdds, formatProductDate, formatProjectedEdge } from "../utils/productFormat";
+import { formatAmericanOdds, formatProductDate } from "../utils/productFormat";
 import { getPredictionTeamIdentity } from "../utils/teamIdentity";
 import { MetricInfoControl } from "./MetricInfoControl";
 import { PickMetrics } from "./PickMetrics";
@@ -45,10 +45,8 @@ export function DailyCardPickCard({
     analytics: "var(--gk-analytics-soft)",
   }[resolvedEmphasis];
   const testIdPrefix = isRow ? "daily-game" : "daily-card";
-  const rankingReasons = pick.ranking_reasons.map((reason) =>
-    reason.toLowerCase().includes("projected edge")
-      ? `Projected edge ${formatProjectedEdge(prediction.projected_edge, prediction.market)}`
-      : reason,
+  const rankingReasons = pick.ranking_reasons.filter(
+    (reason) => !reason.toLowerCase().includes("projected edge"),
   );
 
   if (isHero) {
@@ -140,8 +138,6 @@ export function DailyCardPickCard({
     const winProbability = prediction.simulation_probability == null
       ? "—"
       : `${prediction.simulation_probability.toFixed(1)}%`;
-    const edge = formatProjectedEdge(prediction.projected_edge, prediction.market);
-
     return (
       <Card
         className="gk-card"
@@ -153,7 +149,7 @@ export function DailyCardPickCard({
         <Box
           sx={{
             display: { xs: "block", md: "grid" },
-            gridTemplateColumns: { md: "minmax(190px, 1.5fr) minmax(220px, 1.4fr) 90px 110px 90px" },
+            gridTemplateColumns: { md: "minmax(190px, 1.5fr) minmax(220px, 1.4fr) 90px 110px" },
             alignItems: "center",
           }}
         >
@@ -171,7 +167,6 @@ export function DailyCardPickCard({
           {[
             { label: "Odds", value: odds ?? "—", color: "text.primary" },
             { label: "Win prob", value: winProbability, color: "text.primary" },
-            { label: "Edge", value: edge, color: "var(--gk-analytics)" },
           ].map((metric) => (
             <Box key={metric.label} sx={{ display: { xs: "none", md: "block" }, px: 1.5, py: 1.25, borderLeft: "1px solid var(--gk-border)" }}>
               <Typography fontFamily="monospace" fontWeight={800} color={metric.color}>

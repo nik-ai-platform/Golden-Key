@@ -21,6 +21,7 @@ import {
   type OptimizedParlay,
   type ParlayLeg,
 } from "../services/parlayOptimizerApi";
+import { customerFacingReasoning } from "../utils/productFormat";
 
 const legCounts = [2, 4, 6, 8, 10] as const;
 
@@ -33,6 +34,8 @@ function titleCase(value: string): string {
 }
 
 function LegCard({ leg, index }: { leg: ParlayLeg; index: number }) {
+  const visibleReasoning = customerFacingReasoning(leg.reasoning);
+
   return (
     <Card variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>
       <CardContent>
@@ -52,10 +55,9 @@ function LegCard({ leg, index }: { leg: ParlayLeg; index: number }) {
           {[
             ["NPI", leg.npi_score],
             ["Confidence", `${leg.confidence_score}%`],
-            ["Edge", `${leg.projected_edge}%`],
             ["Parlay Score", leg.parlay_score],
           ].map(([label, value]) => (
-            <Grid key={label} size={{ xs: 6, sm: 3 }}>
+            <Grid key={label} size={{ xs: 6, sm: 4 }}>
               <Typography variant="caption" color="text.secondary">{label}</Typography>
               <Typography fontWeight={700}>{value}</Typography>
             </Grid>
@@ -65,7 +67,7 @@ function LegCard({ leg, index }: { leg: ParlayLeg; index: number }) {
         <Divider sx={{ my: 2 }} />
         <Typography variant="subtitle2">Why it qualified</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          {leg.reasoning || "Golden Key model signals align on this selection."}
+          {visibleReasoning || "Golden Key model signals align on this selection."}
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.5 }}>
           {leg.sportsbook} · {formatAmericanOdds(leg.american_odds)}
@@ -79,7 +81,6 @@ function ParlayProfile({ parlay }: { parlay: OptimizedParlay }) {
   const metrics = [
     ["Average NPI", parlay.average_npi],
     ["Average Confidence", `${parlay.average_confidence}%`],
-    ["Average Edge", `${parlay.average_projected_edge}%`],
     ["Combined Odds", formatAmericanOdds(parlay.combined_american_odds)],
     ["Risk", titleCase(parlay.risk_level)],
   ];
@@ -89,7 +90,7 @@ function ParlayProfile({ parlay }: { parlay: OptimizedParlay }) {
       <Typography variant="h5" fontWeight={800}>Parlay Profile</Typography>
       <Grid container spacing={2} sx={{ mt: 0.5 }}>
         {metrics.map(([label, value]) => (
-          <Grid key={label} size={{ xs: 6, md: 2.4 }}>
+          <Grid key={label} size={{ xs: 6, md: 3 }}>
             <Typography variant="body2" color="text.secondary">{label}</Typography>
             <Typography variant="h6" fontWeight={800}>{value}</Typography>
           </Grid>

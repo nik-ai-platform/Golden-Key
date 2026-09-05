@@ -32,29 +32,16 @@ describe("compact pick metrics", () => {
     expect(within(metrics).getByText("180.0 / 200")).toBeTruthy();
     expect(within(metrics).getByText("82.4%")).toBeTruthy();
     expect(within(metrics).getByText("64.2%")).toBeTruthy();
-    expect(within(metrics).getByText("+6.2 pp")).toBeTruthy();
     expect(within(metrics).getByText("Low")).toBeTruthy();
     expect(within(metrics).queryByText("LOW")).toBeNull();
-    expect(within(metrics).getByText("Edge")).toBeTruthy();
     expect(within(metrics).queryByText("Projected Edge")).toBeNull();
-  });
-
-  it.each([
-    ["spread", 7.4, "+7.4 pp"],
-    ["moneyline", -3.2, "-3.2 pp"],
-    ["total", 3.5, "+3.5 pts"],
-  ])("formats %s edge in the correct unit", (market, projectedEdge, expected) => {
-    renderMetrics({ market, projectedEdge });
-    expect(screen.getByText(expected)).toBeTruthy();
-    if (market === "total") {
-      expect(screen.queryByText("+3.5%")).toBeNull();
-    }
+    expect(within(metrics).queryByText("Edge")).toBeNull();
+    expect(within(metrics).queryByText("+6.2 pp")).toBeNull();
   });
 
   it.each([
     ["Learn about NPI", "Golden Key's 0–200 model-support score."],
     ["Learn about Confidence Rating", "It is not win probability."],
-    ["Learn about Projected Edge", "relevant market benchmark"],
     ["Learn about Model Probability", "distinct from Confidence"],
   ])("opens the %s information control", async (accessibleName, definition) => {
     renderMetrics();
@@ -105,7 +92,7 @@ describe("compact pick metrics", () => {
       riskLevel: null,
     });
 
-    expect(screen.getAllByText("—")).toHaveLength(4);
+    expect(screen.getAllByText("—")).toHaveLength(3);
     expect(screen.queryByText(/null|undefined|NaN|Not rated/i)).toBeNull();
   });
 

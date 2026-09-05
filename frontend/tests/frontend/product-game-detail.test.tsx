@@ -37,7 +37,7 @@ function prediction(overrides: Partial<Prediction>): Prediction {
     simulation_probability: 61,
     projected_edge: 8.5,
     risk_level: "LOW",
-    reasoning: "Seattle owns the stronger matchup profile.",
+    reasoning: "NPI Score: 175. Projected market edge: 8.5%. Seattle owns the stronger matchup profile.",
     outcome: "WIN",
     recommendation_eligible: true,
     recommendation_tier: null,
@@ -154,15 +154,13 @@ describe("Game Analysis", () => {
     expect(screen.getAllByText("Understanding This Pick")).toHaveLength(3);
     expect(within(spreadEducation).getByText("175.0 / 200")).toBeTruthy();
     expect(within(spreadEducation).getByText("83.0%")).toBeTruthy();
-    expect(within(spreadEducation).getByText("+8.5 pp")).toBeTruthy();
     expect(within(spreadEducation).getByText("61.0%")).toBeTruthy();
     expect(spreadEducation.textContent).toContain("Risk assessment: Low");
-    expect(spreadEducation.textContent).toContain("percentage points relative to the model's 50% neutral benchmark");
-    expect(moneylineEducation.textContent).toContain("vig-removed implied market probability");
-    expect(within(moneylineEducation).getByText("+5.0 pp")).toBeTruthy();
-    expect(totalEducation.textContent).toContain("scoring points");
-    expect(within(totalEducation).getByText("+3.5 pts")).toBeTruthy();
-    expect(within(totalEducation).getByText("Projected total: 48.0 points")).toBeTruthy();
+    expect(within(spreadEducation).queryByText(/^Projected Edge$/i)).toBeNull();
+    expect(within(spreadEducation).queryByText("+8.5 pp")).toBeNull();
+    expect(within(moneylineEducation).queryByText("+5.0 pp")).toBeNull();
+    expect(within(totalEducation).queryByText("+3.5 pts")).toBeNull();
+    expect(within(totalEducation).queryByText(/projected total/i)).toBeNull();
     expect(screen.getAllByTestId("pick-metrics")).toHaveLength(3);
     expect(screen.getAllByText("Confidence")).toHaveLength(3);
     expect(screen.getAllByText("Model Probability")).toHaveLength(6);
@@ -170,7 +168,8 @@ describe("Game Analysis", () => {
     expect(screen.queryByText("LOW")).toBeNull();
     expect(screen.getAllByText("Golden Key Best Pick")).toHaveLength(1);
     expect(screen.getByText("High Probability — Low Betting Value")).toBeTruthy();
-    expect(screen.getByText("Seattle owns the stronger matchup profile.")).toBeTruthy();
+    expect(screen.getByText("NPI Score: 175. Seattle owns the stronger matchup profile.")).toBeTruthy();
+    expect(screen.queryByText(/projected market edge/i)).toBeNull();
     expect(screen.getAllByText("Model Reasoning")).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: /save pick/i })).toHaveLength(3);
     for (const outcome of ["WIN", "LOSS", "PUSH"]) {

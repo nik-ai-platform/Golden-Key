@@ -5,7 +5,6 @@ import { useId, useState, type MouseEvent } from "react";
 import {
   modelProbabilityMarketNote,
   predictionMetricEducation,
-  projectedEdgeMarketNote,
   type PredictionMetric,
 } from "../data/predictionMetricEducation";
 
@@ -18,11 +17,9 @@ export function MetricInfoControl({ metric, market }: MetricInfoControlProps) {
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
   const popoverId = useId();
   const education = predictionMetricEducation[metric];
-  const marketNote = metric === "projectedEdge"
-    ? projectedEdgeMarketNote(market)
-    : metric === "modelProbability"
-      ? modelProbabilityMarketNote(market)
-      : null;
+  const marketNote = metric === "modelProbability"
+    ? modelProbabilityMarketNote(market)
+    : null;
   const open = Boolean(anchorElement);
 
   function openPopover(event: MouseEvent<HTMLElement>) {

@@ -3,7 +3,6 @@ import {
   Card,
   CardContent,
   Divider,
-  Grid2 as Grid,
   Stack,
   ToggleButton,
   ToggleButtonGroup,
@@ -43,7 +42,7 @@ function SectionHeading({
 }: {
   id: string;
   children: string;
-  metric?: "npi" | "confidence" | "projectedEdge" | "modelProbability";
+  metric?: "npi" | "confidence" | "modelProbability";
 }) {
   return (
     <Stack direction="row" alignItems="center" spacing={1.25} sx={{ mb: 1 }}>
@@ -105,24 +104,6 @@ export function ProductDashboardPage() {
     .sort((left, right) => right.prediction.npi_score - left.prediction.npi_score)
     .slice(0, 5);
   const averageConfidence = finiteAverage(uniquePicks.map((pick) => pick.prediction.confidence_score));
-  const measuredEdges = uniquePicks
-    .map((pick) => pick.prediction.projected_edge)
-    .filter((edge): edge is number => edge != null && Number.isFinite(edge));
-  const edgeCounts = measuredEdges.reduce(
-    (counts, edge) => {
-      if (edge > 0) counts.positive += 1;
-      else if (edge < 0) counts.negative += 1;
-      else counts.none += 1;
-      return counts;
-    },
-    { positive: 0, negative: 0, none: 0 },
-  );
-  const edgePercentage = (count: number) =>
-    measuredEdges.length > 0 ? (count / measuredEdges.length) * 100 : 0;
-  const positiveEdge = edgePercentage(edgeCounts.positive);
-  const negativeEdge = edgePercentage(edgeCounts.negative);
-  const noEdge = edgePercentage(edgeCounts.none);
-
   return (
     <Stack spacing={{ xs: 3, md: 2 }} data-testid="intelligence-dashboard">
       <Stack
@@ -185,7 +166,7 @@ export function ProductDashboardPage() {
               <Box
                 sx={{
                   display: { xs: "none", md: "grid" },
-                  gridTemplateColumns: "minmax(190px, 1.5fr) minmax(220px, 1.4fr) 90px 110px 90px",
+                  gridTemplateColumns: "minmax(190px, 1.5fr) minmax(220px, 1.4fr) 90px 110px",
                   px: 1.5,
                   py: 0.75,
                   border: "1px solid var(--gk-border)",
@@ -198,7 +179,6 @@ export function ProductDashboardPage() {
                   { label: "Matchup" },
                   { label: "Odds" },
                   { label: "Model Prob", metric: "modelProbability" as const },
-                  { label: "Edge", metric: "projectedEdge" as const },
                 ].map(({ label, metric }) => (
                   <Stack key={label} direction="row" alignItems="center" spacing={0.25}>
                     <Typography variant="caption" color="text.secondary" fontWeight={850} textTransform="uppercase">
@@ -216,61 +196,7 @@ export function ProductDashboardPage() {
             </Box>
           ) : null}
 
-          <Box component="section" aria-label="Prediction and model intelligence">
-            <Grid container spacing={1.5}>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Card variant="outlined" sx={{ height: "100%", borderRadius: "var(--gk-radius-sm)" }}>
-                  <CardContent sx={{ p: { xs: 2, sm: 2.5 }, "&:last-child": { pb: { xs: 2, sm: 2.5 } } }}>
-                    <SectionHeading id="prediction-summary-heading" metric="projectedEdge">Prediction Summary</SectionHeading>
-                    <Stack direction={{ xs: "column", sm: "row" }} alignItems="center" spacing={{ xs: 2.5, sm: 4 }} sx={{ pt: 1 }}>
-                      <Box
-                        role="img"
-                        aria-label={`${positiveEdge.toFixed(0)}% positive edge`}
-                        sx={{
-                          width: 164,
-                          height: 164,
-                          flex: "0 0 164px",
-                          borderRadius: "50%",
-                          display: "grid",
-                          placeItems: "center",
-                          background: `conic-gradient(var(--gk-gold) 0 ${positiveEdge}%, #d15f57 ${positiveEdge}% ${positiveEdge + negativeEdge}%, var(--gk-border-strong) ${positiveEdge + negativeEdge}% 100%)`,
-                          position: "relative",
-                          "&::before": {
-                            content: '""',
-                            position: "absolute",
-                            inset: 15,
-                            borderRadius: "50%",
-                            backgroundColor: "var(--gk-surface)",
-                            border: "1px solid var(--gk-border)",
-                          },
-                        }}
-                      >
-                        <Box sx={{ position: "relative", textAlign: "center" }}>
-                          <Typography variant="h4" fontWeight={900}>{positiveEdge.toFixed(0)}%</Typography>
-                          <Typography variant="caption" color="primary.main" fontWeight={900}>POS EDGE</Typography>
-                        </Box>
-                      </Box>
-                      <Stack spacing={1.25} sx={{ width: "100%", minWidth: 0 }}>
-                        {[
-                          ["Positive", positiveEdge, "var(--gk-gold)"],
-                          ["Negative", negativeEdge, "#d15f57"],
-                          ["No Edge", noEdge, "var(--gk-border-strong)"],
-                        ].map(([label, value, color]) => (
-                          <Stack key={label as string} direction="row" alignItems="center" spacing={1}>
-                            <Box sx={{ width: 8, height: 8, backgroundColor: color, flexShrink: 0 }} />
-                            <Typography color="text.secondary" sx={{ flexGrow: 1 }}>{label}</Typography>
-                            <Typography fontWeight={850}>{(value as number).toFixed(0)}%</Typography>
-                          </Stack>
-                        ))}
-                        <Typography variant="caption" color="text.secondary" sx={{ pt: 0.5 }}>
-                          {measuredEdges.length} measured signals
-                        </Typography>
-                      </Stack>
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
+          <Box component="section" aria-label="Model intelligence">
                 <Card
                   variant="outlined"
                   sx={{ height: "100%", borderRadius: "var(--gk-radius-sm)", backgroundColor: "var(--gk-surface-soft)" }}
@@ -315,8 +241,6 @@ export function ProductDashboardPage() {
                     </Stack>
                   </CardContent>
                 </Card>
-              </Grid>
-            </Grid>
           </Box>
 
           {gamesQuery.data && gamesQuery.data.predictions.length > 0 ? (

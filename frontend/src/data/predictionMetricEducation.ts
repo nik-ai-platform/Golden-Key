@@ -1,4 +1,4 @@
-export type PredictionMetric = "npi" | "confidence" | "projectedEdge" | "modelProbability";
+export type PredictionMetric = "npi" | "confidence" | "modelProbability";
 
 export type PredictionMetricEducation = {
   title: string;
@@ -23,13 +23,6 @@ export const predictionMetricEducation: Record<PredictionMetric, PredictionMetri
     detailed: "Confidence measures combined model conviction using NPI, the magnitude of Projected Edge, and Model Probability. Golden Key caps the rating at 95. The separately displayed Model Probability is the outcome-likelihood estimate.",
     disclaimer: "Confidence describes model conviction, not certainty of winning.",
   },
-  projectedEdge: {
-    title: "Projected Edge",
-    ariaLabel: "Learn about Projected Edge",
-    short: "The difference between Golden Key's estimate and the relevant market benchmark.",
-    detailed: "Projected Edge measures how far Golden Key's model differs from the benchmark used for that market.",
-    disclaimer: "Projected Edge can change with market prices and does not guarantee value or profit.",
-  },
   modelProbability: {
     title: "Model Probability",
     ariaLabel: "Learn about Model Probability",
@@ -38,19 +31,6 @@ export const predictionMetricEducation: Record<PredictionMetric, PredictionMetri
     disclaimer: "Model Probability is an estimate, not a guaranteed outcome.",
   },
 };
-
-export function projectedEdgeMarketNote(market?: string): string | null {
-  switch (market?.toLowerCase()) {
-    case "spread":
-      return "For spreads, edge is measured in percentage points relative to the model's 50% neutral benchmark.";
-    case "moneyline":
-      return "For moneylines, edge is measured in percentage points between Golden Key's model probability and the selected side's vig-removed implied market probability.";
-    case "total":
-      return "For totals, edge is measured in scoring points between Golden Key's projected total and the sportsbook's posted total.";
-    default:
-      return null;
-  }
-}
 
 export function npiMarketNote(market?: string): string {
   switch (market?.toLowerCase()) {

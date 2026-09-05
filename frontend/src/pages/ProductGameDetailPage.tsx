@@ -22,7 +22,6 @@ import {
   modelProbabilityMarketNote,
   npiMarketNote,
   predictionMetricEducation,
-  projectedEdgeMarketNote,
 } from "../data/predictionMetricEducation";
 import { getGameDetail } from "../services/productApi";
 import type { Prediction } from "../types/product";
@@ -31,7 +30,7 @@ import {
   formatConfidence,
   formatNpi,
   formatProductDate,
-  formatProjectedEdge,
+  customerFacingReasoning,
 } from "../utils/productFormat";
 
 const MARKET_ORDER = ["spread", "moneyline", "total"];
@@ -73,7 +72,7 @@ function UnderstandingMetric({
   label: string;
   value: string;
   explanation: string;
-  metric: "npi" | "confidence" | "projectedEdge" | "modelProbability";
+  metric: "npi" | "confidence" | "modelProbability";
   market: string;
 }) {
   return (
@@ -108,6 +107,8 @@ function MarketCard({
   prediction: Prediction;
   isBestPick: boolean;
 }) {
+  const visibleReasoning = customerFacingReasoning(prediction.reasoning);
+
   return (
     <Card variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>
       <CardContent sx={{ p: { xs: 2.5, md: 3 }, "&:last-child": { pb: { xs: 2.5, md: 3 } } }}>
@@ -200,13 +201,6 @@ function MarketCard({
                 market={prediction.market}
               />
               <UnderstandingMetric
-                label="Projected Edge"
-                value={formatProjectedEdge(prediction.projected_edge, prediction.market)}
-                explanation={projectedEdgeMarketNote(prediction.market) ?? predictionMetricEducation.projectedEdge.detailed}
-                metric="projectedEdge"
-                market={prediction.market}
-              />
-              <UnderstandingMetric
                 label="Model Probability"
                 value={formatConfidence(prediction.simulation_probability)}
                 explanation={modelProbabilityMarketNote(prediction.market) ?? predictionMetricEducation.modelProbability.detailed}
@@ -214,26 +208,19 @@ function MarketCard({
                 market={prediction.market}
               />
             </Box>
-            {prediction.market.toLowerCase() === "total" &&
-            prediction.line_value != null &&
-            prediction.projected_edge != null ? (
-              <Typography variant="body2" sx={{ mt: 2 }}>
-                Projected total: {(prediction.line_value + prediction.projected_edge).toFixed(1)} points
-              </Typography>
-            ) : null}
             <Stack direction={{ xs: "column", sm: "row" }} spacing={{ xs: 0.5, sm: 2 }} sx={{ mt: 2 }}>
               <Typography variant="body2"><strong>Risk assessment:</strong> {displayRisk(prediction.risk_level)}</Typography>
               <Typography variant="body2"><strong>Model:</strong> {prediction.model_version}</Typography>
             </Stack>
           </Box>
 
-          {prediction.reasoning ? (
+          {visibleReasoning ? (
             <Box>
               <Typography variant="subtitle2" fontWeight={700}>
                 Model Reasoning
               </Typography>
               <Typography color="text.secondary" sx={{ mt: 0.75, lineHeight: 1.7 }}>
-                {prediction.reasoning}
+                {visibleReasoning}
               </Typography>
             </Box>
           ) : null}

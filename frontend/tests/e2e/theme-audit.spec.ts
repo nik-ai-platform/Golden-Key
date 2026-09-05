@@ -203,7 +203,7 @@ async function expectCompactMetrics(
   const supportingMetrics = container.getByTestId("supporting-metrics");
 
   await expect(container).toBeVisible();
-  for (const label of ["NPI", "Confidence", "Simulation", "Edge", "Risk"]) {
+  for (const label of ["NPI", "Confidence", "Model Probability", "Risk"]) {
     await expect(container.getByText(label, { exact: true })).toBeVisible();
   }
   expect(
@@ -240,16 +240,17 @@ async function expectCompactMetrics(
 
 async function expectDashboardMetrics(page: import("@playwright/test").Page) {
   const container = page.getByTestId("pick-metrics").first();
+  const primaryMetrics = container.locator(":scope > div").first();
 
   await expect(container).toBeVisible();
-  for (const label of ["NPI", "Confidence", "Edge"]) {
+  for (const label of ["Confidence", "Model Probability"]) {
     await expect(container.getByText(label, { exact: true })).toBeVisible();
   }
   expect(
-    await container.evaluate(
+    await primaryMetrics.evaluate(
       (element) => getComputedStyle(element).gridTemplateColumns.split(" ").length,
     ),
-  ).toBe(3);
+  ).toBe(1);
   expect(
     await container.evaluate((element) => element.scrollWidth <= element.clientWidth),
   ).toBe(true);
@@ -299,7 +300,7 @@ for (const viewport of [
             await expect(page.getByRole("heading", { name: heading })).toBeVisible();
           }
         } else {
-          await expectCompactMetrics(page, viewport.name === "desktop" ? 4 : 2);
+          await expectCompactMetrics(page, viewport.name === "desktop" ? 3 : 2);
         }
         await page.screenshot({
           path: `test-results/theme-${route === "/dashboard" ? "dashboard" : "game-analysis"}-dark-${viewport.name}.png`,
@@ -340,7 +341,7 @@ for (const viewport of [
       if (route === "/dashboard") {
         await expectDashboardMetrics(page);
       } else {
-        await expectCompactMetrics(page, viewport.name === "desktop" ? 4 : 2);
+        await expectCompactMetrics(page, viewport.name === "desktop" ? 3 : 2);
       }
       expect(
         await page.evaluate(() =>

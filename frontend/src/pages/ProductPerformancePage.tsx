@@ -318,11 +318,6 @@ export function ProductPerformancePage() {
             description="Shows settled results by model-conviction level."
             rows={query.data.npi_4_spread.confidence_bands}
           />
-          <SpreadPerformanceTable
-            title="Projected Edge Performance"
-            description="Shows whether larger projected spread edges have translated into better results."
-            rows={query.data.npi_4_spread.projected_edge_bands}
-          />
           <ProbabilityCalibrationTable rows={query.data.npi_4_spread.probability_calibration} />
         </Stack>
       ) : null}
