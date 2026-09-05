@@ -144,6 +144,40 @@ export interface PerformanceIntelligenceBreakdown
   key: string;
 }
 
+export interface SpreadPerformanceSummary {
+  sample_size: number;
+  wins: number;
+  losses: number;
+  pushes: number;
+  win_rate: number;
+  units: number;
+  roi: number;
+}
+
+export interface SpreadPerformanceBreakdown extends SpreadPerformanceSummary {
+  key: string;
+}
+
+export interface SpreadProbabilityCalibration {
+  key: string;
+  sample_size: number;
+  wins: number;
+  losses: number;
+  pushes: number;
+  predicted_probability_average: number;
+  actual_win_rate: number;
+}
+
+export interface Npi4SpreadPerformance {
+  summary: SpreadPerformanceSummary;
+  npi_bands: SpreadPerformanceBreakdown[];
+  confidence_bands: SpreadPerformanceBreakdown[];
+  projected_edge_bands: SpreadPerformanceBreakdown[];
+  probability_calibration: SpreadProbabilityCalibration[];
+  brier_score: number | null;
+  brier_sample_size: number;
+}
+
 export interface PerformanceIntelligenceResponse {
   period_days: 7 | 30 | 90;
   generated_at: string;
@@ -155,6 +189,7 @@ export interface PerformanceIntelligenceResponse {
   by_odds_band: PerformanceIntelligenceBreakdown[];
   by_side_type: PerformanceIntelligenceBreakdown[];
   by_model_version: PerformanceIntelligenceBreakdown[];
+  npi_4_spread: Npi4SpreadPerformance;
 }
 
 export interface UserProfile {

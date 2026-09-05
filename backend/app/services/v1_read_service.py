@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime, timedelta, timezone
+from math import isfinite
 
 from sqlalchemy.orm import Session, aliased
 
@@ -645,6 +646,164 @@ class V1ReadService:
 
             return "Unknown"
 
+        actionable_spread_rows = [
+            row
+            for row in rows
+            if (row[0].market or "").lower() == "spread"
+            and row[0].model_version == "NPI-4.0"
+            and (row[0].selection or "").upper() != "PASS"
+        ]
+
+        def spread_summary(items) -> dict:
+            summary = summarize(items)
+            return {
+                "sample_size": summary["total_bets"],
+                "wins": summary["wins"],
+                "losses": summary["losses"],
+                "pushes": summary["pushes"],
+                "win_rate": summary["win_rate"],
+                "units": summary["units_won"],
+                "roi": summary["roi"],
+            }
+
+        def fixed_grouped(items, keys, key_fn) -> list[dict]:
+            buckets = {key: [] for key in keys}
+            for item in items:
+                key = key_fn(*item)
+                if key in buckets:
+                    buckets[key].append(item)
+            return [
+                {"key": key, **spread_summary(buckets[key])}
+                for key in keys
+            ]
+
+        def projected_edge_band(prediction, result, game):
+            value = prediction.projected_edge
+            if value is None or not isfinite(float(value)):
+                return None
+            value = abs(float(value))
+            if value < 5:
+                return None
+            if value < 10:
+                return "5-9.9"
+            if value < 15:
+                return "10-14.9"
+            if value < 20:
+                return "15-19.9"
+            return "20+"
+
+        def selected_probability(prediction) -> float | None:
+            value = prediction.simulation_probability
+            if value is None or not isfinite(float(value)):
+                return None
+            probability = float(value)
+            if (prediction.selection or "").upper() == "AWAY":
+                probability = 100.0 - probability
+            if probability < 0 or probability > 100:
+                return None
+            return probability
+
+        def probability_band(probability: float) -> str | None:
+            if probability < 50:
+                return None
+            if probability < 55:
+                return "50-54.9"
+            if probability < 60:
+                return "55-59.9"
+            if probability < 65:
+                return "60-64.9"
+            if probability < 70:
+                return "65-69.9"
+            return "70+"
+
+        probability_keys = (
+            "50-54.9",
+            "55-59.9",
+            "60-64.9",
+            "65-69.9",
+            "70+",
+        )
+        probability_buckets = {key: [] for key in probability_keys}
+        brier_values = []
+        for prediction, result, game in actionable_spread_rows:
+            probability = selected_probability(prediction)
+            if probability is None:
+                continue
+            key = probability_band(probability)
+            if key is not None:
+                probability_buckets[key].append(
+                    (prediction, result, game, probability)
+                )
+            outcome = (result.outcome or "").upper()
+            if outcome in {"WIN", "LOSS"}:
+                observed = 1.0 if outcome == "WIN" else 0.0
+                brier_values.append((probability / 100.0 - observed) ** 2)
+
+        probability_calibration = []
+        for key in probability_keys:
+            bucket = probability_buckets[key]
+            wins = sum(
+                1 for _, result, _, _ in bucket
+                if (result.outcome or "").upper() == "WIN"
+            )
+            losses = sum(
+                1 for _, result, _, _ in bucket
+                if (result.outcome or "").upper() == "LOSS"
+            )
+            pushes = sum(
+                1 for _, result, _, _ in bucket
+                if (result.outcome or "").upper() == "PUSH"
+            )
+            graded = wins + losses
+            probability_calibration.append(
+                {
+                    "key": key,
+                    "sample_size": len(bucket),
+                    "wins": wins,
+                    "losses": losses,
+                    "pushes": pushes,
+                    "predicted_probability_average": (
+                        round(
+                            sum(item[3] for item in bucket) / len(bucket),
+                            2,
+                        )
+                        if bucket
+                        else 0.0
+                    ),
+                    "actual_win_rate": (
+                        round((wins / graded) * 100.0, 2)
+                        if graded
+                        else 0.0
+                    ),
+                }
+            )
+
+        npi_4_spread = {
+            "summary": spread_summary(actionable_spread_rows),
+            "npi_bands": fixed_grouped(
+                actionable_spread_rows,
+                ("0-99", "100-124", "125-149", "150-174", "175-200"),
+                npi_band,
+            ),
+            "confidence_bands": fixed_grouped(
+                actionable_spread_rows,
+                ("<60", "60-69", "70-79", "80-89", "90-100"),
+                confidence_band,
+            ),
+            "projected_edge_bands": fixed_grouped(
+                actionable_spread_rows,
+                ("5-9.9", "10-14.9", "15-19.9", "20+"),
+                projected_edge_band,
+            ),
+            "probability_calibration": probability_calibration,
+            "brier_score": (
+                round(sum(brier_values) / len(brier_values), 4)
+                if brier_values
+                else None
+            ),
+            "brier_sample_size": len(brier_values),
+        }
+
         return {
             "period_days": days,
             "generated_at": now.isoformat() + "Z",
@@ -665,6 +824,7 @@ class V1ReadService:
                 rows,
                 lambda p, r, g: p.model_version or "Unknown",
             ),
+            "npi_4_spread": npi_4_spread,
         }
 
     def _prediction_item(
