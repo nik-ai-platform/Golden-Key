@@ -56,6 +56,9 @@ def test_authenticated_product_reads_preserve_response_contracts(monkeypatch):
         "risk_level": "LOW",
         "reasoning": None,
         "outcome": None,
+        "recommendation_eligible": True,
+        "recommendation_tier": None,
+        "recommendation_designation": None,
     }
     today = {
         "sport": "WNBA",

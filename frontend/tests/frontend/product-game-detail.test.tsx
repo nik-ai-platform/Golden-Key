@@ -39,6 +39,9 @@ function prediction(overrides: Partial<Prediction>): Prediction {
     risk_level: "LOW",
     reasoning: "Seattle owns the stronger matchup profile.",
     outcome: "WIN",
+    recommendation_eligible: true,
+    recommendation_tier: null,
+    recommendation_designation: null,
     ...overrides,
   };
 }
@@ -58,12 +61,15 @@ const game: GameDetail = {
       market: "moneyline",
       selection: "AWAY",
       display_selection: "New England Patriots ML",
-      american_odds: 125,
-      npi_score: 168,
-      confidence_score: 78,
+      american_odds: -1000,
+      npi_score: 200,
+      confidence_score: 95,
       projected_edge: 5,
       reasoning: null,
       outcome: "LOSS",
+      recommendation_eligible: false,
+      recommendation_tier: "LOW_VALUE_HEAVY_FAVORITE",
+      recommendation_designation: "High Probability — Low Betting Value",
     }),
     prediction({
       prediction_id: 3,
@@ -135,7 +141,7 @@ describe("Game Analysis", () => {
     expect(screen.queryByText("HOME")).toBeNull();
     expect(screen.queryByText("AWAY")).toBeNull();
     expect(screen.getAllByText("American odds -110")).toHaveLength(2);
-    expect(screen.getByText("American odds +125")).toBeTruthy();
+    expect(screen.getByText("American odds -1000")).toBeTruthy();
     expect(screen.getAllByText("Sportsbook: DraftKings")).toHaveLength(3);
     expect(
       screen.getAllByText(
@@ -163,6 +169,7 @@ describe("Game Analysis", () => {
     expect(screen.getAllByText("Low")).toHaveLength(4);
     expect(screen.queryByText("LOW")).toBeNull();
     expect(screen.getAllByText("Golden Key Best Pick")).toHaveLength(1);
+    expect(screen.getByText("High Probability — Low Betting Value")).toBeTruthy();
     expect(screen.getByText("Seattle owns the stronger matchup profile.")).toBeTruthy();
     expect(screen.getAllByText("Model Reasoning")).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: /save pick/i })).toHaveLength(3);

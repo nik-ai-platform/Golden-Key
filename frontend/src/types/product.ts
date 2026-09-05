@@ -20,6 +20,9 @@ export interface Prediction {
   risk_level: string | null;
   reasoning: string | null;
   outcome?: string | null;
+  recommendation_eligible?: boolean;
+  recommendation_tier?: "PREFERRED" | "LOWER_PRIORITY" | "LOW_VALUE_HEAVY_FAVORITE" | null;
+  recommendation_designation?: string | null;
 }
 
 export interface TodayPredictionsResponse {

@@ -30,7 +30,16 @@ def _session():
     return sessionmaker(bind=engine)()
 
 
-def _add_candidate(db, index, market, *, selection=None, stale=False, edge=6.0):
+def _add_candidate(
+    db,
+    index,
+    market,
+    *,
+    selection=None,
+    stale=False,
+    edge=6.0,
+    american_odds=None,
+):
     home = Team(name=f"Home {index}", sport="NFL", league="NFL")
     away = Team(name=f"Away {index}", sport="NFL", league="NFL")
     db.add_all([home, away])
@@ -69,7 +78,11 @@ def _add_candidate(db, index, market, *, selection=None, stale=False, edge=6.0):
         market=market,
         selection=selection,
         line_value=None if market == "moneyline" else (-3.5 if market == "spread" else 44.5),
-        american_odds=-150 if market == "moneyline" else -110,
+        american_odds=(
+            american_odds
+            if american_odds is not None
+            else -150 if market == "moneyline" else -110
+        ),
         odds_snapshot_id=odds.id,
         sportsbook=odds.sportsbook,
         odds_observed_at=observed_at,
@@ -278,6 +291,56 @@ def test_optimizer_excludes_attractive_predictions_beyond_actionable_horizon():
     assert result["horizon_days"] == 7
     assert result["generated_at"] >= now
     assert all(game.game_date <= now + timedelta(days=7) for game in near_games)
+
+
+def test_parlay_moneyline_price_boundaries_and_other_markets():
+    db = _session()
+    fixtures = [
+        _add_candidate(db, 1, "moneyline", american_odds=-400)[1],
+        _add_candidate(db, 2, "moneyline", american_odds=-401)[1],
+        _add_candidate(db, 3, "moneyline", american_odds=-1000)[1],
+        _add_candidate(db, 4, "moneyline", american_odds=-20000)[1],
+        _add_candidate(db, 5, "spread")[1],
+        _add_candidate(db, 6, "total")[1],
+    ]
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    candidates = ParlayOptimizerService()._load_candidates(
+        db,
+        sport=None,
+        now=now,
+        horizon_end=now + timedelta(days=7),
+    )
+    candidate_ids = {candidate["prediction_id"] for candidate in candidates}
+
+    assert fixtures[0].id in candidate_ids
+    assert fixtures[1].id not in candidate_ids
+    assert fixtures[2].id not in candidate_ids
+    assert fixtures[3].id not in candidate_ids
+    assert fixtures[4].id in candidate_ids
+    assert fixtures[5].id in candidate_ids
+
+
+def test_preferred_moneyline_outranks_equivalent_lower_priority_moneyline():
+    db = _session()
+    _, preferred = _add_candidate(db, 1, "moneyline", american_odds=-300)
+    _, lower_priority = _add_candidate(db, 2, "moneyline", american_odds=-301)
+    now = datetime.now(UTC).replace(tzinfo=None)
+    lower_priority.npi_score = preferred.npi_score
+    lower_priority.confidence_score = preferred.confidence_score
+    lower_priority.simulation_probability = preferred.simulation_probability
+    lower_priority.projected_edge = preferred.projected_edge
+    lower_priority.risk_level = preferred.risk_level
+    lower_priority.odds_observed_at = preferred.odds_observed_at
+
+    preferred_score, _ = ParlayOptimizerService()._score(preferred, now)
+    lower_priority_score, components = ParlayOptimizerService()._score(
+        lower_priority,
+        now,
+    )
+
+    assert preferred_score > lower_priority_score
+    assert components["moneyline_price_adjustment"] == -0.01
 
 
 def test_optimizer_fails_instead_of_expanding_horizon_for_insufficient_inventory():

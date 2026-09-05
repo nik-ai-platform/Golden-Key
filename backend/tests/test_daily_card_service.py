@@ -1,3 +1,5 @@
+import pytest
+
 from app.services.v1_read_service import V1ReadService
 
 
@@ -112,3 +114,59 @@ def test_only_long_moneylines_remain_visible_without_a_best_bet():
     assert card["best_bet"] is None
     assert card["featured_picks"][0]["role"] == "TOP_MONEYLINE"
     assert card["featured_picks"][0]["prediction"] == longshot
+
+
+def test_moneyline_at_minus_400_remains_recommendation_eligible():
+    service = V1ReadService()
+    moneyline = _prediction(
+        1,
+        "moneyline",
+        american_odds=-400,
+        npi_score=200,
+        confidence_score=95,
+        simulation_probability=90,
+        projected_edge=10,
+    )
+
+    card = service._build_daily_card([moneyline])
+
+    assert card["best_bet"]["prediction"] == moneyline
+
+
+@pytest.mark.parametrize("american_odds", (-401, -1000, -20000))
+def test_heavy_favorite_cannot_leak_into_any_daily_card_role(american_odds):
+    service = V1ReadService()
+    heavy_favorite = _prediction(
+        1,
+        "moneyline",
+        american_odds=american_odds,
+        npi_score=200,
+        confidence_score=95,
+        simulation_probability=99,
+        projected_edge=10,
+    )
+    spread = _prediction(2, "spread", npi_score=170)
+    total = _prediction(
+        3,
+        "total",
+        selection="OVER",
+        line_value=48.5,
+        npi_score=165,
+    )
+
+    card = service._build_daily_card([heavy_favorite, spread, total])
+    recommendations = [
+        card["best_bet"],
+        *card["featured_picks"],
+        *card["next_best"],
+    ]
+    recommendation_ids = {
+        pick["prediction"]["prediction_id"]
+        for pick in recommendations
+        if pick is not None
+    }
+
+    assert heavy_favorite["prediction_id"] not in recommendation_ids
+    assert spread["prediction_id"] in recommendation_ids
+    assert total["prediction_id"] in recommendation_ids
+    assert card["count"] == 3

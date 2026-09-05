@@ -38,6 +38,9 @@ function prediction(overrides: Partial<Prediction>): Prediction {
     projected_edge: 8,
     risk_level: "LOW",
     reasoning: null,
+    recommendation_eligible: true,
+    recommendation_tier: null,
+    recommendation_designation: null,
     ...overrides,
   };
 }
@@ -134,10 +137,13 @@ const gamePredictions: Prediction[] = [
     home_team: "Buffalo Bills",
     away_team: "Miami Dolphins",
     market: "moneyline",
-    selection: "AWAY",
-    display_selection: "Miami Dolphins ML",
+    selection: "HOME",
+    display_selection: "Buffalo Bills ML",
     line_value: null,
-    american_odds: 145,
+    american_odds: -1000,
+    recommendation_eligible: false,
+    recommendation_tier: "LOW_VALUE_HEAVY_FAVORITE",
+    recommendation_designation: "High Probability — Low Betting Value",
   }),
   prediction({
     prediction_id: 4,
@@ -259,7 +265,7 @@ describe("daily card dashboard", () => {
     expect(within(games[0]).getByText("Buffalo Bills")).toBeTruthy();
     expect(within(games[0]).getByText("Miami Dolphins")).toBeTruthy();
     expect(within(games[0]).getByText("-3.5 -110")).toBeTruthy();
-    expect(within(games[0]).getByText("+145")).toBeTruthy();
+    expect(within(games[0]).getByText("-1000")).toBeTruthy();
     expect(within(games[0]).getByText("O 47.5 -110")).toBeTruthy();
     expect(screen.getAllByTestId("game-10-spread-value").filter((cell) => cell.dataset.recommended === "true")).toHaveLength(1);
     expect(screen.getAllByTestId("game-10-moneyline-value").every((cell) => cell.dataset.recommended === "false")).toBe(true);
@@ -274,6 +280,24 @@ describe("daily card dashboard", () => {
     const moneyline = screen.getByTestId("daily-card-top-moneyline");
     expect(within(moneyline).getByText("Akron ML")).toBeTruthy();
     expect(moneyline.textContent).toContain("Odds +1300");
+  });
+
+  it("keeps a heavy favorite informational without recommending it", () => {
+    renderDashboard();
+
+    const gamesBoard = screen.getByTestId("sportsbook-games-board");
+    expect(within(gamesBoard).getByText("-1000")).toBeTruthy();
+    expect(
+      screen.getAllByTestId("game-10-moneyline-value").every(
+        (cell) => cell.dataset.recommended === "false",
+      ),
+    ).toBe(true);
+    for (const recommendation of [
+      screen.getByTestId("daily-card-best-bet"),
+      ...screen.getAllByTestId(/^daily-card-(top|next|value)/),
+    ]) {
+      expect(within(recommendation).queryByText("Buffalo Bills ML")).toBeNull();
+    }
   });
 
   it("derives the edge distribution from measured predictions", () => {

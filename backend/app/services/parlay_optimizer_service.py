@@ -8,6 +8,11 @@ from app.models.game import Game
 from app.models.odds import Odds
 from app.models.prediction_record import Prediction
 from app.models.team import Team
+from app.services.recommendation_eligibility import (
+    LOWER_PRIORITY,
+    is_recommendation_eligible,
+    moneyline_price_tier,
+)
 
 
 class ParlayOptimizationError(ValueError):
@@ -116,6 +121,11 @@ class ParlayOptimizerService:
 
         candidates = []
         for prediction, game, odds, home, away in query.all():
+            if not is_recommendation_eligible(
+                prediction.market,
+                prediction.american_odds,
+            ):
+                continue
             if game.game_date < now:
                 continue
             if game.game_date > horizon_end:
@@ -193,6 +203,14 @@ class ParlayOptimizerService:
             "projected_edge": self._scaled(prediction.projected_edge, 10, 15),
             "odds_freshness": round(max(0.0, 10 * (1 - age / max_age)), 2),
             "risk_adjustment": risk_points,
+            "moneyline_price_adjustment": (
+                -0.01
+                if moneyline_price_tier(
+                    prediction.market,
+                    prediction.american_odds,
+                ) == LOWER_PRIORITY
+                else 0.0
+            ),
         }
         return round(sum(components.values()), 2), components
 

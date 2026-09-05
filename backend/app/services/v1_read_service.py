@@ -8,6 +8,11 @@ from app.models.prediction_record import Prediction
 from app.models.prediction_result import PredictionResult
 from app.models.team import Team
 from app.models.user_prediction import UserPrediction
+from app.services.recommendation_eligibility import (
+    is_recommendation_eligible,
+    moneyline_price_tier,
+    recommendation_designation,
+)
 
 
 def _utc_iso(value: datetime | None) -> str | None:
@@ -89,10 +94,18 @@ class V1ReadService:
                 prediction["prediction_id"],
             ),
         )
+        recommendation_ranked = [
+            prediction
+            for prediction in ranked
+            if is_recommendation_eligible(
+                prediction.get("market"),
+                prediction.get("american_odds"),
+            )
+        ]
         used_ids = set()
         primary_candidates = [
             prediction
-            for prediction in ranked
+            for prediction in recommendation_ranked
             if not self._is_long_moneyline(prediction)
         ]
         best_prediction = primary_candidates[0] if primary_candidates else None
@@ -110,7 +123,7 @@ class V1ReadService:
             prediction = next(
                 (
                     item
-                    for item in ranked
+                    for item in recommendation_ranked
                     if item["market"].lower() == market
                     and item["prediction_id"] not in used_ids
                 ),
@@ -125,7 +138,7 @@ class V1ReadService:
         value_prediction = next(
             (
                 prediction
-                for prediction in ranked
+                for prediction in recommendation_ranked
                 if prediction["prediction_id"] not in used_ids
                 and prediction["market"].lower() == "spread"
                 and float(prediction.get("line_value") or 0) > 0
@@ -148,7 +161,7 @@ class V1ReadService:
                 role="NEXT_BEST",
                 label="Next Best Pick",
             )
-            for prediction in ranked
+            for prediction in recommendation_ranked
             if prediction["prediction_id"] not in used_ids
         ][:3]
         return {
@@ -859,6 +872,18 @@ class V1ReadService:
             "projected_edge": prediction.projected_edge,
             "risk_level": prediction.risk_level,
             "reasoning": prediction.reasoning,
+            "recommendation_eligible": is_recommendation_eligible(
+                prediction.market,
+                prediction.american_odds,
+            ),
+            "recommendation_tier": moneyline_price_tier(
+                prediction.market,
+                prediction.american_odds,
+            ),
+            "recommendation_designation": recommendation_designation(
+                prediction.market,
+                prediction.american_odds,
+            ),
         }
 
     def _display_selection(

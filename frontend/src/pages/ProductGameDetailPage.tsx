@@ -118,6 +118,14 @@ function MarketCard({
             </Typography>
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
               {isBestPick ? <Chip label="Golden Key Best Pick" color="primary" size="small" /> : null}
+              {prediction.recommendation_designation ? (
+                <Chip
+                  label={prediction.recommendation_designation}
+                  color="warning"
+                  size="small"
+                  variant="outlined"
+                />
+              ) : null}
               {prediction.outcome ? (
                 <Chip
                   label={prediction.outcome}
@@ -263,7 +271,9 @@ export function ProductGameDetailPage() {
       MARKET_ORDER.indexOf(left.market.toLowerCase()) -
       MARKET_ORDER.indexOf(right.market.toLowerCase()),
   );
-  const bestPrediction = [...predictions].sort(rankPredictions)[0];
+  const bestPrediction = [...predictions]
+    .filter((prediction) => prediction.recommendation_eligible !== false)
+    .sort(rankPredictions)[0];
   const hasFinalScore =
     game.home_score != null &&
     game.away_score != null &&

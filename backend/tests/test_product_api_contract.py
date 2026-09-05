@@ -72,6 +72,43 @@ def test_product_prediction_serializes_odds_provenance_as_utc():
 
     assert item.sportsbook == "DraftKings"
     assert item.odds_observed_at == "2026-09-01T20:32:00Z"
+    assert item.recommendation_eligible is True
+    assert item.recommendation_tier == "PREFERRED"
+    assert item.recommendation_designation is None
+
+
+def test_heavy_favorite_remains_informational_with_low_value_metadata():
+    prediction = SimpleNamespace(
+        id=2,
+        market="moneyline",
+        selection="HOME",
+        line_value=None,
+        american_odds=-1000,
+        sportsbook="DraftKings",
+        odds_observed_at=datetime(2026, 9, 1, 20, 32),
+        model_version="NPI-4.0",
+        npi_score=180.0,
+        confidence_score=92.0,
+        simulation_probability=90.0,
+        projected_edge=4.0,
+        risk_level="low",
+        reasoning="High win probability at a short price.",
+    )
+    game = SimpleNamespace(id=10, sport="NFL", game_date=datetime(2026, 9, 2))
+    home_team = SimpleNamespace(name="Seattle Seahawks")
+    away_team = SimpleNamespace(name="New England Patriots")
+
+    item = TodayPredictionItem.model_validate(
+        V1ReadService()._prediction_item(prediction, game, home_team, away_team)
+    )
+
+    assert item.display_selection == "Seattle Seahawks ML"
+    assert item.american_odds == -1000
+    assert item.recommendation_eligible is False
+    assert item.recommendation_tier == "LOW_VALUE_HEAVY_FAVORITE"
+    assert item.recommendation_designation == (
+        "High Probability — Low Betting Value"
+    )
 
 
 def test_performance_contract():

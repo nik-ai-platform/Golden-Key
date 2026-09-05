@@ -64,7 +64,9 @@ export function ProductGameCard({ predictions }: ProductGameCardProps) {
   );
 
   const game = sortedPredictions[0];
-  const bestPrediction = [...predictions].sort(rankPredictions)[0];
+  const bestPrediction = [...predictions]
+    .filter((prediction) => prediction.recommendation_eligible !== false)
+    .sort(rankPredictions)[0];
 
   if (!game) return null;
 
@@ -154,14 +156,23 @@ export function ProductGameCard({ predictions }: ProductGameCardProps) {
                       {marketLabel(prediction.market)}
                     </Typography>
 
-                    {prediction.prediction_id === bestPrediction?.prediction_id ? (
-                      <Chip
-                        label="Golden Key Best Pick"
-                        color="primary"
-                        size="small"
-                        sx={{ alignSelf: "flex-start" }}
-                      />
-                    ) : null}
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      {prediction.prediction_id === bestPrediction?.prediction_id ? (
+                        <Chip
+                          label="Golden Key Best Pick"
+                          color="primary"
+                          size="small"
+                        />
+                      ) : null}
+                      {prediction.recommendation_designation ? (
+                        <Chip
+                          label={prediction.recommendation_designation}
+                          color="warning"
+                          size="small"
+                          variant="outlined"
+                        />
+                      ) : null}
+                    </Stack>
 
                     <Typography variant="h6" fontWeight={700}>
                       {prediction.display_selection}

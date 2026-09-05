@@ -23,6 +23,9 @@ class TodayPredictionItem(BaseModel):
     risk_level: str | None = None
     reasoning: str | None = None
     outcome: str | None = None
+    recommendation_eligible: bool = True
+    recommendation_tier: str | None = None
+    recommendation_designation: str | None = None
 
 
 class TodayPredictionsResponse(BaseModel):

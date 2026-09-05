@@ -37,6 +37,9 @@ function prediction(overrides: Partial<Prediction>): Prediction {
     projected_edge: 8,
     risk_level: "LOW",
     reasoning: null,
+    recommendation_eligible: true,
+    recommendation_tier: null,
+    recommendation_designation: null,
     ...overrides,
   };
 }
@@ -81,9 +84,12 @@ const predictions = [
     market: "moneyline",
     selection: "AWAY",
     display_selection: "New York Knicks ML",
-    american_odds: 140,
+    american_odds: -1000,
     npi_score: 190,
     confidence_score: 85,
+    recommendation_eligible: false,
+    recommendation_tier: "LOW_VALUE_HEAVY_FAVORITE",
+    recommendation_designation: "High Probability — Low Betting Value",
   }),
 ];
 
@@ -157,6 +163,11 @@ describe("Games decision screen", () => {
     expect(within(nflCard).getAllByText("83.0%")).toHaveLength(3);
     expect(within(nflCard).getAllByText("Golden Key Best Pick")).toHaveLength(1);
     expect(within(nbaCard).getAllByText("Golden Key Best Pick")).toHaveLength(1);
+    expect(within(nbaCard).getByText("High Probability — Low Betting Value")).toBeTruthy();
+    expect(within(nbaCard).getByText("Odds -1000")).toBeTruthy();
+    expect(
+      within(nbaCard).getByText("Boston Celtics -2.5").parentElement?.textContent,
+    ).toContain("Golden Key Best Pick");
     expect(screen.getAllByRole("button", { name: /save pick/i })).toHaveLength(5);
     expect(
       within(nflCard)
