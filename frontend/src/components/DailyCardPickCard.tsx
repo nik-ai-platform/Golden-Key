@@ -4,8 +4,9 @@ import { Box, Button, Card, CardContent, Chip, Stack, Typography } from "@mui/ma
 import { Link as RouterLink } from "react-router-dom";
 
 import type { DailyCardPick } from "../types/product";
-import { formatAmericanOdds, formatProductDate } from "../utils/productFormat";
+import { formatAmericanOdds, formatProductDate, formatProjectedEdge } from "../utils/productFormat";
 import { getPredictionTeamIdentity } from "../utils/teamIdentity";
+import { MetricInfoControl } from "./MetricInfoControl";
 import { PickMetrics } from "./PickMetrics";
 import { SavePickButton } from "./SavePickButton";
 import { TeamAccent } from "./TeamAccent";
@@ -44,6 +45,11 @@ export function DailyCardPickCard({
     analytics: "var(--gk-analytics-soft)",
   }[resolvedEmphasis];
   const testIdPrefix = isRow ? "daily-game" : "daily-card";
+  const rankingReasons = pick.ranking_reasons.map((reason) =>
+    reason.toLowerCase().includes("projected edge")
+      ? `Projected edge ${formatProjectedEdge(prediction.projected_edge, prediction.market)}`
+      : reason,
+  );
 
   if (isHero) {
     return (
@@ -95,10 +101,13 @@ export function DailyCardPickCard({
               <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
                 <Chip label={prediction.market} size="small" sx={{ textTransform: "capitalize" }} />
                 {odds ? <Chip label={`Odds ${odds}`} size="small" variant="outlined" /> : null}
-                <Chip label={`NPI ${Math.round(prediction.npi_score)}`} size="small" variant="outlined" />
+                <Stack direction="row" alignItems="center" spacing={0.25}>
+                  <Chip label={`NPI ${Math.round(prediction.npi_score)}`} size="small" variant="outlined" />
+                  <MetricInfoControl metric="npi" market={prediction.market} />
+                </Stack>
               </Stack>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap aria-label="Why this pick ranks here">
-                {pick.ranking_reasons.map((reason) => (
+                {rankingReasons.map((reason) => (
                   <Typography key={reason} variant="caption" color="text.secondary">{reason}</Typography>
                 ))}
               </Stack>
@@ -111,6 +120,7 @@ export function DailyCardPickCard({
                 simulationProbability={prediction.simulation_probability}
                 projectedEdge={prediction.projected_edge}
                 riskLevel={prediction.risk_level}
+                market={prediction.market}
                 hero
               />
               <Stack direction="row" spacing={1} justifyContent={{ md: "flex-end" }} flexWrap="wrap" useFlexGap>
@@ -130,9 +140,7 @@ export function DailyCardPickCard({
     const winProbability = prediction.simulation_probability == null
       ? "—"
       : `${prediction.simulation_probability.toFixed(1)}%`;
-    const edge = prediction.projected_edge == null
-      ? "—"
-      : `${prediction.projected_edge > 0 ? "+" : ""}${prediction.projected_edge.toFixed(1)}%`;
+    const edge = formatProjectedEdge(prediction.projected_edge, prediction.market);
 
     return (
       <Card
@@ -186,6 +194,7 @@ export function DailyCardPickCard({
               simulationProbability={prediction.simulation_probability}
               projectedEdge={prediction.projected_edge}
               riskLevel={prediction.risk_level}
+              market={prediction.market}
               focused
             />
           </Box>
@@ -293,6 +302,7 @@ export function DailyCardPickCard({
               simulationProbability={prediction.simulation_probability}
               projectedEdge={prediction.projected_edge}
               riskLevel={prediction.risk_level}
+              market={prediction.market}
               focused={presentation !== "standard"}
             />
           </Box>
@@ -305,7 +315,7 @@ export function DailyCardPickCard({
               useFlexGap
               aria-label="Why this pick ranks here"
             >
-              {pick.ranking_reasons.map((reason) => (
+              {rankingReasons.map((reason) => (
                 <Chip key={reason} label={reason} size="small" variant="outlined" />
               ))}
             </Stack>

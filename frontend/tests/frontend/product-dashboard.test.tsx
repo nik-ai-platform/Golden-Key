@@ -306,10 +306,25 @@ describe("daily card dashboard", () => {
     const bestBet = screen.getByTestId("daily-card-best-bet");
     expect(within(bestBet).getByText("NPI 188.0 / 200")).toBeTruthy();
     expect(within(bestBet).getByText("91.0% confidence")).toBeTruthy();
+    expect(within(bestBet).getByText("Projected edge +8.4 pp")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "NFL" }));
     expect(vi.mocked(useQuery).mock.calls.some(([options]) =>
       JSON.stringify(options.queryKey) === JSON.stringify(["product", "daily-card", "NFL"]),
     )).toBe(true);
+  });
+
+  it("offers accessible metric education without changing recommendation values", async () => {
+    renderDashboard();
+
+    expect(screen.getAllByRole("button", { name: "Learn about NPI" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Learn about Confidence Rating" }).length).toBeGreaterThan(0);
+    const edgeControls = screen.getAllByRole("button", { name: "Learn about Projected Edge" });
+    expect(edgeControls.length).toBeGreaterThan(0);
+    fireEvent.click(edgeControls[0]);
+
+    expect(await screen.findByText(/difference between Golden Key's estimate and the relevant market benchmark/i)).toBeTruthy();
+    expect(screen.getByText("Georgia -6.5")).toBeTruthy();
+    expect(screen.getByText("Projected edge +8.4 pp")).toBeTruthy();
   });
 
   it("renders a focused empty state", () => {

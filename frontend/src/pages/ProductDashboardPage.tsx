@@ -16,6 +16,7 @@ import { DailyCardPickCard } from "../components/DailyCardPickCard";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
+import { MetricInfoControl } from "../components/MetricInfoControl";
 import { SportsbookGamesBoard } from "../components/SportsbookGamesBoard";
 import { TeamAccent } from "../components/TeamAccent";
 import { getDailyCard, getTodayPredictions } from "../services/productApi";
@@ -35,12 +36,21 @@ function slateLabel(slateDate: string): string {
   })}`;
 }
 
-function SectionHeading({ id, children }: { id: string; children: string }) {
+function SectionHeading({
+  id,
+  children,
+  metric,
+}: {
+  id: string;
+  children: string;
+  metric?: "npi" | "confidence" | "projectedEdge" | "modelProbability";
+}) {
   return (
     <Stack direction="row" alignItems="center" spacing={1.25} sx={{ mb: 1 }}>
       <Typography component="h2" id={id} variant="overline" fontWeight={900} sx={{ flexShrink: 0 }}>
         {children}
       </Typography>
+      {metric ? <MetricInfoControl metric={metric} /> : null}
       <Divider sx={{ flexGrow: 1 }} />
     </Stack>
   );
@@ -183,10 +193,19 @@ export function ProductDashboardPage() {
                   backgroundColor: "rgba(0, 0, 0, 0.22)",
                 }}
               >
-                {['Team / Pick', 'Matchup', 'Odds', 'Win Prob', 'Edge'].map((label) => (
-                  <Typography key={label} variant="caption" color="text.secondary" fontWeight={850} textTransform="uppercase">
-                    {label}
-                  </Typography>
+                {[
+                  { label: "Team / Pick" },
+                  { label: "Matchup" },
+                  { label: "Odds" },
+                  { label: "Model Prob", metric: "modelProbability" as const },
+                  { label: "Edge", metric: "projectedEdge" as const },
+                ].map(({ label, metric }) => (
+                  <Stack key={label} direction="row" alignItems="center" spacing={0.25}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={850} textTransform="uppercase">
+                      {label}
+                    </Typography>
+                    {metric ? <MetricInfoControl metric={metric} /> : null}
+                  </Stack>
                 ))}
               </Box>
               <Stack spacing={{ xs: 1, md: 0 }}>
@@ -202,7 +221,7 @@ export function ProductDashboardPage() {
               <Grid size={{ xs: 12, md: 6 }}>
                 <Card variant="outlined" sx={{ height: "100%", borderRadius: "var(--gk-radius-sm)" }}>
                   <CardContent sx={{ p: { xs: 2, sm: 2.5 }, "&:last-child": { pb: { xs: 2, sm: 2.5 } } }}>
-                    <SectionHeading id="prediction-summary-heading">Prediction Summary</SectionHeading>
+                    <SectionHeading id="prediction-summary-heading" metric="projectedEdge">Prediction Summary</SectionHeading>
                     <Stack direction={{ xs: "column", sm: "row" }} alignItems="center" spacing={{ xs: 2.5, sm: 4 }} sx={{ pt: 1 }}>
                       <Box
                         role="img"
@@ -258,9 +277,12 @@ export function ProductDashboardPage() {
                 >
                   <CardContent sx={{ p: { xs: 2, sm: 2.5 }, "&:last-child": { pb: { xs: 2, sm: 2.5 } } }}>
                     <SectionHeading id="model-intelligence-heading">Model Intelligence</SectionHeading>
-                    <Typography variant="overline" color="info.main" fontWeight={900}>
-                      NPI Top {npiLeaders.length}
-                    </Typography>
+                    <Stack direction="row" alignItems="center" spacing={0.25}>
+                      <Typography variant="overline" color="info.main" fontWeight={900}>
+                        NPI Top {npiLeaders.length}
+                      </Typography>
+                      <MetricInfoControl metric="npi" />
+                    </Stack>
                     <Stack divider={<Divider flexItem />} sx={{ mt: 0.5 }}>
                       {npiLeaders.map((pick, index) => (
                         <Stack key={pick.prediction.prediction_id} direction="row" spacing={1.5} alignItems="center" sx={{ py: 0.85 }}>
@@ -281,9 +303,12 @@ export function ProductDashboardPage() {
                     </Stack>
                     <Divider sx={{ my: 1.25 }} />
                     <Stack direction="row" justifyContent="space-between" alignItems="baseline">
-                      <Typography variant="caption" color="text.secondary" fontFamily="monospace" textTransform="uppercase">
-                        Avg Confidence
-                      </Typography>
+                      <Stack direction="row" alignItems="center" spacing={0.25}>
+                        <Typography variant="caption" color="text.secondary" fontFamily="monospace" textTransform="uppercase">
+                          Avg Confidence
+                        </Typography>
+                        <MetricInfoControl metric="confidence" />
+                      </Stack>
                       <Typography color="primary.main" fontFamily="monospace" fontWeight={900}>
                         {averageConfidence == null ? "—" : `${averageConfidence.toFixed(1)}%`}
                       </Typography>

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { useQuery } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -73,7 +73,7 @@ const game: GameDetail = {
       line_value: 44.5,
       npi_score: 160,
       confidence_score: 74,
-      projected_edge: null,
+      projected_edge: 3.5,
       risk_level: null,
       reasoning: "Both offenses project above their recent baselines.",
       outcome: "PUSH",
@@ -142,18 +142,29 @@ describe("Game Analysis", () => {
         `Observed: ${new Date("2026-09-01T20:32:00Z").toLocaleString()}`,
       ),
     ).toHaveLength(3);
-    expect(screen.getByText("175.0 / 200")).toBeTruthy();
+    const spreadEducation = screen.getByRole("region", { name: "Understanding this spread pick" });
+    const moneylineEducation = screen.getByRole("region", { name: "Understanding this moneyline pick" });
+    const totalEducation = screen.getByRole("region", { name: "Understanding this total pick" });
+    expect(screen.getAllByText("Understanding This Pick")).toHaveLength(3);
+    expect(within(spreadEducation).getByText("175.0 / 200")).toBeTruthy();
+    expect(within(spreadEducation).getByText("83.0%")).toBeTruthy();
+    expect(within(spreadEducation).getByText("+8.5 pp")).toBeTruthy();
+    expect(within(spreadEducation).getByText("61.0%")).toBeTruthy();
+    expect(spreadEducation.textContent).toContain("Risk assessment: Low");
+    expect(spreadEducation.textContent).toContain("percentage points relative to the model's 50% neutral benchmark");
+    expect(moneylineEducation.textContent).toContain("vig-removed implied market probability");
+    expect(within(moneylineEducation).getByText("+5.0 pp")).toBeTruthy();
+    expect(totalEducation.textContent).toContain("scoring points");
+    expect(within(totalEducation).getByText("+3.5 pts")).toBeTruthy();
+    expect(within(totalEducation).getByText("Projected total: 48.0 points")).toBeTruthy();
     expect(screen.getAllByTestId("pick-metrics")).toHaveLength(3);
     expect(screen.getAllByText("Confidence")).toHaveLength(3);
-    expect(screen.getAllByText("Simulation")).toHaveLength(3);
-    expect(screen.getByText("83.0%")).toBeTruthy();
-    expect(screen.getAllByText("61.0%")).toHaveLength(3);
-    expect(screen.getByText("+8.5%")).toBeTruthy();
-    expect(screen.getAllByText("Low")).toHaveLength(2);
+    expect(screen.getAllByText("Model Probability")).toHaveLength(6);
+    expect(screen.getAllByText("Low")).toHaveLength(4);
     expect(screen.queryByText("LOW")).toBeNull();
     expect(screen.getAllByText("Golden Key Best Pick")).toHaveLength(1);
     expect(screen.getByText("Seattle owns the stronger matchup profile.")).toBeTruthy();
-    expect(screen.getAllByText("Why Golden Key Likes This Pick")).toHaveLength(2);
+    expect(screen.getAllByText("Model Reasoning")).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: /save pick/i })).toHaveLength(3);
     for (const outcome of ["WIN", "LOSS", "PUSH"]) {
       expect(screen.getByText(outcome)).toBeTruthy();

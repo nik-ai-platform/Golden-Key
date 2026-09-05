@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ThemeProvider } from "@mui/material";
 import { describe, expect, it } from "vitest";
 
@@ -17,6 +17,7 @@ function renderMetrics(
         simulationProbability={64.2}
         projectedEdge={6.2}
         riskLevel="LOW"
+        market="spread"
         {...overrides}
       />
     </ThemeProvider>,
@@ -31,7 +32,7 @@ describe("compact pick metrics", () => {
     expect(within(metrics).getByText("180.0 / 200")).toBeTruthy();
     expect(within(metrics).getByText("82.4%")).toBeTruthy();
     expect(within(metrics).getByText("64.2%")).toBeTruthy();
-    expect(within(metrics).getByText("+6.2%")).toBeTruthy();
+    expect(within(metrics).getByText("+6.2 pp")).toBeTruthy();
     expect(within(metrics).getByText("Low")).toBeTruthy();
     expect(within(metrics).queryByText("LOW")).toBeNull();
     expect(within(metrics).getByText("Edge")).toBeTruthy();
@@ -39,11 +40,28 @@ describe("compact pick metrics", () => {
   });
 
   it.each([
-    [-3.1, "-3.1%"],
-    [0, "0.0%"],
-  ])("formats edge %s as %s", (projectedEdge, expected) => {
-    renderMetrics({ projectedEdge });
+    ["spread", 7.4, "+7.4 pp"],
+    ["moneyline", -3.2, "-3.2 pp"],
+    ["total", 3.5, "+3.5 pts"],
+  ])("formats %s edge in the correct unit", (market, projectedEdge, expected) => {
+    renderMetrics({ market, projectedEdge });
     expect(screen.getByText(expected)).toBeTruthy();
+    if (market === "total") {
+      expect(screen.queryByText("+3.5%")).toBeNull();
+    }
+  });
+
+  it.each([
+    ["Learn about NPI", "Golden Key's 0–200 model-support score."],
+    ["Learn about Confidence Rating", "It is not win probability."],
+    ["Learn about Projected Edge", "relevant market benchmark"],
+    ["Learn about Model Probability", "distinct from Confidence"],
+  ])("opens the %s information control", async (accessibleName, definition) => {
+    renderMetrics();
+
+    fireEvent.click(screen.getByRole("button", { name: accessibleName }));
+
+    expect(await screen.findByText(new RegExp(definition, "i"))).toBeTruthy();
   });
 
   it("uses an em dash for each unavailable supporting metric", () => {

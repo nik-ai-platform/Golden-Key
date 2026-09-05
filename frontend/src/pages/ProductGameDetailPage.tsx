@@ -15,13 +15,23 @@ import { Link as RouterLink, useParams } from "react-router-dom";
 
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
+import { MetricInfoControl } from "../components/MetricInfoControl";
 import { PickMetrics } from "../components/PickMetrics";
 import { SavePickButton } from "../components/SavePickButton";
+import {
+  modelProbabilityMarketNote,
+  npiMarketNote,
+  predictionMetricEducation,
+  projectedEdgeMarketNote,
+} from "../data/predictionMetricEducation";
 import { getGameDetail } from "../services/productApi";
 import type { Prediction } from "../types/product";
 import {
   formatAmericanOdds,
+  formatConfidence,
+  formatNpi,
   formatProductDate,
+  formatProjectedEdge,
 } from "../utils/productFormat";
 
 const MARKET_ORDER = ["spread", "moneyline", "total"];
@@ -45,6 +55,41 @@ function formatScore(value: number): string {
 
 function marketLabel(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+}
+
+function displayRisk(value: string | null): string {
+  if (!value) return "Not rated";
+  const normalized = value.toLowerCase();
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function UnderstandingMetric({
+  label,
+  value,
+  explanation,
+  metric,
+  market,
+}: {
+  label: string;
+  value: string;
+  explanation: string;
+  metric: "npi" | "confidence" | "projectedEdge" | "modelProbability";
+  market: string;
+}) {
+  return (
+    <Box sx={{ minWidth: 0 }}>
+      <Stack direction="row" alignItems="center" spacing={0.25}>
+        <Typography variant="overline" color="text.secondary" fontWeight={800}>
+          {label}
+        </Typography>
+        <MetricInfoControl metric={metric} market={market} />
+      </Stack>
+      <Typography fontWeight={850}>{value}</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, lineHeight: 1.6 }}>
+        {explanation}
+      </Typography>
+    </Box>
+  );
 }
 
 function outcomeColor(
@@ -113,12 +158,71 @@ function MarketCard({
             simulationProbability={prediction.simulation_probability}
             projectedEdge={prediction.projected_edge}
             riskLevel={prediction.risk_level}
+            market={prediction.market}
           />
+
+          <Box
+            component="section"
+            aria-label={`Understanding this ${prediction.market} pick`}
+            sx={{ borderTop: "1px solid", borderColor: "divider", pt: 2.5 }}
+          >
+            <Typography variant="h6" fontWeight={750}>
+              Understanding This Pick
+            </Typography>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))" },
+                gap: 2,
+                mt: 2,
+              }}
+            >
+              <UnderstandingMetric
+                label="Nik Power Index"
+                value={formatNpi(prediction.npi_score)}
+                explanation={npiMarketNote(prediction.market)}
+                metric="npi"
+                market={prediction.market}
+              />
+              <UnderstandingMetric
+                label="Confidence Rating"
+                value={formatConfidence(prediction.confidence_score)}
+                explanation={predictionMetricEducation.confidence.detailed}
+                metric="confidence"
+                market={prediction.market}
+              />
+              <UnderstandingMetric
+                label="Projected Edge"
+                value={formatProjectedEdge(prediction.projected_edge, prediction.market)}
+                explanation={projectedEdgeMarketNote(prediction.market) ?? predictionMetricEducation.projectedEdge.detailed}
+                metric="projectedEdge"
+                market={prediction.market}
+              />
+              <UnderstandingMetric
+                label="Model Probability"
+                value={formatConfidence(prediction.simulation_probability)}
+                explanation={modelProbabilityMarketNote(prediction.market) ?? predictionMetricEducation.modelProbability.detailed}
+                metric="modelProbability"
+                market={prediction.market}
+              />
+            </Box>
+            {prediction.market.toLowerCase() === "total" &&
+            prediction.line_value != null &&
+            prediction.projected_edge != null ? (
+              <Typography variant="body2" sx={{ mt: 2 }}>
+                Projected total: {(prediction.line_value + prediction.projected_edge).toFixed(1)} points
+              </Typography>
+            ) : null}
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={{ xs: 0.5, sm: 2 }} sx={{ mt: 2 }}>
+              <Typography variant="body2"><strong>Risk assessment:</strong> {displayRisk(prediction.risk_level)}</Typography>
+              <Typography variant="body2"><strong>Model:</strong> {prediction.model_version}</Typography>
+            </Stack>
+          </Box>
 
           {prediction.reasoning ? (
             <Box>
               <Typography variant="subtitle2" fontWeight={700}>
-                Why Golden Key Likes This Pick
+                Model Reasoning
               </Typography>
               <Typography color="text.secondary" sx={{ mt: 0.75, lineHeight: 1.7 }}>
                 {prediction.reasoning}

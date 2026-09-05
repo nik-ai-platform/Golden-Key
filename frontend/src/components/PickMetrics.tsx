@@ -1,6 +1,7 @@
 import { Box, Chip, Divider, LinearProgress, Stack, Typography } from "@mui/material";
 
-import { formatConfidence, formatNpi } from "../utils/productFormat";
+import { formatConfidence, formatNpi, formatProjectedEdge } from "../utils/productFormat";
+import { MetricInfoControl } from "./MetricInfoControl";
 
 interface PickMetricsProps {
   npi: number;
@@ -8,17 +9,13 @@ interface PickMetricsProps {
   simulationProbability: number | null;
   projectedEdge: number | null;
   riskLevel: string | null;
+  market?: string;
   focused?: boolean;
   hero?: boolean;
 }
 
 function formatPercentage(value: number | null): string {
   return value == null || !Number.isFinite(value) ? "—" : formatConfidence(value);
-}
-
-function formatEdge(value: number | null): string {
-  if (value == null || !Number.isFinite(value)) return "—";
-  return `${value > 0 ? "+" : ""}${value.toFixed(1)}%`;
 }
 
 function riskLabel(value: string | null): string | null {
@@ -53,19 +50,20 @@ export function PickMetrics({
   simulationProbability,
   projectedEdge,
   riskLevel,
+  market,
   focused = false,
   hero = false,
 }: PickMetricsProps) {
   const risk = riskLabel(riskLevel);
   const keyMetrics = [
-    { label: "NPI", value: Number.isFinite(npi) ? Math.round(npi).toString() : "—" },
-    { label: "Confidence", value: formatPercentage(confidence) },
-    { label: "Edge", value: formatEdge(projectedEdge) },
+    { label: "NPI", value: Number.isFinite(npi) ? Math.round(npi).toString() : "—", metric: "npi" as const },
+    { label: "Confidence", value: formatPercentage(confidence), metric: "confidence" as const },
+    { label: "Edge", value: formatProjectedEdge(projectedEdge, market), metric: "projectedEdge" as const },
   ];
   const metrics = [
-    { label: "Confidence", value: formatPercentage(confidence) },
-    { label: "Simulation", value: formatPercentage(simulationProbability) },
-    { label: "Edge", value: formatEdge(projectedEdge) },
+    { label: "Confidence", value: formatPercentage(confidence), metric: "confidence" as const },
+    { label: "Model Probability", value: formatPercentage(simulationProbability), metric: "modelProbability" as const },
+    { label: "Edge", value: formatProjectedEdge(projectedEdge, market), metric: "projectedEdge" as const },
   ];
 
   if (hero) {
@@ -84,8 +82,8 @@ export function PickMetrics({
           }}
         >
           {[
-            { label: "Edge", value: formatEdge(projectedEdge) },
-            { label: "Win probability", value: formatPercentage(simulationProbability) },
+            { label: "Edge", value: formatProjectedEdge(projectedEdge, market), metric: "projectedEdge" as const },
+            { label: "Model Probability", value: formatPercentage(simulationProbability), metric: "modelProbability" as const },
           ].map((metric, index) => (
             <Box
               key={metric.label}
@@ -96,7 +94,10 @@ export function PickMetrics({
                 borderTop: index === 0 ? 0 : "1px solid var(--gk-border-strong)",
               }}
             >
-              <Typography sx={{ ...labelSx, whiteSpace: "nowrap" }}>{metric.label}</Typography>
+              <Stack direction="row" alignItems="center" spacing={0.25}>
+                <Typography sx={{ ...labelSx, whiteSpace: "nowrap" }}>{metric.label}</Typography>
+                <MetricInfoControl metric={metric.metric} market={market} />
+              </Stack>
               <Typography
                 sx={{
                   mt: 0.25,
@@ -113,7 +114,10 @@ export function PickMetrics({
         </Box>
         <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mt: 1.25 }}>
           <Box sx={{ minWidth: 88 }}>
-            <Typography sx={labelSx}>Confidence</Typography>
+            <Stack direction="row" alignItems="center" spacing={0.25}>
+              <Typography sx={labelSx}>Confidence</Typography>
+              <MetricInfoControl metric="confidence" market={market} />
+            </Stack>
             <Typography fontWeight={850}>{formatPercentage(confidence)}</Typography>
           </Box>
           <LinearProgress
@@ -154,9 +158,12 @@ export function PickMetrics({
               borderLeft: index === 0 ? 0 : "1px solid var(--gk-border)",
             }}
           >
-            <Typography sx={{ ...labelSx, overflowWrap: "normal", whiteSpace: "nowrap" }}>
-              {metric.label}
-            </Typography>
+            <Stack direction="row" alignItems="center" spacing={0.25}>
+              <Typography sx={{ ...labelSx, overflowWrap: "normal", whiteSpace: "nowrap" }}>
+                {metric.label}
+              </Typography>
+              <MetricInfoControl metric={metric.metric} market={market} />
+            </Stack>
             <Typography
               sx={{
                 color: metric.label === "Edge" ? "var(--gk-analytics)" : "text.primary",
@@ -187,7 +194,10 @@ export function PickMetrics({
       }}
     >
       <Box>
-        <Typography sx={labelSx}>NPI</Typography>
+        <Stack direction="row" alignItems="center" spacing={0.25}>
+          <Typography sx={labelSx}>NPI</Typography>
+          <MetricInfoControl metric="npi" market={market} />
+        </Stack>
         <Typography sx={{ fontSize: "1.25rem", fontWeight: 700, lineHeight: 1.35 }}>
           {formatNpi(npi)}
         </Typography>
@@ -206,7 +216,10 @@ export function PickMetrics({
       >
         {metrics.map((metric) => (
           <Box key={metric.label} sx={{ minWidth: 0 }}>
-            <Typography sx={labelSx}>{metric.label}</Typography>
+            <Stack direction="row" alignItems="center" spacing={0.25}>
+              <Typography sx={labelSx}>{metric.label}</Typography>
+              <MetricInfoControl metric={metric.metric} market={market} />
+            </Stack>
             <Typography sx={{ fontSize: "1rem", fontWeight: 700, lineHeight: 1.4, overflowWrap: "anywhere" }}>
               {metric.value}
             </Typography>
