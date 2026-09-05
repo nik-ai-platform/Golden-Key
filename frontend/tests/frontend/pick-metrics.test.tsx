@@ -80,6 +80,23 @@ describe("compact pick metrics", () => {
     expect(paperStyles.overflowWrap).toBe("anywhere");
   });
 
+  it("wraps metric labels only at semantic word boundaries", () => {
+    renderMetrics();
+
+    const confidence = screen.getByTestId("metric-label-confidence");
+    const modelProbability = screen.getByTestId("metric-label-modelProbability");
+
+    expect(getComputedStyle(confidence).whiteSpace).toBe("nowrap");
+    expect(getComputedStyle(modelProbability).whiteSpace).toBe("normal");
+    expect(modelProbability.textContent).toBe("Model Probability");
+
+    for (const label of screen.getAllByTestId(/^metric-label-/)) {
+      const styles = getComputedStyle(label);
+      expect(styles.overflowWrap).toBe("normal");
+      expect(styles.wordBreak).toBe("normal");
+    }
+  });
+
   it("uses an em dash for each unavailable supporting metric", () => {
     renderMetrics({
       confidence: null,

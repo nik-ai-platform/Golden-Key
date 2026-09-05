@@ -1,5 +1,6 @@
 import { Box, Chip, Divider, LinearProgress, Stack, Typography } from "@mui/material";
 
+import type { PredictionMetric } from "../data/predictionMetricEducation";
 import { formatConfidence, formatNpi, formatProjectedEdge } from "../utils/productFormat";
 import { MetricInfoControl } from "./MetricInfoControl";
 
@@ -40,9 +41,42 @@ const labelSx = {
   fontWeight: 600,
   letterSpacing: "0.04em",
   lineHeight: 1.25,
-  overflowWrap: "anywhere",
+  overflowWrap: "normal",
+  wordBreak: "normal",
   textTransform: "uppercase",
 };
+
+function MetricLabel({
+  label,
+  metric,
+  market,
+}: {
+  label: string;
+  metric: PredictionMetric;
+  market?: string;
+}) {
+  const canWrapAtWordBoundary = label === "Model Probability";
+
+  return (
+    <Stack
+      direction="row"
+      alignItems={canWrapAtWordBoundary ? "flex-end" : "center"}
+      spacing={0.25}
+    >
+      <Typography
+        data-testid={`metric-label-${metric}`}
+        sx={{
+          ...labelSx,
+          minWidth: 0,
+          whiteSpace: canWrapAtWordBoundary ? "normal" : "nowrap",
+        }}
+      >
+        {label}
+      </Typography>
+      <MetricInfoControl metric={metric} market={market} />
+    </Stack>
+  );
+}
 
 export function PickMetrics({
   npi,
@@ -94,10 +128,7 @@ export function PickMetrics({
                 borderTop: index === 0 ? 0 : "1px solid var(--gk-border-strong)",
               }}
             >
-              <Stack direction="row" alignItems="center" spacing={0.25}>
-                <Typography sx={{ ...labelSx, whiteSpace: "nowrap" }}>{metric.label}</Typography>
-                <MetricInfoControl metric={metric.metric} market={market} />
-              </Stack>
+              <MetricLabel label={metric.label} metric={metric.metric} market={market} />
               <Typography
                 sx={{
                   mt: 0.25,
@@ -114,10 +145,7 @@ export function PickMetrics({
         </Box>
         <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mt: 1.25 }}>
           <Box sx={{ minWidth: 88 }}>
-            <Stack direction="row" alignItems="center" spacing={0.25}>
-              <Typography sx={labelSx}>Confidence</Typography>
-              <MetricInfoControl metric="confidence" market={market} />
-            </Stack>
+            <MetricLabel label="Confidence" metric="confidence" market={market} />
             <Typography fontWeight={850}>{formatPercentage(confidence)}</Typography>
           </Box>
           <LinearProgress
@@ -158,12 +186,7 @@ export function PickMetrics({
               borderLeft: index === 0 ? 0 : "1px solid var(--gk-border)",
             }}
           >
-            <Stack direction="row" alignItems="center" spacing={0.25}>
-              <Typography sx={{ ...labelSx, overflowWrap: "normal", whiteSpace: "nowrap" }}>
-                {metric.label}
-              </Typography>
-              <MetricInfoControl metric={metric.metric} market={market} />
-            </Stack>
+            <MetricLabel label={metric.label} metric={metric.metric} market={market} />
             <Typography
               sx={{
                 color: metric.label === "Edge" ? "var(--gk-analytics)" : "text.primary",
@@ -194,10 +217,7 @@ export function PickMetrics({
       }}
     >
       <Box>
-        <Stack direction="row" alignItems="center" spacing={0.25}>
-          <Typography sx={labelSx}>NPI</Typography>
-          <MetricInfoControl metric="npi" market={market} />
-        </Stack>
+        <MetricLabel label="NPI" metric="npi" market={market} />
         <Typography sx={{ fontSize: "1.25rem", fontWeight: 700, lineHeight: 1.35 }}>
           {formatNpi(npi)}
         </Typography>
@@ -216,17 +236,19 @@ export function PickMetrics({
       >
         {metrics.map((metric) => (
           <Box key={metric.label} sx={{ minWidth: 0 }}>
-            <Stack direction="row" alignItems="center" spacing={0.25}>
-              <Typography sx={labelSx}>{metric.label}</Typography>
-              <MetricInfoControl metric={metric.metric} market={market} />
-            </Stack>
+            <MetricLabel label={metric.label} metric={metric.metric} market={market} />
             <Typography sx={{ fontSize: "1rem", fontWeight: 700, lineHeight: 1.4, overflowWrap: "anywhere" }}>
               {metric.value}
             </Typography>
           </Box>
         ))}
         <Box sx={{ minWidth: 0 }}>
-          <Typography sx={labelSx}>Risk</Typography>
+          <Typography
+            data-testid="metric-label-risk"
+            sx={{ ...labelSx, whiteSpace: "nowrap" }}
+          >
+            Risk
+          </Typography>
           {risk ? (
             <Chip
               label={risk}
