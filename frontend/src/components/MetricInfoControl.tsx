@@ -53,7 +53,18 @@ export function MetricInfoControl({ metric, market }: MetricInfoControlProps) {
         onClose={closePopover}
         anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
         transformOrigin={{ vertical: "top", horizontal: "left" }}
-        slotProps={{ paper: { sx: { maxWidth: 340, p: 2, borderRadius: 1 } } }}
+        slotProps={{
+          paper: {
+            sx: {
+              width: { xs: "calc(100vw - 32px)", sm: 340 },
+              maxWidth: "calc(100vw - 32px)",
+              boxSizing: "border-box",
+              overflowWrap: "anywhere",
+              p: 2,
+              borderRadius: 1,
+            },
+          },
+        }}
       >
         <Stack spacing={1}>
           <Typography variant="subtitle2" fontWeight={800}>

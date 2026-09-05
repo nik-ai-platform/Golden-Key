@@ -64,6 +64,22 @@ describe("compact pick metrics", () => {
     expect(await screen.findByText(new RegExp(definition, "i"))).toBeTruthy();
   });
 
+  it("keeps the information popover within narrow viewports", async () => {
+    renderMetrics();
+
+    fireEvent.click(screen.getByRole("button", { name: "Learn about NPI" }));
+
+    const definition = await screen.findByText(/Golden Key's 0–200 model-support score/i);
+    const paper = definition.closest(".MuiPopover-paper");
+
+    expect(paper).toBeTruthy();
+    const paperStyles = getComputedStyle(paper as Element);
+    expect(paperStyles.maxWidth).toBe(`${window.innerWidth - 32}px`);
+    expect(paperStyles.minWidth).not.toBe("340px");
+    expect(paperStyles.boxSizing).toBe("border-box");
+    expect(paperStyles.overflowWrap).toBe("anywhere");
+  });
+
   it("uses an em dash for each unavailable supporting metric", () => {
     renderMetrics({
       confidence: null,
