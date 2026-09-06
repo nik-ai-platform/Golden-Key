@@ -32,6 +32,7 @@ services:
       SPORTSBOOK_API_KEYS: '${SPORTSBOOK_API_KEYS:-{}}'
       ODDS_API_KEY: ${ODDS_API_KEY:?ODDS_API_KEY is required}
       ODDS_API_BASE_URL: ${ODDS_API_BASE_URL:-https://api.the-odds-api.com/v4}
+      CFBD_API_KEY: ${CFBD_API_KEY}
       REDIS_URL: ${REDIS_URL:-}
       SMTP_SETTINGS: '${SMTP_SETTINGS:-{}}'
       AUTH_DEMO_EMAIL: ${AUTH_DEMO_EMAIL:?AUTH_DEMO_EMAIL is required}
