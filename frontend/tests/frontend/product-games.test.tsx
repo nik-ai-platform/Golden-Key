@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProductGamesPage } from "../../src/pages/ProductGamesPage";
 import { getTodayPredictions } from "../../src/services/productApi";
 import type { Prediction, TodayPredictionsResponse } from "../../src/types/product";
+import { formatProductDate } from "../../src/utils/productFormat";
 
 vi.mock("../../src/services/productApi", () => ({
   getTodayPredictions: vi.fn(),
@@ -137,17 +138,7 @@ describe("Games decision screen", () => {
     expect(within(nbaCard).getByText("New York Knicks @ Boston Celtics")).toBeTruthy();
     expect(within(nflCard).getByText("New England Patriots @ Seattle Seahawks")).toBeTruthy();
     expect(within(nflCard).getByText("NFL")).toBeTruthy();
-    expect(
-      within(nflCard).getByText(
-        new Date("2026-09-10T04:15:00Z").toLocaleString(undefined, {
-          weekday: "short",
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        }),
-      ),
-    ).toBeTruthy();
+    expect(within(nflCard).getByText(formatProductDate("2026-09-10T04:15:00Z"))).toBeTruthy();
 
     for (const market of ["Spread", "Moneyline", "Total"]) {
       expect(within(nflCard).getByText(market)).toBeTruthy();

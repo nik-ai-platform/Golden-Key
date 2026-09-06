@@ -3,7 +3,7 @@ import { Link as RouterLink } from "react-router-dom";
 
 import { NEUTRAL_TEAM_IDENTITY } from "../data/teamIdentity";
 import type { Prediction } from "../types/product";
-import { formatAmericanOdds } from "../utils/productFormat";
+import { formatAmericanOdds, formatProductTime } from "../utils/productFormat";
 import { getPredictionTeam, getTeamIdentity } from "../utils/teamIdentity";
 import { TeamAccent } from "./TeamAccent";
 
@@ -13,13 +13,6 @@ type MarketKey = (typeof MARKET_KEYS)[number];
 interface SportsbookGamesBoardProps {
   predictions: Prediction[];
   recommendedPredictionIds: Set<number>;
-}
-
-function formatTime(value: string): string {
-  return new Date(value).toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
 
 function formatLine(value: number): string {
@@ -163,7 +156,7 @@ export function SportsbookGamesBoard({ predictions, recommendedPredictionIds }: 
             }}
           >
             <Typography color="text.secondary" fontFamily="monospace" fontSize="0.76rem" fontWeight={800} sx={{ pt: { md: 0.75 }, mb: { xs: 1, md: 0 } }}>
-              {formatTime(game.game_date)}
+              {formatProductTime(game.game_date)}
             </Typography>
 
             <Stack

@@ -126,6 +126,7 @@ const gamePredictions: Prediction[] = [
   prediction({
     prediction_id: 2,
     game_id: 10,
+    game_date: "2026-09-12T19:30:00",
     home_team: "Buffalo Bills",
     away_team: "Miami Dolphins",
     display_selection: "Buffalo Bills -3.5",
@@ -134,6 +135,7 @@ const gamePredictions: Prediction[] = [
   prediction({
     prediction_id: 7,
     game_id: 10,
+    game_date: "2026-09-12T19:30:00",
     home_team: "Buffalo Bills",
     away_team: "Miami Dolphins",
     market: "moneyline",
@@ -148,6 +150,7 @@ const gamePredictions: Prediction[] = [
   prediction({
     prediction_id: 4,
     game_id: 10,
+    game_date: "2026-09-12T19:30:00",
     home_team: "Buffalo Bills",
     away_team: "Miami Dolphins",
     market: "total",
@@ -158,6 +161,7 @@ const gamePredictions: Prediction[] = [
   prediction({
     prediction_id: 8,
     game_id: 11,
+    game_date: "2026-09-12T23:30:00",
     sport: "NBA",
     home_team: "Denver Nuggets",
     away_team: "Los Angeles Lakers",
@@ -265,6 +269,7 @@ describe("daily card dashboard", () => {
     expect(within(games[0]).getByText("-3.5 -110")).toBeTruthy();
     expect(within(games[0]).getByText("-1000")).toBeTruthy();
     expect(within(games[0]).getByText("O 47.5 -110")).toBeTruthy();
+    expect(within(games[0]).getByText("3:30 PM EDT")).toBeTruthy();
     expect(screen.getAllByTestId("game-10-spread-value").filter((cell) => cell.dataset.recommended === "true")).toHaveLength(1);
     expect(screen.getAllByTestId("game-10-moneyline-value").every((cell) => cell.dataset.recommended === "false")).toBe(true);
     expect(screen.getAllByTestId("game-11-moneyline-value").every((cell) => cell.textContent === "—")).toBe(true);

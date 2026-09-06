@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProductGameDetailPage } from "../../src/pages/ProductGameDetailPage";
 import type { GameDetail, Prediction } from "../../src/types/product";
+import { formatProductDate } from "../../src/utils/productFormat";
 
 vi.mock("@tanstack/react-query", () => ({
   useQuery: vi.fn(),
@@ -119,17 +120,7 @@ describe("Game Analysis", () => {
 
     expect(screen.getByText("New England Patriots @ Seattle Seahawks")).toBeTruthy();
     expect(screen.getByText("NFL")).toBeTruthy();
-    expect(
-      screen.getByText(
-        new Date(game.game_date).toLocaleString(undefined, {
-          weekday: "short",
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        }),
-      ),
-    ).toBeTruthy();
+    expect(screen.getByText(formatProductDate(game.game_date))).toBeTruthy();
     expect(screen.getByText("Final: New England Patriots 21 · Seattle Seahawks 24")).toBeTruthy();
 
     for (const label of ["Spread", "Moneyline", "Total"]) {

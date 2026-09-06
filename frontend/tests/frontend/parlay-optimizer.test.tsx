@@ -18,7 +18,7 @@ const baseLeg: ParlayLeg = {
   prediction_id: 1,
   game_id: 10,
   sport: "NCAAF",
-  game_date: "2026-09-12T19:30:00Z",
+  game_date: "2026-09-12T19:30:00",
   home_team: "Kentucky Wildcats",
   away_team: "Alabama Crimson Tide",
   market: "spread",
@@ -136,7 +136,7 @@ describe("Parlay Optimizer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Build Best Parlay" }));
 
     expect(await screen.findByText("Alabama Crimson Tide at Kentucky Wildcats")).toBeTruthy();
-    expect(screen.getByText(formatProductDate("2026-09-12T19:30:00Z"))).toBeTruthy();
+    expect(screen.getByText("Sat, Sep 12 • 3:30 PM EDT")).toBeTruthy();
     expect(screen.getByText("Kentucky Wildcats +10.5")).toBeTruthy();
 
     expect(screen.getByText("Oregon Ducks at Oklahoma State Cowboys")).toBeTruthy();
