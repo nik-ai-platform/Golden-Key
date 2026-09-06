@@ -20,6 +20,7 @@ def _anonymous_product_client() -> TestClient:
     "path",
     (
         "/api/v1/product/predictions/today",
+        "/api/v1/product/predictions/upcoming",
         "/api/v1/product/daily-card",
         "/api/v1/product/games/101",
         "/api/v1/product/performance",
@@ -62,7 +63,14 @@ def test_authenticated_product_reads_preserve_response_contracts(monkeypatch):
     }
     today = {
         "sport": "WNBA",
-            "slate_date": "2026-08-30",
+        "slate_date": "2026-08-30",
+        "count": 1,
+        "predictions": [prediction],
+    }
+    upcoming = {
+        "sport": "WNBA",
+        "start_date": "2026-08-30T12:00:00Z",
+        "end_date": "2026-09-13T12:00:00Z",
         "count": 1,
         "predictions": [prediction],
     }
@@ -123,6 +131,7 @@ def test_authenticated_product_reads_preserve_response_contracts(monkeypatch):
         "by_model_version": [],
     }
     monkeypatch.setattr(product.service, "get_today_predictions", lambda **_: today)
+    monkeypatch.setattr(product.service, "get_upcoming_predictions", lambda **_: upcoming)
     monkeypatch.setattr(product.service, "get_daily_card", lambda **_: daily_card)
     monkeypatch.setattr(product.service, "get_game_detail", lambda **_: game)
     monkeypatch.setattr(product.service, "get_performance", lambda **_: performance)
@@ -148,6 +157,10 @@ def test_authenticated_product_reads_preserve_response_contracts(monkeypatch):
         "/api/v1/product/predictions/today?sport=WNBA",
         headers=headers,
     )
+    upcoming_response = client.get(
+        "/api/v1/product/predictions/upcoming?sport=WNBA&include_passes=true",
+        headers=headers,
+    )
     daily_card_response = client.get(
         "/api/v1/product/daily-card?sport=WNBA",
         headers=headers,
@@ -164,6 +177,8 @@ def test_authenticated_product_reads_preserve_response_contracts(monkeypatch):
 
     assert predictions_response.status_code == 200
     assert predictions_response.json() == today
+    assert upcoming_response.status_code == 200
+    assert upcoming_response.json() == upcoming
     assert daily_card_response.status_code == 200
     assert daily_card_response.json() == daily_card
     assert game_response.status_code == 200

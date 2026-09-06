@@ -23,6 +23,25 @@ export function parseProductDate(value: string | null | undefined): Date | null 
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+export function productDateKey(value: string | null | undefined): string | null {
+  const date = parseProductDate(value);
+  if (!date) return null;
+
+  const parts = new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: SPORTS_TIME_ZONE,
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value;
+  const year = part("year");
+  const month = part("month");
+  const day = part("day");
+
+  return year && month && day ? `${year}-${month}-${day}` : null;
+}
+
 export function formatProductDate(value: string | null | undefined): string {
   const date = parseProductDate(value);
   if (!date) return "Date unavailable";

@@ -3,7 +3,7 @@ import { Link as RouterLink } from "react-router-dom";
 
 import { NEUTRAL_TEAM_IDENTITY } from "../data/teamIdentity";
 import type { Prediction } from "../types/product";
-import { formatAmericanOdds, formatProductTime } from "../utils/productFormat";
+import { formatAmericanOdds, formatProductTime, parseProductDate } from "../utils/productFormat";
 import { getPredictionTeam, getTeamIdentity } from "../utils/teamIdentity";
 import { TeamAccent } from "./TeamAccent";
 
@@ -13,6 +13,7 @@ type MarketKey = (typeof MARKET_KEYS)[number];
 interface SportsbookGamesBoardProps {
   predictions: Prediction[];
   recommendedPredictionIds: Set<number>;
+  maxGames?: number;
 }
 
 function formatLine(value: number): string {
@@ -93,7 +94,7 @@ function TeamRow({ prediction, team }: { prediction: Prediction; team: string })
   );
 }
 
-export function SportsbookGamesBoard({ predictions, recommendedPredictionIds }: SportsbookGamesBoardProps) {
+export function SportsbookGamesBoard({ predictions, recommendedPredictionIds, maxGames }: SportsbookGamesBoardProps) {
   const games = [...predictions]
     .reduce<Map<number, Prediction[]>>((grouped, prediction) => {
       grouped.set(prediction.game_id, [...(grouped.get(prediction.game_id) ?? []), prediction]);
@@ -101,8 +102,10 @@ export function SportsbookGamesBoard({ predictions, recommendedPredictionIds }: 
     }, new Map())
     .values();
   const orderedGames = [...games].sort(
-    (left, right) => Date.parse(left[0].game_date) - Date.parse(right[0].game_date),
-  );
+    (left, right) =>
+      (parseProductDate(left[0].game_date)?.getTime() ?? Number.POSITIVE_INFINITY) -
+      (parseProductDate(right[0].game_date)?.getTime() ?? Number.POSITIVE_INFINITY),
+  ).slice(0, maxGames);
 
   return (
     <Box data-testid="sportsbook-games-board" sx={{ borderTop: "1px solid var(--gk-border-strong)" }}>

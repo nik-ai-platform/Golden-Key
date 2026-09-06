@@ -35,6 +35,14 @@ class TodayPredictionsResponse(BaseModel):
     predictions: list[TodayPredictionItem]
 
 
+class UpcomingPredictionsResponse(BaseModel):
+    sport: str | None = None
+    start_date: str
+    end_date: str
+    count: int
+    predictions: list[TodayPredictionItem]
+
+
 class DailyCardPick(BaseModel):
     role: str
     label: str

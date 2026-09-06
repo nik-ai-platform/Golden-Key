@@ -7,28 +7,41 @@ import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
 import { ProductGameCard } from "../components/ProductGameCard";
-import { getTodayPredictions } from "../services/productApi";
+import { getUpcomingPredictions } from "../services/productApi";
 import type { Prediction } from "../types/product";
+import { parseProductDate, productDateKey } from "../utils/productFormat";
 
 const sports = ["NFL", "NBA", "NCAAF", "NCAAB", "WNBA"];
 
-function formatSlateDate(slateDate: string): string {
-  return new Date(`${slateDate}T00:00:00Z`).toLocaleDateString(undefined, {
-    month: "long",
+function addUtcDays(dateKey: string, days: number): string {
+  const date = new Date(`${dateKey}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function formatSectionHeading(dateKey: string): string {
+  const label = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
     day: "numeric",
     timeZone: "UTC",
-  });
+  }).format(new Date(`${dateKey}T12:00:00Z`)).toLocaleUpperCase("en-US");
+  const today = productDateKey(new Date().toISOString());
+
+  if (dateKey === today) return `TODAY — ${label}`;
+  if (today && dateKey === addUtcDays(today, 1)) return `TOMORROW — ${label}`;
+  return label;
 }
 
 export function ProductGamesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const sport = searchParams.get("sport") || undefined;
   const query = useQuery({
-    queryKey: ["product", "today", sport],
-    queryFn: () => getTodayPredictions(sport),
+    queryKey: ["product", "upcoming", sport],
+    queryFn: () => getUpcomingPredictions(sport),
   });
 
-  const games = useMemo(() => {
+  const sections = useMemo(() => {
     const grouped = new Map<number, Prediction[]>();
 
     for (const prediction of query.data?.predictions ?? []) {
@@ -37,12 +50,21 @@ export function ProductGamesPage() {
       grouped.set(prediction.game_id, existing);
     }
 
-    return Array.from(grouped.values()).sort((a, b) => {
-      const aDate = new Date(a[0]?.game_date ?? 0).getTime();
-      const bDate = new Date(b[0]?.game_date ?? 0).getTime();
+    const games = Array.from(grouped.values()).sort((a, b) => {
+      const aDate = parseProductDate(a[0]?.game_date)?.getTime() ?? Number.POSITIVE_INFINITY;
+      const bDate = parseProductDate(b[0]?.game_date)?.getTime() ?? Number.POSITIVE_INFINITY;
 
       return aDate - bDate;
     });
+    const byDate = new Map<string, Prediction[][]>();
+
+    for (const game of games) {
+      const dateKey = productDateKey(game[0]?.game_date);
+      if (!dateKey) continue;
+      byDate.set(dateKey, [...(byDate.get(dateKey) ?? []), game]);
+    }
+
+    return Array.from(byDate, ([dateKey, dateGames]) => ({ dateKey, games: dateGames }));
   }, [query.data?.predictions]);
 
   if (query.isLoading) {
@@ -66,14 +88,8 @@ export function ProductGamesPage() {
           Games
         </Typography>
 
-        {query.data ? (
-          <Typography variant="h6" sx={{ mt: 1 }}>
-            {formatSlateDate(query.data.slate_date)}
-          </Typography>
-        ) : null}
-
         <Typography color="text.secondary" sx={{ mt: 1 }}>
-          Select a sport, review the matchup, and compare Nik AI&apos;s Spread,
+          Review the next 14 days of matchups and compare Nik AI&apos;s Spread,
           Moneyline, and Total picks.
         </Typography>
       </Box>
@@ -102,13 +118,22 @@ export function ProductGamesPage() {
         ))}
       </Stack>
 
-      {games.length ? (
+      {sections.length ? (
         <Stack spacing={2.5}>
-          {games.map((predictions) => (
-            <ProductGameCard
-              key={predictions[0].game_id}
-              predictions={predictions}
-            />
+          {sections.map((section) => (
+            <Box component="section" key={section.dateKey} aria-labelledby={`games-${section.dateKey}`}>
+              <Typography id={`games-${section.dateKey}`} variant="overline" fontWeight={900}>
+                {formatSectionHeading(section.dateKey)}
+              </Typography>
+              <Stack spacing={2.5} sx={{ mt: 1 }}>
+                {section.games.map((predictions) => (
+                  <ProductGameCard
+                    key={predictions[0].game_id}
+                    predictions={predictions}
+                  />
+                ))}
+              </Stack>
+            </Box>
           ))}
         </Stack>
       ) : (

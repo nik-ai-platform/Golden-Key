@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProductDashboardPage } from "../../src/pages/ProductDashboardPage";
-import type { DailyCardPick, DailyCardResponse, Prediction, TodayPredictionsResponse } from "../../src/types/product";
+import type { DailyCardPick, DailyCardResponse, Prediction, UpcomingPredictionsResponse } from "../../src/types/product";
 
 vi.mock("@tanstack/react-query", () => ({
   useQuery: vi.fn(),
@@ -126,7 +126,7 @@ const gamePredictions: Prediction[] = [
   prediction({
     prediction_id: 2,
     game_id: 10,
-    game_date: "2026-09-12T19:30:00",
+    game_date: "2026-09-06T20:00:00",
     home_team: "Buffalo Bills",
     away_team: "Miami Dolphins",
     display_selection: "Buffalo Bills -3.5",
@@ -135,7 +135,7 @@ const gamePredictions: Prediction[] = [
   prediction({
     prediction_id: 7,
     game_id: 10,
-    game_date: "2026-09-12T19:30:00",
+    game_date: "2026-09-06T20:00:00",
     home_team: "Buffalo Bills",
     away_team: "Miami Dolphins",
     market: "moneyline",
@@ -150,7 +150,7 @@ const gamePredictions: Prediction[] = [
   prediction({
     prediction_id: 4,
     game_id: 10,
-    game_date: "2026-09-12T19:30:00",
+    game_date: "2026-09-06T20:00:00",
     home_team: "Buffalo Bills",
     away_team: "Miami Dolphins",
     market: "total",
@@ -161,7 +161,7 @@ const gamePredictions: Prediction[] = [
   prediction({
     prediction_id: 8,
     game_id: 11,
-    game_date: "2026-09-12T23:30:00",
+    game_date: "2026-09-07T23:30:00",
     sport: "NBA",
     home_team: "Denver Nuggets",
     away_team: "Los Angeles Lakers",
@@ -184,10 +184,11 @@ function predictionsResult(items: Prediction[]) {
   return {
     data: {
       sport: null,
-      slate_date: "2026-09-03",
+      start_date: "2026-09-06T12:00:00Z",
+      end_date: "2026-09-20T12:00:00Z",
       count: items.length,
       predictions: items,
-    } satisfies TodayPredictionsResponse,
+    } satisfies UpcomingPredictionsResponse,
     isLoading: false,
     isError: false,
     refetch: vi.fn(),
@@ -227,7 +228,7 @@ describe("daily card dashboard", () => {
     expect(screen.getByRole("heading", { name: "Best Bet" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Market Leaders" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Model Intelligence" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Today's Games" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Upcoming Games" })).toBeTruthy();
     expect(
       within(screen.getByTestId("daily-card-best-bet")).getByText("Georgia -6.5"),
     ).toBeTruthy();
@@ -248,6 +249,7 @@ describe("daily card dashboard", () => {
   });
 
   it("renders one dense game board row per game with only real market values", () => {
+    mockQueries(card, [gamePredictions[3], ...gamePredictions.slice(0, 3)]);
     renderDashboard();
 
     const games = screen.getAllByTestId("sportsbook-game");
@@ -269,7 +271,8 @@ describe("daily card dashboard", () => {
     expect(within(games[0]).getByText("-3.5 -110")).toBeTruthy();
     expect(within(games[0]).getByText("-1000")).toBeTruthy();
     expect(within(games[0]).getByText("O 47.5 -110")).toBeTruthy();
-    expect(within(games[0]).getByText("3:30 PM EDT")).toBeTruthy();
+    expect(within(games[0]).getByText("4:00 PM EDT")).toBeTruthy();
+    expect(within(games[1]).getByText("7:30 PM EDT")).toBeTruthy();
     expect(screen.getAllByTestId("game-10-spread-value").filter((cell) => cell.dataset.recommended === "true")).toHaveLength(1);
     expect(screen.getAllByTestId("game-10-moneyline-value").every((cell) => cell.dataset.recommended === "false")).toBe(true);
     expect(screen.getAllByTestId("game-11-moneyline-value").every((cell) => cell.textContent === "—")).toBe(true);
@@ -312,6 +315,9 @@ describe("daily card dashboard", () => {
     fireEvent.click(screen.getByRole("button", { name: "NFL" }));
     expect(vi.mocked(useQuery).mock.calls.some(([options]) =>
       JSON.stringify(options.queryKey) === JSON.stringify(["product", "daily-card", "NFL"]),
+    )).toBe(true);
+    expect(vi.mocked(useQuery).mock.calls.some(([options]) =>
+      JSON.stringify(options.queryKey) === JSON.stringify(["product", "predictions", "upcoming", "NFL"]),
     )).toBe(true);
   });
 

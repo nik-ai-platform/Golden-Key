@@ -4,12 +4,11 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProductGamesPage } from "../../src/pages/ProductGamesPage";
-import { getTodayPredictions } from "../../src/services/productApi";
-import type { Prediction, TodayPredictionsResponse } from "../../src/types/product";
-import { formatProductDate } from "../../src/utils/productFormat";
+import { getUpcomingPredictions } from "../../src/services/productApi";
+import type { Prediction, UpcomingPredictionsResponse } from "../../src/types/product";
 
 vi.mock("../../src/services/productApi", () => ({
-  getTodayPredictions: vi.fn(),
+  getUpcomingPredictions: vi.fn(),
 }));
 
 vi.mock("../../src/components/SavePickButton", () => ({
@@ -25,7 +24,7 @@ function prediction(overrides: Partial<Prediction>): Prediction {
     sport: "NFL",
     home_team: "Seattle Seahawks",
     away_team: "New England Patriots",
-    game_date: "2026-09-10T04:15:00Z",
+    game_date: "2026-09-07T04:00:00",
     market: "spread",
     selection: "HOME",
     display_selection: "Seattle Seahawks -3.5",
@@ -69,7 +68,7 @@ const predictions = [
     sport: "NBA",
     home_team: "Boston Celtics",
     away_team: "New York Knicks",
-    game_date: "2026-09-10T01:00:00Z",
+    game_date: "2026-09-07T00:30:00",
     display_selection: "Boston Celtics -2.5",
     line_value: -2.5,
     npi_score: 150,
@@ -81,7 +80,7 @@ const predictions = [
     sport: "NBA",
     home_team: "Boston Celtics",
     away_team: "New York Knicks",
-    game_date: "2026-09-10T01:00:00Z",
+    game_date: "2026-09-07T00:30:00",
     market: "moneyline",
     selection: "AWAY",
     display_selection: "New York Knicks ML",
@@ -92,10 +91,26 @@ const predictions = [
     recommendation_tier: "LOW_VALUE_HEAVY_FAVORITE",
     recommendation_designation: "High Probability — Low Betting Value",
   }),
+  prediction({
+    prediction_id: 6,
+    game_id: 3,
+    sport: "NCAAF",
+    home_team: "Kentucky Wildcats",
+    away_team: "Alabama Crimson Tide",
+    game_date: "2026-09-12T19:30:00",
+    display_selection: "Kentucky Wildcats +10.5",
+    line_value: 10.5,
+  }),
 ];
 
-function response(items: Prediction[]): TodayPredictionsResponse {
-  return { sport: null, slate_date: "2026-09-10", count: items.length, predictions: items };
+function response(items: Prediction[]): UpcomingPredictionsResponse {
+  return {
+    sport: null,
+    start_date: "2026-09-06T12:00:00Z",
+    end_date: "2026-09-20T12:00:00Z",
+    count: items.length,
+    predictions: items,
+  };
 }
 
 function renderPage() {
@@ -113,7 +128,7 @@ function renderPage() {
 
 describe("Games decision screen", () => {
   beforeEach(() => {
-    vi.mocked(getTodayPredictions).mockImplementation(async (sport) =>
+    vi.mocked(getUpcomingPredictions).mockImplementation(async (sport) =>
       response(
         sport
           ? predictions.filter((item) => item.sport === sport)
@@ -122,15 +137,18 @@ describe("Games decision screen", () => {
     );
   });
 
-  it("renders each game once in chronological order with current markets", async () => {
+  it("groups upcoming games by Eastern date in chronological order", async () => {
     renderPage();
 
     const cards = await screen.findAllByTestId("game-card");
-    expect(screen.getByRole("heading", { name: "September 10" })).toBeTruthy();
-    expect(cards).toHaveLength(2);
+    expect(screen.getByText(/SUN, SEP 6$/)).toBeTruthy();
+    expect(screen.getByText(/MON, SEP 7$/)).toBeTruthy();
+    expect(screen.getByText(/SAT, SEP 12$/)).toBeTruthy();
+    expect(cards).toHaveLength(3);
     expect(cards.map((card) => card.getAttribute("data-game-id"))).toEqual([
       "2",
       "1",
+      "3",
     ]);
 
     const nbaCard = cards[0];
@@ -138,7 +156,9 @@ describe("Games decision screen", () => {
     expect(within(nbaCard).getByText("New York Knicks @ Boston Celtics")).toBeTruthy();
     expect(within(nflCard).getByText("New England Patriots @ Seattle Seahawks")).toBeTruthy();
     expect(within(nflCard).getByText("NFL")).toBeTruthy();
-    expect(within(nflCard).getByText(formatProductDate("2026-09-10T04:15:00Z"))).toBeTruthy();
+    expect(within(nbaCard).getByText("Sun, Sep 6 • 8:30 PM EDT")).toBeTruthy();
+    expect(within(nflCard).getByText("Mon, Sep 7 • 12:00 AM EDT")).toBeTruthy();
+    expect(within(cards[2]).getByText("Sat, Sep 12 • 3:30 PM EDT")).toBeTruthy();
 
     for (const market of ["Spread", "Moneyline", "Total"]) {
       expect(within(nflCard).getByText(market)).toBeTruthy();
@@ -159,7 +179,7 @@ describe("Games decision screen", () => {
     expect(
       within(nbaCard).getByText("Boston Celtics -2.5").parentElement?.textContent,
     ).toContain("Golden Key Best Pick");
-    expect(screen.getAllByRole("button", { name: /save pick/i })).toHaveLength(5);
+    expect(screen.getAllByRole("button", { name: /save pick/i })).toHaveLength(6);
     expect(
       within(nflCard)
         .getByRole("link", { name: /view game analysis/i })
@@ -182,18 +202,18 @@ describe("Games decision screen", () => {
       expect(cards).toHaveLength(1);
       expect(cards[0].getAttribute("data-game-id")).toBe("1");
     });
-    expect(getTodayPredictions).toHaveBeenLastCalledWith("NFL");
+    expect(getUpcomingPredictions).toHaveBeenLastCalledWith("NFL");
   });
 
   it("shows the loading state", () => {
-    vi.mocked(getTodayPredictions).mockImplementation(() => new Promise(() => undefined));
+    vi.mocked(getUpcomingPredictions).mockImplementation(() => new Promise(() => undefined));
     renderPage();
 
     expect(screen.getByText("Loading games...")).toBeTruthy();
   });
 
   it("shows the empty state", async () => {
-    vi.mocked(getTodayPredictions).mockResolvedValue(response([]));
+    vi.mocked(getUpcomingPredictions).mockResolvedValue(response([]));
     renderPage();
 
     expect(
@@ -202,7 +222,7 @@ describe("Games decision screen", () => {
   });
 
   it("shows a friendly error without exposing API details", async () => {
-    vi.mocked(getTodayPredictions).mockRejectedValue(new Error("database detail"));
+    vi.mocked(getUpcomingPredictions).mockRejectedValue(new Error("database detail"));
     renderPage();
 
     expect(await screen.findByText("Unable to load games right now.")).toBeTruthy();

@@ -7,6 +7,7 @@ import type {
   RemoveSavedPredictionResponse,
   SavedPicksResponse,
   TodayPredictionsResponse,
+  UpcomingPredictionsResponse,
   UserProfile,
 } from "../types/product";
 
@@ -27,6 +28,22 @@ export async function getTodayPredictions(
       include_passes: includePasses || undefined,
     },
   });
+  return data;
+}
+
+export async function getUpcomingPredictions(
+  sport?: string,
+  includePasses = false,
+): Promise<UpcomingPredictionsResponse> {
+  const { data } = await client.get<UpcomingPredictionsResponse>(
+    "/product/predictions/upcoming",
+    {
+      params: {
+        sport: sport || undefined,
+        include_passes: includePasses || undefined,
+      },
+    },
+  );
   return data;
 }
 

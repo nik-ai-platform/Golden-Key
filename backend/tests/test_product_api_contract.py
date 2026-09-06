@@ -5,6 +5,7 @@ from app.schemas.api_contract import (
     PerformanceResponse,
     TodayPredictionItem,
     TodayPredictionsResponse,
+    UpcomingPredictionsResponse,
 )
 from app.services.v1_read_service import V1ReadService
 
@@ -38,6 +39,17 @@ def test_today_prediction_contract():
     assert response.slate_date == "2026-08-08"
     assert response.predictions[0].home_team == "Boston Celtics"
     assert response.predictions[0].model_version == "NPI-4.0"
+
+    upcoming = UpcomingPredictionsResponse(
+        sport="NBA",
+        start_date="2026-08-08T12:00:00Z",
+        end_date="2026-08-22T12:00:00Z",
+        count=1,
+        predictions=[item],
+    )
+
+    assert upcoming.end_date == "2026-08-22T12:00:00Z"
+    assert upcoming.predictions[0] == item
 
 
 def test_product_prediction_serializes_odds_provenance_as_utc():

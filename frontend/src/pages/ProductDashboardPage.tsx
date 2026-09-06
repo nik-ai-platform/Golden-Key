@@ -18,7 +18,7 @@ import { LoadingState } from "../components/LoadingState";
 import { MetricInfoControl } from "../components/MetricInfoControl";
 import { SportsbookGamesBoard } from "../components/SportsbookGamesBoard";
 import { TeamAccent } from "../components/TeamAccent";
-import { getDailyCard, getTodayPredictions } from "../services/productApi";
+import { getDailyCard, getUpcomingPredictions } from "../services/productApi";
 import type { DailyCardPick } from "../types/product";
 import { getPredictionTeamIdentity } from "../utils/teamIdentity";
 
@@ -67,8 +67,8 @@ export function ProductDashboardPage() {
     queryFn: () => getDailyCard(sport === "All" ? undefined : sport),
   });
   const gamesQuery = useQuery({
-    queryKey: ["product", "predictions", "today", sport],
-    queryFn: () => getTodayPredictions(sport === "All" ? undefined : sport),
+    queryKey: ["product", "predictions", "upcoming", sport],
+    queryFn: () => getUpcomingPredictions(sport === "All" ? undefined : sport),
   });
 
   if (query.isLoading) {
@@ -244,11 +244,12 @@ export function ProductDashboardPage() {
           </Box>
 
           {gamesQuery.data && gamesQuery.data.predictions.length > 0 ? (
-            <Box component="section" aria-labelledby="todays-games-heading">
-              <SectionHeading id="todays-games-heading">Today&apos;s Games</SectionHeading>
+            <Box component="section" aria-labelledby="upcoming-games-heading">
+              <SectionHeading id="upcoming-games-heading">Upcoming Games</SectionHeading>
               <SportsbookGamesBoard
                 predictions={gamesQuery.data.predictions}
                 recommendedPredictionIds={recommendedPredictionIds}
+                maxGames={8}
               />
             </Box>
           ) : null}

@@ -32,6 +32,14 @@ export interface TodayPredictionsResponse {
   predictions: Prediction[];
 }
 
+export interface UpcomingPredictionsResponse {
+  sport: string | null;
+  start_date: string;
+  end_date: string;
+  count: number;
+  predictions: Prediction[];
+}
+
 export type DailyCardRole =
   "BEST_BET" | "TOP_SPREAD" | "TOP_MONEYLINE" | "TOP_TOTAL" | "VALUE_PLAY" | "NEXT_BEST";
 

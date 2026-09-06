@@ -4,6 +4,7 @@ import {
   formatProductDate,
   formatProductTime,
   parseProductDate,
+  productDateKey,
 } from "../src/utils/productFormat";
 
 describe("sports datetime formatting", () => {
@@ -22,6 +23,11 @@ describe("sports datetime formatting", () => {
 
   it("uses the shared parser for time-only formatting", () => {
     expect(formatProductTime("2026-09-12T19:30:00")).toBe("3:30 PM EDT");
+  });
+
+  it("uses Eastern calendar dates across the UTC midnight boundary", () => {
+    expect(productDateKey("2026-09-07T00:30:00")).toBe("2026-09-06");
+    expect(productDateKey("2026-09-07T04:00:00")).toBe("2026-09-07");
   });
 
   it.each([

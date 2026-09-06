@@ -36,6 +36,7 @@ def _utc_iso(value: datetime | None) -> str | None:
 class V1ReadService:
 
     LONG_MONEYLINE_ODDS = 500
+    UPCOMING_HORIZON_DAYS = 14
     DAILY_CARD_MARKETS = (
         ("spread", "TOP_SPREAD", "Top Spread"),
         ("moneyline", "TOP_MONEYLINE", "Moneyline Value"),
@@ -238,6 +239,58 @@ class V1ReadService:
             second=0,
             microsecond=0,
         )
+        items = self._prediction_items_for_window(
+            db=db,
+            start_at=max(
+                day_start,
+                now if day_start == today_start else day_start,
+            ),
+            end_at=day_end,
+            sport=sport,
+            include_passes=include_passes,
+            scheduled_only=False,
+        )
+        return {
+            "sport": sport.upper() if sport else None,
+            "slate_date": slate_date.isoformat(),
+            "count": len(items),
+            "predictions": items,
+        }
+
+    def get_upcoming_predictions(
+        self,
+        db: Session,
+        sport: str | None = None,
+        include_passes: bool = False,
+    ) -> dict:
+        start_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        end_at = start_at + timedelta(days=self.UPCOMING_HORIZON_DAYS)
+        items = self._prediction_items_for_window(
+            db=db,
+            start_at=start_at,
+            end_at=end_at,
+            sport=sport,
+            include_passes=include_passes,
+            scheduled_only=True,
+        )
+        return {
+            "sport": sport.upper() if sport else None,
+            "start_date": _utc_iso(start_at),
+            "end_date": _utc_iso(end_at),
+            "count": len(items),
+            "predictions": items,
+        }
+
+    def _prediction_items_for_window(
+        self,
+        *,
+        db: Session,
+        start_at: datetime,
+        end_at: datetime,
+        sport: str | None,
+        include_passes: bool,
+        scheduled_only: bool,
+    ) -> list[dict]:
         home_team = aliased(Team)
         away_team = aliased(Team)
         query = (
@@ -250,11 +303,13 @@ class V1ReadService:
             query = query.filter(Game.sport == sport.upper())
         if not include_passes:
             query = query.filter(Prediction.selection != "PASS")
-        query = query.filter(Game.status != "final")
+        query = query.filter(
+            Game.status == "scheduled" if scheduled_only else Game.status != "final"
+        )
 
         rows = query.filter(
-            Game.game_date >= max(day_start, now if day_start == today_start else day_start),
-            Game.game_date <= day_end,
+            Game.game_date >= start_at,
+            Game.game_date <= end_at,
         ).order_by(
             Prediction.id.desc(),
             Prediction.confidence_score.desc(),
@@ -270,12 +325,7 @@ class V1ReadService:
             self._prediction_item(prediction, game, home, away)
             for prediction, game, home, away in latest_by_game_market.values()
         ]
-        return {
-            "sport": sport.upper() if sport else None,
-            "slate_date": slate_date.isoformat(),
-            "count": len(items),
-            "predictions": items,
-        }
+        return items
 
     def get_game_detail(
         self,

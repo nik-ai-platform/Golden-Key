@@ -11,6 +11,7 @@ from app.schemas.api_contract import (
     PerformanceResponse,
     SavedPicksResponse,
     TodayPredictionsResponse,
+    UpcomingPredictionsResponse,
 )
 from app.services.v1_read_service import V1ReadService
 
@@ -46,6 +47,23 @@ def today_predictions(
     db: Session = Depends(get_db),
 ):
     return service.get_today_predictions(
+        db=db,
+        sport=sport,
+        include_passes=include_passes,
+    )
+
+
+@router.get(
+    "/predictions/upcoming",
+    response_model=UpcomingPredictionsResponse,
+    dependencies=[Depends(get_current_user)],
+)
+def upcoming_predictions(
+    sport: str | None = None,
+    include_passes: bool = False,
+    db: Session = Depends(get_db),
+):
+    return service.get_upcoming_predictions(
         db=db,
         sport=sport,
         include_passes=include_passes,
