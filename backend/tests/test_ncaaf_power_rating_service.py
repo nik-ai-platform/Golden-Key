@@ -197,9 +197,11 @@ def test_multiple_observations_make_one_game_eligible_at_first_valid_cutoff(db):
     assert len(result.eligible_games) == 1
     assert result.eligible_games[0].home_score == 28
     assert result.eligible_games[0].away_score == 14
+    assert result.eligible_games[0].observation_observed_at == kickoff + timedelta(hours=6)
     assert {rating.games_used for rating in result.ratings.values()} == {1}
     assert revised.eligible_games[0].home_score == 14
     assert revised.eligible_games[0].away_score == 28
+    assert revised.eligible_games[0].observation_observed_at == kickoff + timedelta(hours=12)
 
 
 def test_game_requires_observation_and_known_neutral_site(db):

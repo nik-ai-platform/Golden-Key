@@ -41,6 +41,11 @@ class EligibleGame:
     home_score: float
     away_score: float
     neutral_site: bool
+    observation_id: int
+    observation_provider: str
+    observation_observed_at: datetime
+    observation_source_updated_at: datetime | None
+    observation_payload_hash: str | None
 
 
 @dataclass(frozen=True)
@@ -84,9 +89,14 @@ def get_eligible_games(
     database_cutoff = as_of_timestamp.astimezone(UTC).replace(tzinfo=None)
     available_observations = (
         db.query(
+            GameResultObservation.id.label("observation_id"),
             GameResultObservation.game_id.label("game_id"),
+            GameResultObservation.provider.label("provider"),
             GameResultObservation.home_score.label("home_score"),
             GameResultObservation.away_score.label("away_score"),
+            GameResultObservation.observed_at.label("observed_at"),
+            GameResultObservation.source_updated_at.label("source_updated_at"),
+            GameResultObservation.payload_hash.label("payload_hash"),
             func.row_number()
             .over(
                 partition_by=GameResultObservation.game_id,
@@ -108,8 +118,13 @@ def get_eligible_games(
     query = (
         db.query(
             Game,
+            available_observations.c.observation_id,
+            available_observations.c.provider,
             available_observations.c.home_score,
             available_observations.c.away_score,
+            available_observations.c.observed_at,
+            available_observations.c.source_updated_at,
+            available_observations.c.payload_hash,
         )
         .join(available_observations, available_observations.c.game_id == Game.id)
         .filter(
@@ -123,9 +138,16 @@ def get_eligible_games(
         query = query.filter(Game.season == season)
 
     games = []
-    for game, observed_home_score, observed_away_score in query.order_by(
-        Game.game_date, Game.id
-    ):
+    for (
+        game,
+        observation_id,
+        observation_provider,
+        observed_home_score,
+        observed_away_score,
+        observation_observed_at,
+        observation_source_updated_at,
+        observation_payload_hash,
+    ) in query.order_by(Game.game_date, Game.id):
         if game.neutral_site is None:
             continue
         games.append(
@@ -137,6 +159,17 @@ def get_eligible_games(
                 home_score=float(observed_home_score),
                 away_score=float(observed_away_score),
                 neutral_site=game.neutral_site,
+                observation_id=observation_id,
+                observation_provider=observation_provider,
+                observation_observed_at=_database_timestamp_as_utc(
+                    observation_observed_at
+                ),
+                observation_source_updated_at=(
+                    _database_timestamp_as_utc(observation_source_updated_at)
+                    if observation_source_updated_at is not None
+                    else None
+                ),
+                observation_payload_hash=observation_payload_hash,
             )
         )
     return tuple(games)
