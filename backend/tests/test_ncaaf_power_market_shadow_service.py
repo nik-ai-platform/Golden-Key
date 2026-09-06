@@ -399,6 +399,7 @@ def test_evidence_report_separates_provenance_and_checkpoints(db):
         status="final",
         scores=(17, 14),
     )
+    retrospective_target.completed_at = retrospective_target.game_date + timedelta(hours=3)
     _odds(db, retrospective_target, retrospective_target.game_date.replace(tzinfo=UTC) - timedelta(hours=1))
     retrospective = create_shadow_record_for_game(
         db,

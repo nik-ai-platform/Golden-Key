@@ -6,6 +6,9 @@ import time
 
 from app.database.session import SessionLocal
 from app.services.odds_service import NoCompleteOddsSnapshotError
+from app.services.ncaaf_shadow_collection_service import (
+    collect_ncaaf_shadow_evidence,
+)
 from app.services.prediction_engine import PredictionEngine
 from app.workers.game_importer import GameOddsImporter
 
@@ -108,6 +111,12 @@ def run_once() -> dict[str, dict[str, int | str]]:
         finally:
             if db is not None:
                 db.close()
+
+        if sport == "NCAAF":
+            try:
+                collect_ncaaf_shadow_evidence()
+            except Exception:
+                logger.exception("NCAAF shadow collection hook failed")
 
         results[sport] = {
             "sport": sport,

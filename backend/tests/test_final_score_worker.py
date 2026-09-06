@@ -106,3 +106,40 @@ def test_run_once_syncs_each_configured_sport(monkeypatch):
     assert results["NFL"]["settled"] == 1
 
     assert fake_db.close.call_count == 2
+
+
+def test_shadow_hook_failure_does_not_fail_normal_ncaaf_settlement(monkeypatch):
+    monkeypatch.setenv("FINAL_SCORE_SPORTS", "NCAAF")
+    db = MagicMock()
+    summary = MagicMock(
+        sport="NCAAF",
+        fetched=1,
+        matched=1,
+        finalized=1,
+        already_final=0,
+        unmatched=0,
+        skipped_not_final=0,
+        settled=1,
+        errors=0,
+    )
+    service = MagicMock()
+    service.sync_sport.return_value = summary
+    shadow_hook = MagicMock(side_effect=RuntimeError("shadow failed"))
+
+    with (
+        patch.object(final_score_worker, "SessionLocal", return_value=db),
+        patch.object(final_score_worker, "OddsProviderClient", return_value=MagicMock()),
+        patch.object(final_score_worker, "FinalScoreSettlementService", return_value=service),
+        patch.object(
+            final_score_worker,
+            "settle_ncaaf_shadow_evidence",
+            shadow_hook,
+        ),
+    ):
+        results = final_score_worker.run_once()
+
+    assert results["NCAAF"]["finalized"] == 1
+    assert results["NCAAF"]["settled"] == 1
+    db.rollback.assert_not_called()
+    db.close.assert_called_once_with()
+    shadow_hook.assert_called_once_with()

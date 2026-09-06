@@ -266,6 +266,32 @@ def test_sport_failure_does_not_stop_next_sport(monkeypatch):
     assert results["WNBA"]["predictions_generated"] == 3
 
 
+def test_shadow_hook_failure_does_not_fail_normal_ncaaf_cycle(monkeypatch):
+    monkeypatch.setenv("UPCOMING_GAME_SPORTS", "NCAAF")
+    db = MagicMock()
+    importer = MagicMock()
+    importer.import_games.return_value = []
+    shadow_hook = MagicMock(side_effect=RuntimeError("shadow failed"))
+
+    with (
+        patch.object(upcoming_game_worker, "SessionLocal", return_value=db),
+        patch.object(upcoming_game_worker, "GameOddsImporter", return_value=importer),
+        patch.object(upcoming_game_worker, "PredictionEngine"),
+        patch.object(
+            upcoming_game_worker,
+            "collect_ncaaf_shadow_evidence",
+            shadow_hook,
+        ),
+    ):
+        results = upcoming_game_worker.run_once()
+
+    assert results["NCAAF"]["imported"] == 0
+    assert results["NCAAF"]["prediction_errors"] == 0
+    db.rollback.assert_not_called()
+    db.close.assert_called_once_with()
+    shadow_hook.assert_called_once_with()
+
+
 def test_run_forever_survives_cycle_failure(monkeypatch):
     monkeypatch.setenv("UPCOMING_GAME_POLL_SECONDS", "300")
     run_once = MagicMock(

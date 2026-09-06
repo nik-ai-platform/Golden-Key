@@ -18,6 +18,7 @@ from app.analytics.ncaaf_power_market_shadow import (
     load_frozen_prior_ratings,
 )
 from app.models.game import Game
+from app.models.game_result_observation import GameResultObservation
 from app.models.ncaaf_power_market_shadow_record import (
     NcaafPowerMarketShadowRecord,
 )
@@ -132,7 +133,7 @@ def create_shadow_record_for_game(
         "shadow_spec_version": SHADOW_SPEC_VERSION,
         "generation_provenance": (
             RETROSPECTIVE_ASOF
-            if game.status == "final"
+            if authoritative_result_available_as_of(db, game.id, generated_at)
             else PROSPECTIVE_FROZEN
         ),
         "generated_at": generated_at,
@@ -184,6 +185,35 @@ def create_shadow_record_for_game(
     db.add(record)
     db.flush()
     return ShadowGenerationResult(CREATED, game_id, record)
+
+
+def authoritative_result_available_as_of(
+    db: Session,
+    game_id: int,
+    as_of: datetime,
+) -> bool:
+    as_of = _as_utc(as_of, "as_of")
+    cutoff = as_of.replace(tzinfo=None)
+    game = db.get(Game, game_id)
+    if game is None:
+        return False
+    persisted_timestamps = (
+        game.completed_at,
+        game.historical_result_observed_at,
+    )
+    if any(timestamp is not None and timestamp <= cutoff for timestamp in persisted_timestamps):
+        return True
+    return bool(
+        db.query(
+            GameResultObservation.id,
+        )
+        .filter(
+            GameResultObservation.game_id == game_id,
+            GameResultObservation.status == "final",
+            GameResultObservation.observed_at <= cutoff,
+        )
+        .first()
+    )
 
 
 def generate_eligible_upcoming_shadow_records(

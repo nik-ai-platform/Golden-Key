@@ -8,6 +8,9 @@ from app.database.session import SessionLocal
 from app.services.final_score_settlement_service import (
     FinalScoreSettlementService,
 )
+from app.services.ncaaf_shadow_collection_service import (
+    settle_ncaaf_shadow_evidence,
+)
 from app.services.odds_provider_client import OddsProviderClient
 
 logger = logging.getLogger(__name__)
@@ -121,6 +124,12 @@ def run_once() -> dict[str, dict[str, int | str]]:
 
         finally:
             db.close()
+
+        if sport == "NCAAF":
+            try:
+                settle_ncaaf_shadow_evidence()
+            except Exception:
+                logger.exception("NCAAF shadow settlement hook failed")
 
     return results
 

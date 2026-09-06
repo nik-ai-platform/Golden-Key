@@ -59,6 +59,8 @@ class BaseAppSettings(BaseSettings):
     SPORTS_DATA_PROVIDER: str = "mock"
     ODDS_PROVIDER: str = "mock"
     PERF_IMPORT_MOCK: bool = False
+    NCAAF_SHADOW_COLLECTION_ENABLED: bool = False
+    NCAAF_SHADOW_SPEC_VERSION: str = "NCAAF-SHADOW-1.0"
 
     AUTH_DEMO_EMAIL: str
     AUTH_DEMO_PASSWORD: str
