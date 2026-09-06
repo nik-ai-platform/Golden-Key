@@ -27,3 +27,5 @@ from app.models.import_run import ImportRun  # noqa: E402,F401
 from app.models.game_result_observation import GameResultObservation  # noqa: E402,F401
 from app.models.team_power_rating import TeamPowerRatingRecord  # noqa: E402,F401
 from app.models.prediction_power_snapshot import PredictionPowerSnapshot  # noqa: E402,F401
+from app.models.ncaaf_power_market_shadow_record import NcaafPowerMarketShadowRecord  # noqa: E402,F401
+from app.models.ncaaf_power_market_shadow_result import NcaafPowerMarketShadowResult  # noqa: E402,F401
