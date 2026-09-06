@@ -17,6 +17,11 @@ def build_parser() -> argparse.ArgumentParser:
     mode_group = parser.add_mutually_exclusive_group()
     mode_group.add_argument("--dry-run", action="store_true")
     mode_group.add_argument("--apply", action="store_true")
+    parser.add_argument(
+        "--completed-only",
+        action="store_true",
+        help="Create only completed, scored games while still reconciling existing games",
+    )
     return parser
 
 
@@ -43,6 +48,7 @@ def main() -> int:
         report = NCAAFHistoricalResultsImportService(db, CFBDClient()).import_seasons(
             seasons,
             dry_run=not args.apply,
+            completed_only=args.completed_only,
         )
         print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
         return 0

@@ -6,11 +6,14 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
+from app.data.ncaaf_game_reconciliation import REVIEWED_CFBD_GAME_MAPPINGS
+from app.data.ncaaf_team_aliases import REVIEWED_CFBD_TEAM_MAPPINGS
 from app.models.game import Game
 from app.models.game_provider_identity import GameProviderIdentity
 from app.models.game_result_observation import GameResultObservation
 from app.models.import_run import ImportRun
 from app.models.team import Team
+from app.models.team_alias import TeamAlias
 from app.models.team_provider_identity import TeamProviderIdentity
 from app.models.team_season import TeamSeason
 from app.providers.cfbd_dtos import CFBDGame, CFBDTeam, CFBDTeamSeason
@@ -22,13 +25,18 @@ ODDS_API_PROVIDER = "the_odds_api"
 SPORT = "NCAAF"
 RESULT_AVAILABILITY_DELAY = timedelta(hours=6)
 GAME_RECONCILIATION_WINDOW = timedelta(hours=6)
+GAME_RECONCILIATION_REVIEW_WINDOW = timedelta(hours=36)
 
 
 @dataclass
 class HistoricalImportReport:
     seasons: tuple[int, ...]
     dry_run: bool
+    completed_only: bool = False
     rows_fetched: int = 0
+    source_games_total: int = 0
+    relevant_games_total: int = 0
+    completed_scored_source: int = 0
     provider_teams_fetched: int = 0
     provider_metadata_fetched: int = 0
     provider_games_fetched: int = 0
@@ -43,12 +51,32 @@ class HistoricalImportReport:
     team_seasons_updated: int = 0
     games_created: int = 0
     games_matched: int = 0
+    reviewed_game_matches: int = 0
+    existing_completed_matches: int = 0
+    reviewed_completed_matches: int = 0
+    completed_games_proposed_create: int = 0
+    completed_create_candidates_validated: int = 0
+    completed_observations_proposed: int = 0
+    future_existing_matches: int = 0
+    future_cfbd_only_skipped: int = 0
+    future_cfbd_only_games_created: int = 0
+    teams_required_by_completed_games: int = 0
+    new_teams_required: int = 0
+    teams_proposed_create: int = 0
+    team_seasons_proposed: int = 0
+    quarantined_games: int = 0
+    schedule_conflicts_quarantined: int = 0
+    duplicate_risk_quarantined: int = 0
+    unresolved_reviewed_duplicate_candidates: int = 0
+    provider_duplicate_risk_games: int = 0
     games_updated: int = 0
     observations_created: int = 0
     provider_timestamp_observations: int = 0
     fallback_timestamp_observations: int = 0
     odds_api_identities_backfilled: int = 0
     ambiguous_records: int = 0
+    ambiguities: int = 0
+    unresolved: int = 0
     ambiguous_teams: int = 0
     ambiguous_games: int = 0
     errors_count: int = 0
@@ -73,12 +101,17 @@ class NCAAFHistoricalResultsImportService:
         seasons: list[int] | tuple[int, ...],
         *,
         dry_run: bool = True,
+        completed_only: bool = False,
     ) -> HistoricalImportReport:
         normalized_seasons = tuple(sorted(set(seasons)))
         if not normalized_seasons:
             raise ValueError("At least one season is required")
 
-        report = HistoricalImportReport(normalized_seasons, dry_run)
+        report = HistoricalImportReport(
+            normalized_seasons,
+            dry_run,
+            completed_only=completed_only,
+        )
         transaction = self.db.begin_nested()
         started_at = _utc_now()
         import_run = ImportRun(
@@ -96,7 +129,12 @@ class NCAAFHistoricalResultsImportService:
         try:
             report.odds_api_identities_backfilled = self._backfill_odds_api_identities()
             for season in normalized_seasons:
-                self._import_season(season, import_run.id, report)
+                self._import_season(
+                    season,
+                    import_run.id,
+                    report,
+                    completed_only=completed_only,
+                )
             self._validate_integrity(normalized_seasons, report)
             self._finalize_run(import_run, report, "completed")
             self.db.flush()
@@ -118,6 +156,8 @@ class NCAAFHistoricalResultsImportService:
         season: int,
         import_run_id: int,
         report: HistoricalImportReport,
+        *,
+        completed_only: bool,
     ) -> None:
         teams: list[CFBDTeam] = self.client.get_teams(season)
         metadata: list[CFBDTeamSeason] = self.client.get_team_metadata(season)
@@ -125,6 +165,7 @@ class NCAAFHistoricalResultsImportService:
         report.provider_teams_fetched += len(teams)
         report.provider_metadata_fetched += len(metadata)
         report.provider_games_fetched += len(games)
+        report.source_games_total += len(games)
         report.rows_fetched += len(teams) + len(metadata) + len(games)
 
         metadata_by_id = {item.team_id: item for item in metadata}
@@ -183,8 +224,47 @@ class NCAAFHistoricalResultsImportService:
                 combination = " vs ".join(sorted((home_class, away_class)))
                 excluded_counts[combination] += 1
         report.relevant_games += len(relevant_games)
+        report.relevant_games_total += len(relevant_games)
+        report.completed_scored_source += sum(
+            self._is_completed_scored(game) for game in relevant_games
+        )
         report.excluded_games += len(games) - len(relevant_games)
         self._merge_counts(report.excluded_game_classifications, excluded_counts)
+
+        provider_duplicate_ids = self._find_provider_duplicate_game_ids(relevant_games)
+        games_to_process = {game.id for game in relevant_games}
+        team_ids_for_creation = set(relevant_team_ids)
+        if completed_only:
+            completed_games = [
+                game
+                for game in relevant_games
+                if self._is_completed_scored(game)
+                and game.neutral_site is not None
+                and game.id not in provider_duplicate_ids
+            ]
+            team_ids_for_creation = {
+                provider_team_id
+                for game in completed_games
+                for provider_team_id in (game.home_id, game.away_id)
+            }
+            report.teams_required_by_completed_games += len(team_ids_for_creation)
+            games_to_process = {
+                game.id
+                for game in relevant_games
+                if self._is_completed_scored(game)
+                or self._future_game_has_existing_candidate(game, teams_by_id)
+            }
+            relevant_team_ids = {
+                provider_team_id
+                for game in relevant_games
+                if game.id in games_to_process
+                and game.id not in provider_duplicate_ids
+                and not (
+                    self._is_completed_scored(game)
+                    and game.neutral_site is None
+                )
+                for provider_team_id in (game.home_id, game.away_id)
+            }
 
         normalized_counts = Counter(
             self.identity_service.normalize_name(team.school)
@@ -202,7 +282,10 @@ class NCAAFHistoricalResultsImportService:
                 continue
             normalized_name = self.identity_service.normalize_name(source_team.school)
             existing_identity = self._find_team_identity(provider_team_id)
-            allow_create = normalized_counts[normalized_name] == 1
+            allow_create = (
+                normalized_counts[normalized_name] == 1
+                and provider_team_id in team_ids_for_creation
+            )
             resolution = self.identity_service.resolve(
                 provider=CFBD_PROVIDER,
                 provider_team_id=str(provider_team_id),
@@ -216,7 +299,9 @@ class NCAAFHistoricalResultsImportService:
             )
             if resolution.team is None:
                 report.ambiguous_records += 1
+                report.ambiguities += 1
                 report.ambiguous_teams += 1
+                report.unresolved += 1
                 report.warnings.append(
                     f"Season {season}: unresolved team {provider_team_id} "
                     f"({source_team.school}); method={resolution.method}"
@@ -234,6 +319,9 @@ class NCAAFHistoricalResultsImportService:
                 )
             if resolution.method == "new_team":
                 report.teams_created += 1
+                if completed_only:
+                    report.new_teams_required += 1
+                    report.teams_proposed_create += 1
             else:
                 report.teams_matched += 1
             if existing_identity is None:
@@ -261,15 +349,146 @@ class NCAAFHistoricalResultsImportService:
                     observed_at,
                     report,
                 )
+                if completed_only:
+                    report.team_seasons_proposed = report.team_seasons_created
 
         self.db.flush()
         for source_game in relevant_games:
+            if source_game.id in provider_duplicate_ids:
+                report.ambiguous_records += 1
+                report.ambiguities += 1
+                report.ambiguous_games += 1
+                report.quarantined_games += 1
+                report.provider_duplicate_risk_games += 1
+                report.duplicate_risk_quarantined += 1
+                report.warnings.append(
+                    f"Game {source_game.id}: provider duplicate-risk matchup"
+                )
+                continue
+            if completed_only and source_game.id not in games_to_process:
+                report.future_cfbd_only_skipped += 1
+                continue
             self._import_game(
                 source_game,
                 canonical_team_ids,
                 import_run_id,
                 report,
+                completed_only=completed_only,
             )
+
+    @staticmethod
+    def _find_provider_duplicate_game_ids(games: list[CFBDGame]) -> set[int]:
+        by_matchup: dict[tuple[int, int], list[CFBDGame]] = {}
+        for game in games:
+            by_matchup.setdefault((game.home_id, game.away_id), []).append(game)
+
+        duplicate_ids: set[int] = set()
+        for matchup_games in by_matchup.values():
+            ordered = sorted(matchup_games, key=lambda game: game.start_date)
+            for previous, current in zip(ordered, ordered[1:]):
+                if (
+                    current.start_date - previous.start_date
+                    <= GAME_RECONCILIATION_REVIEW_WINDOW
+                ):
+                    duplicate_ids.update((previous.id, current.id))
+        return duplicate_ids
+
+    def _future_game_has_existing_candidate(
+        self,
+        source_game: CFBDGame,
+        teams_by_id: dict[int, CFBDTeam],
+    ) -> bool:
+        game_identity = (
+            self.db.query(GameProviderIdentity.id)
+            .filter(
+                GameProviderIdentity.provider == CFBD_PROVIDER,
+                GameProviderIdentity.provider_game_id == str(source_game.id),
+            )
+            .first()
+        )
+        if game_identity is not None:
+            return True
+
+        reviewed_mapping = REVIEWED_CFBD_GAME_MAPPINGS.get(str(source_game.id))
+        if reviewed_mapping is not None:
+            target = self.db.get(Game, reviewed_mapping.internal_game_id)
+            return (
+                target is not None
+                and target.sport == SPORT
+                and target.season == source_game.season
+            )
+
+        home_team_id = self._find_existing_team_candidate(
+            source_game.home_id,
+            teams_by_id.get(source_game.home_id),
+        )
+        away_team_id = self._find_existing_team_candidate(
+            source_game.away_id,
+            teams_by_id.get(source_game.away_id),
+        )
+        if home_team_id is None or away_team_id is None:
+            return False
+        return bool(
+            self._find_reconciliation_matches(
+                source_game,
+                home_team_id,
+                away_team_id,
+            )
+            or self._find_reconciliation_review_candidates(
+                source_game,
+                home_team_id,
+                away_team_id,
+            )
+        )
+
+    def _find_existing_team_candidate(
+        self,
+        provider_team_id: int,
+        source_team: CFBDTeam | None,
+    ) -> int | None:
+        identity = self._find_team_identity(provider_team_id)
+        if identity is not None:
+            return identity.team_id
+        if source_team is None:
+            return None
+
+        target_name = REVIEWED_CFBD_TEAM_MAPPINGS.get(str(provider_team_id))
+        source_names = tuple(
+            name
+            for name in (
+                target_name,
+                source_team.school,
+                *source_team.alternate_names,
+            )
+            if name
+        )
+        normalized_names = {
+            self.identity_service.normalize_name(name) for name in source_names
+        }
+        teams = self.db.query(Team).filter(Team.sport == SPORT).all()
+        matches = {
+            team.id
+            for team in teams
+            if self.identity_service.normalize_name(team.name) in normalized_names
+        }
+        aliases = (
+            self.db.query(TeamAlias.team_id)
+            .join(Team, Team.id == TeamAlias.team_id)
+            .filter(
+                Team.sport == SPORT,
+                TeamAlias.provider == CFBD_PROVIDER,
+                TeamAlias.normalized_alias.in_(normalized_names),
+            )
+            .all()
+        )
+        matches.update(team_id for (team_id,) in aliases)
+        mascot_matches = self.identity_service._mascot_suffix_matches(
+            source_team.school,
+            source_team.alternate_names,
+            teams,
+        )
+        matches.update(team.id for team in mascot_matches)
+        return next(iter(matches)) if len(matches) == 1 else None
 
     @staticmethod
     def _is_primary_classification(metadata: CFBDTeamSeason) -> bool:
@@ -277,6 +496,14 @@ class NCAAFHistoricalResultsImportService:
             "FBS",
             "FCS",
         }
+
+    @staticmethod
+    def _is_completed_scored(game: CFBDGame) -> bool:
+        return (
+            game.completed
+            and game.home_points is not None
+            and game.away_points is not None
+        )
 
     @staticmethod
     def _classification_label(metadata: CFBDTeamSeason | None) -> str:
@@ -364,12 +591,28 @@ class NCAAFHistoricalResultsImportService:
         canonical_team_ids: dict[int, int],
         import_run_id: int,
         report: HistoricalImportReport,
+        *,
+        completed_only: bool,
     ) -> None:
+        completed_scored = self._is_completed_scored(source_game)
+        if completed_only and completed_scored and source_game.neutral_site is None:
+            report.ambiguous_records += 1
+            report.ambiguities += 1
+            report.ambiguous_games += 1
+            report.quarantined_games += 1
+            report.unresolved += 1
+            report.warnings.append(
+                f"Game {source_game.id}: completed game has unknown neutral-site status"
+            )
+            return
+
         home_team_id = canonical_team_ids.get(source_game.home_id)
         away_team_id = canonical_team_ids.get(source_game.away_id)
         if home_team_id is None or away_team_id is None or home_team_id == away_team_id:
             report.ambiguous_records += 1
+            report.ambiguities += 1
             report.ambiguous_games += 1
+            report.unresolved += 1
             report.warnings.append(
                 f"Game {source_game.id}: unresolved or identical canonical teams"
             )
@@ -385,6 +628,27 @@ class NCAAFHistoricalResultsImportService:
         )
         game = self.db.get(Game, game_identity.game_id) if game_identity else None
         created = False
+        reviewed_mapping = None
+        if game is None:
+            reviewed_mapping = REVIEWED_CFBD_GAME_MAPPINGS.get(str(source_game.id))
+            if reviewed_mapping is not None:
+                game = self.db.get(Game, reviewed_mapping.internal_game_id)
+                if (
+                    game is None
+                    or game.sport != SPORT
+                    or game.season != source_game.season
+                ):
+                    report.ambiguous_records += 1
+                    report.ambiguities += 1
+                    report.ambiguous_games += 1
+                    report.quarantined_games += 1
+                    report.unresolved += 1
+                    report.warnings.append(
+                        f"Game {source_game.id}: reviewed mapping target "
+                        f"{reviewed_mapping.internal_game_id} is missing or incompatible"
+                    )
+                    return
+                report.reviewed_game_matches += 1
         if game is None:
             matches = self._find_reconciliation_matches(
                 source_game,
@@ -393,13 +657,36 @@ class NCAAFHistoricalResultsImportService:
             )
             if len(matches) > 1:
                 report.ambiguous_records += 1
+                report.ambiguities += 1
                 report.ambiguous_games += 1
+                report.unresolved += 1
                 report.warnings.append(
                     f"Game {source_game.id}: {len(matches)} reconciliation candidates"
                 )
                 return
             game = matches[0] if matches else None
         if game is None:
+            review_candidates = self._find_reconciliation_review_candidates(
+                source_game,
+                home_team_id,
+                away_team_id,
+            )
+            if review_candidates:
+                report.ambiguous_records += 1
+                report.ambiguities += 1
+                report.ambiguous_games += 1
+                report.quarantined_games += 1
+                report.schedule_conflicts_quarantined += 1
+                report.unresolved += 1
+                report.warnings.append(
+                    f"Game {source_game.id}: unreviewed kickoff conflict with "
+                    f"game(s) {', '.join(str(candidate.id) for candidate in review_candidates)}"
+                )
+                return
+        if game is None:
+            if completed_only and not completed_scored:
+                report.future_cfbd_only_skipped += 1
+                return
             winner_team_id = None
             if source_game.home_points is not None and source_game.away_points is not None:
                 if source_game.home_points > source_game.away_points:
@@ -426,9 +713,19 @@ class NCAAFHistoricalResultsImportService:
             self.db.add(game)
             self.db.flush()
             report.games_created += 1
+            if completed_only:
+                report.completed_games_proposed_create += 1
+                report.completed_create_candidates_validated += 1
             created = True
         else:
             report.games_matched += 1
+            if completed_only:
+                if completed_scored:
+                    report.existing_completed_matches += 1
+                    if reviewed_mapping is not None:
+                        report.reviewed_completed_matches += 1
+                else:
+                    report.future_existing_matches += 1
 
         if game_identity is None:
             self.db.add(
@@ -459,6 +756,8 @@ class NCAAFHistoricalResultsImportService:
                 import_run_id,
                 report,
             )
+            if completed_only:
+                report.completed_observations_proposed = report.observations_created
 
     def _find_reconciliation_matches(
         self,
@@ -477,6 +776,30 @@ class NCAAFHistoricalResultsImportService:
                 Game.away_team_id == away_team_id,
                 Game.game_date >= window_start,
                 Game.game_date <= window_end,
+            )
+            .all()
+        )
+
+    def _find_reconciliation_review_candidates(
+        self,
+        source_game: CFBDGame,
+        home_team_id: int,
+        away_team_id: int,
+    ) -> list[Game]:
+        review_start = source_game.start_date - GAME_RECONCILIATION_REVIEW_WINDOW
+        review_end = source_game.start_date + GAME_RECONCILIATION_REVIEW_WINDOW
+        automatic_start = source_game.start_date - GAME_RECONCILIATION_WINDOW
+        automatic_end = source_game.start_date + GAME_RECONCILIATION_WINDOW
+        return (
+            self.db.query(Game)
+            .filter(
+                Game.sport == SPORT,
+                Game.season == source_game.season,
+                Game.home_team_id == home_team_id,
+                Game.away_team_id == away_team_id,
+                Game.game_date >= review_start,
+                Game.game_date <= review_end,
+                (Game.game_date < automatic_start) | (Game.game_date > automatic_end),
             )
             .all()
         )
@@ -584,6 +907,12 @@ class NCAAFHistoricalResultsImportService:
         )
         if invalid_games:
             raise ValueError(f"Integrity check failed: {invalid_games} games use one team twice")
+        if report.completed_only and report.future_cfbd_only_games_created:
+            raise ValueError("Completed-only import created a future CFBD-only game")
+        if report.completed_only and report.unresolved_reviewed_duplicate_candidates:
+            raise ValueError(
+                "Completed-only import retained unresolved duplicate candidates"
+            )
         if report.ambiguous_records:
             report.warnings.append(
                 f"Quarantined {report.ambiguous_records} ambiguous or unresolved records"

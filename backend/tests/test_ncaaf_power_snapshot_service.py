@@ -14,6 +14,7 @@ from app.models.npi_factor_result import NPIFactorResult
 from app.models.odds import Odds
 from app.models.prediction_power_snapshot import PredictionPowerSnapshot
 from app.models.prediction_record import Prediction
+from app.models.prediction_result import PredictionResult
 from app.models.team import Team
 from app.models.team_power_rating import TeamPowerRatingRecord
 from app.services.ncaaf_power_rating_service import MODEL_VERSION
@@ -51,11 +52,11 @@ def _team(db, name):
     return team
 
 
-def _game(db, home, away, kickoff, *, neutral=False, status="scheduled"):
+def _game(db, home, away, kickoff, *, neutral=False, status="scheduled", season=2025):
     game = Game(
         sport="NCAAF",
         league="NCAAF",
-        season=2025,
+        season=season,
         home_team_id=home.id,
         away_team_id=away.id,
         game_date=kickoff.replace(tzinfo=None),
@@ -85,11 +86,11 @@ def _observation(db, game, observed_at, home_score, away_score, payload_hash=Non
     return observation
 
 
-def _rated_target(db):
+def _rated_target(db, *, season=2025):
     home = _team(db, "Home")
     away = _team(db, "Away")
-    start = datetime(2025, 9, 1, 12, tzinfo=UTC)
-    history = _game(db, home, away, start, neutral=True)
+    start = datetime(season, 9, 1, 12, tzinfo=UTC)
+    history = _game(db, home, away, start, neutral=True, season=season)
     first_observation = _observation(
         db,
         history,
@@ -98,7 +99,14 @@ def _rated_target(db):
         14,
         "original",
     )
-    target = _game(db, home, away, start + timedelta(days=7), neutral=False)
+    target = _game(
+        db,
+        home,
+        away,
+        start + timedelta(days=7),
+        neutral=False,
+        season=season,
+    )
     return home, away, history, target, first_observation
 
 
@@ -180,6 +188,43 @@ def test_score_correction_does_not_change_earlier_snapshot_or_hash(db):
     )
 
 
+def test_2026_correction_preserves_earlier_hash_and_changes_later_rating(db):
+    home, away, history, target, first_observation = _rated_target(db, season=2026)
+    rating_as_of = first_observation.observed_at.replace(tzinfo=UTC) + timedelta(hours=1)
+    first = calculate_pregame_power_snapshot(db, target.id, rating_as_of=rating_as_of)
+    original = (
+        first.home_rating,
+        first.away_rating,
+        first.independent_model_margin,
+        first.input_hash,
+    )
+
+    correction_time = rating_as_of + timedelta(hours=1)
+    _observation(db, history, correction_time, 7, 35, "corrected")
+    repeated = calculate_pregame_power_snapshot(db, target.id, rating_as_of=rating_as_of)
+    later_target = _game(
+        db,
+        home,
+        away,
+        target.game_date.replace(tzinfo=UTC) + timedelta(days=7),
+        season=2026,
+    )
+    later = calculate_pregame_power_snapshot(
+        db,
+        later_target.id,
+        rating_as_of=correction_time + timedelta(hours=1),
+    )
+
+    assert (
+        repeated.home_rating,
+        repeated.away_rating,
+        repeated.independent_model_margin,
+        repeated.input_hash,
+    ) == original
+    assert later.home_rating != first.home_rating
+    assert later.input_hash != first.input_hash
+
+
 def test_future_observation_cannot_change_snapshot(db):
     home, away, _, target, _ = _rated_target(db)
     third = _team(db, "Third")
@@ -222,8 +267,51 @@ def test_future_observation_cannot_change_snapshot(db):
     ) == values
 
 
+def test_2026_target_result_cannot_enter_its_own_pregame_snapshot(db):
+    _, _, _, target, _ = _rated_target(db, season=2026)
+    rating_as_of = target.game_date.replace(tzinfo=UTC)
+    prior_ratings = {
+        target.home_team_id: 8.0,
+        target.away_team_id: -4.0,
+    }
+    first = calculate_pregame_power_snapshot(
+        db,
+        target.id,
+        rating_as_of=rating_as_of,
+        prior_ratings=prior_ratings,
+    )
+    values = (
+        first.home_rating,
+        first.away_rating,
+        first.independent_model_margin,
+        first.input_hash,
+    )
+
+    _observation(
+        db,
+        target,
+        rating_as_of + timedelta(hours=6),
+        70,
+        0,
+        "target-final",
+    )
+    repeated = calculate_pregame_power_snapshot(
+        db,
+        target.id,
+        rating_as_of=rating_as_of,
+        prior_ratings=prior_ratings,
+    )
+
+    assert (
+        repeated.home_rating,
+        repeated.away_rating,
+        repeated.independent_model_margin,
+        repeated.input_hash,
+    ) == values
+
+
 def test_market_and_npi_changes_do_not_change_power_snapshot(db):
-    _, _, _, target, _ = _rated_target(db)
+    _, _, _, target, _ = _rated_target(db, season=2026)
     first = create_pregame_power_snapshot(db, target.id)
     values = (
         first.snapshot.home_rating,
@@ -255,6 +343,13 @@ def test_market_and_npi_changes_do_not_change_power_snapshot(db):
     db.flush()
     db.add_all(
         [
+            PredictionResult(
+                prediction_id=prediction.id,
+                actual_result="loss",
+                predicted_result="win",
+                outcome="loss",
+                profit_loss=-999,
+            ),
             NikScore(
                 game_id=target.id,
                 model_version="NPI-4.0",

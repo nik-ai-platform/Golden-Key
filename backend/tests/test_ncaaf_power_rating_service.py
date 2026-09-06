@@ -47,11 +47,22 @@ def _team(db, name):
     return team
 
 
-def _final_game(db, home, away, kickoff, home_score, away_score, *, neutral=True, observed_at=None):
+def _final_game(
+    db,
+    home,
+    away,
+    kickoff,
+    home_score,
+    away_score,
+    *,
+    neutral=True,
+    observed_at=None,
+    season=2025,
+):
     game = Game(
         sport="NCAAF",
         league="NCAAF",
-        season=2025,
+        season=season,
         home_team_id=home.id,
         away_team_id=away.id,
         game_date=kickoff.replace(tzinfo=None),
@@ -113,6 +124,26 @@ def test_two_team_neutral_and_home_margin_conventions(db):
     )
 
 
+def test_ratings_accept_stable_game_observation_without_team_season_metadata(db):
+    home = _team(db, "Metadata Missing Home")
+    away = _team(db, "Metadata Missing Away")
+    kickoff = datetime(2025, 9, 1, tzinfo=UTC)
+    _final_game(
+        db,
+        home,
+        away,
+        kickoff,
+        24,
+        17,
+        neutral=False,
+        observed_at=kickoff + timedelta(hours=6),
+    )
+
+    ratings = calculate_team_ratings(db, kickoff + timedelta(days=1), 2025)
+
+    assert set(ratings) == {home.id, away.id}
+
+
 def test_non_neutral_game_removes_home_field_from_strength_target(db):
     home = _team(db, "Home")
     away = _team(db, "Away")
@@ -158,6 +189,89 @@ def test_prior_shrinkage_and_sparse_uncertainty(db):
     assert with_prior[teams[2].id].rating > no_prior[teams[2].id].rating
     assert no_prior[teams[2].id].uncertainty > no_prior[teams[0].id].uncertainty
     assert with_prior[teams[2].id].uncertainty < no_prior[teams[2].id].uncertainty
+
+
+def test_frozen_2025_prior_prevents_2026_future_result_leakage(db):
+    teams = [_team(db, name) for name in ("A", "B", "C")]
+    prior_start = datetime(2025, 9, 1, 12, tzinfo=UTC)
+    first_prior_game = _final_game(
+        db,
+        teams[0],
+        teams[1],
+        prior_start,
+        35,
+        14,
+        observed_at=prior_start + timedelta(hours=6),
+    )
+    _final_game(
+        db,
+        teams[1],
+        teams[2],
+        prior_start + timedelta(days=7),
+        28,
+        21,
+        observed_at=prior_start + timedelta(days=7, hours=6),
+    )
+    prior_cutoff = prior_start + timedelta(days=8)
+    frozen_prior = {
+        team_id: rating.rating
+        for team_id, rating in calculate_team_ratings(
+            db,
+            prior_cutoff,
+            2025,
+        ).items()
+    }
+
+    game_a = datetime(2026, 8, 29, 12, tzinfo=UTC)
+    game_b = game_a + timedelta(days=7)
+    _final_game(
+        db,
+        teams[0],
+        teams[1],
+        game_a,
+        24,
+        17,
+        observed_at=game_a + timedelta(hours=6),
+        season=2026,
+    )
+    before_game_b = calculate_team_ratings(db, game_b, 2026, frozen_prior)
+    frozen_prior_copy = dict(frozen_prior)
+
+    _final_game(
+        db,
+        teams[1],
+        teams[0],
+        game_b,
+        45,
+        10,
+        observed_at=game_b + timedelta(hours=6),
+        season=2026,
+    )
+    db.add(
+        GameResultObservation(
+            game_id=first_prior_game.id,
+            provider="cfbd",
+            home_score=0,
+            away_score=70,
+            status="final",
+            observed_at=(game_b + timedelta(hours=12)).replace(tzinfo=None),
+        )
+    )
+    db.flush()
+
+    repeated_at_game_b = calculate_team_ratings(db, game_b, 2026, frozen_prior)
+    after_game_b = calculate_team_ratings(
+        db,
+        game_b + timedelta(days=1),
+        2026,
+        frozen_prior,
+    )
+
+    assert frozen_prior == frozen_prior_copy
+    assert repeated_at_game_b == before_game_b
+    assert {rating.games_used for rating in before_game_b.values()} == {1}
+    assert {rating.games_used for rating in after_game_b.values()} == {2}
+    assert after_game_b != before_game_b
 
 
 def test_as_of_observation_gate_prevents_future_leakage(db):

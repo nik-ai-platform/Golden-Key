@@ -18,6 +18,10 @@ from app.models.team_alias import TeamAlias
 from app.models.team_provider_identity import TeamProviderIdentity
 from app.models.team_season import TeamSeason
 from app.providers.cfbd_dtos import CFBDGame, CFBDTeam, CFBDTeamSeason
+from app.data.ncaaf_game_reconciliation import (
+    REVIEWED_CFBD_GAME_MAPPINGS,
+    ReviewedGameMapping,
+)
 from app.services.ncaaf_historical_results_import_service import (
     NCAAFHistoricalResultsImportService,
 )
@@ -115,9 +119,66 @@ class ScopedCFBDClient:
     def get_games(self, season):
         kickoff = datetime(season, 9, 1, 12, 0)
         return [
-            _game(season * 10 + 1, season, kickoff, 1, "FBS School", 5, "Game Only"),
+            _game(season * 10 + 1, season, kickoff, 1, "FBS School", 5005, "Game Only"),
             _game(season * 10 + 2, season, kickoff, 2, "FCS School", 3, "Division Two"),
             _game(season * 10 + 3, season, kickoff, 3, "Division Two", 4, "Lower School"),
+        ]
+
+
+class SingleGameCFBDClient(FakeCFBDClient):
+    def get_games(self, season):
+        return super().get_games(season)[:1]
+
+
+class FutureOnlyCFBDClient(FakeCFBDClient):
+    def get_games(self, season):
+        return super().get_games(season)[1:2]
+
+
+class UnknownNeutralCFBDClient(FakeCFBDClient):
+    def get_games(self, season):
+        game = super().get_games(season)[0]
+        return [
+            CFBDGame(
+                id=game.id,
+                season=game.season,
+                start_date=game.start_date,
+                home_id=game.home_id,
+                away_id=game.away_id,
+                home_team=game.home_team,
+                away_team=game.away_team,
+                home_points=game.home_points,
+                away_points=game.away_points,
+                completed=True,
+                neutral_site=None,
+                venue_name=game.venue_name,
+                venue_city=game.venue_city,
+                venue_state=game.venue_state,
+            )
+        ]
+
+
+class DuplicateGameCFBDClient(FakeCFBDClient):
+    def get_games(self, season):
+        first = super().get_games(season)[0]
+        return [
+            first,
+            CFBDGame(
+                id=season * 10 + 4,
+                season=season,
+                start_date=first.start_date + timedelta(hours=20),
+                home_id=first.home_id,
+                away_id=first.away_id,
+                home_team=first.home_team,
+                away_team=first.away_team,
+                home_points=28,
+                away_points=19,
+                completed=True,
+                neutral_site=False,
+                venue_name="History Field",
+                venue_city="Town",
+                venue_state="TX",
+            ),
         ]
 
 
@@ -267,6 +328,7 @@ def test_reconciliation_preserves_legacy_ids_and_prediction_records(db):
     report = NCAAFHistoricalResultsImportService(db, FakeCFBDClient()).import_seasons(
         [2025],
         dry_run=False,
+        completed_only=True,
     )
     db.refresh(existing_game)
 
@@ -308,9 +370,12 @@ def test_ambiguous_team_mapping_is_quarantined(db):
     report = NCAAFHistoricalResultsImportService(db, FakeCFBDClient()).import_seasons(
         [2025],
         dry_run=False,
+        completed_only=True,
     )
 
     assert report.ambiguous_records >= 1
+    assert report.ambiguities >= 1
+    assert report.completed_observations_proposed == 0
     assert all(
         identity.provider_team_id != "1"
         for identity in db.query(TeamProviderIdentity).all()
@@ -333,7 +398,7 @@ def test_scope_includes_fbs_fcs_support_and_game_only_teams(db):
     assert db.query(Team).count() == 4
     game_only_identity = (
         db.query(TeamProviderIdentity)
-        .filter(TeamProviderIdentity.provider_team_id == "5")
+        .filter(TeamProviderIdentity.provider_team_id == "5005")
         .one()
     )
     assert db.get(Team, game_only_identity.team_id).name == "Game Only"
@@ -354,3 +419,213 @@ def test_report_counts_resolution_methods_and_timestamp_provenance(db):
     assert report.match_method_counts == {"new_team": 2, "provider_identity": 2}
     assert report.fallback_timestamp_observations == 1
     assert report.provider_timestamp_observations == 1
+    observations = {
+        db.get(Game, observation.game_id).season: observation
+        for observation in db.query(GameResultObservation).all()
+    }
+    assert observations[2025].source_updated_at is None
+    assert observations[2025].observed_at == datetime(2025, 9, 7, 1, 30)
+    assert observations[2026].source_updated_at == datetime(2026, 9, 7, 2, 0)
+    assert observations[2026].observed_at == datetime(2026, 9, 7, 2, 0)
+
+
+def test_reviewed_game_mapping_precedes_time_window_and_preserves_legacy_id(db):
+    home = Team(name="Home State", league="NCAAF", sport="NCAAF")
+    away = Team(name="Away Tech", league="NCAAF", sport="NCAAF")
+    db.add_all([home, away])
+    db.flush()
+    existing = Game(
+        sport="NCAAF",
+        league="NCAAF",
+        season=2025,
+        provider_game_id="odds-reviewed",
+        home_team_id=home.id,
+        away_team_id=away.id,
+        game_date=datetime(2025, 9, 6, 7, 30),
+        status="final",
+    )
+    db.add(existing)
+    db.commit()
+    REVIEWED_CFBD_GAME_MAPPINGS["20251"] = ReviewedGameMapping(
+        existing.id,
+        "test evidence",
+    )
+    try:
+        report = NCAAFHistoricalResultsImportService(
+            db,
+            SingleGameCFBDClient(),
+        ).import_seasons([2025], dry_run=False, completed_only=True)
+    finally:
+        REVIEWED_CFBD_GAME_MAPPINGS.pop("20251")
+
+    assert report.reviewed_game_matches == 1
+    assert report.games_matched == 1
+    assert report.games_created == 0
+    assert db.query(Game).count() == 1
+    assert existing.provider_game_id == "odds-reviewed"
+    cfbd_identity = (
+        db.query(GameProviderIdentity)
+        .filter(GameProviderIdentity.provider == "cfbd")
+        .one()
+    )
+    assert cfbd_identity.game_id == existing.id
+
+
+def test_unreviewed_kickoff_conflict_is_quarantined(db):
+    home = Team(name="Home State", league="NCAAF", sport="NCAAF")
+    away = Team(name="Away Tech", league="NCAAF", sport="NCAAF")
+    db.add_all([home, away])
+    db.flush()
+    db.add(
+        Game(
+            sport="NCAAF",
+            league="NCAAF",
+            season=2025,
+            provider_game_id="odds-conflict",
+            home_team_id=home.id,
+            away_team_id=away.id,
+            game_date=datetime(2025, 9, 6, 7, 30),
+            status="final",
+        )
+    )
+    db.commit()
+
+    report = NCAAFHistoricalResultsImportService(
+        db,
+        SingleGameCFBDClient(),
+    ).import_seasons([2025], dry_run=False, completed_only=True)
+
+    assert report.quarantined_games == 1
+    assert report.games_created == 0
+    assert db.query(Game).count() == 1
+    assert db.query(GameResultObservation).count() == 0
+    assert not db.query(GameProviderIdentity).filter(
+        GameProviderIdentity.provider == "cfbd"
+    ).count()
+
+
+def test_same_team_rematch_outside_review_window_stays_distinct(db):
+    home = Team(name="Home State", league="NCAAF", sport="NCAAF")
+    away = Team(name="Away Tech", league="NCAAF", sport="NCAAF")
+    db.add_all([home, away])
+    db.flush()
+    db.add(
+        Game(
+            sport="NCAAF",
+            league="NCAAF",
+            season=2025,
+            provider_game_id="odds-rematch",
+            home_team_id=home.id,
+            away_team_id=away.id,
+            game_date=datetime(2025, 9, 20, 19, 30),
+            status="scheduled",
+        )
+    )
+    db.commit()
+
+    report = NCAAFHistoricalResultsImportService(
+        db,
+        SingleGameCFBDClient(),
+    ).import_seasons([2025], dry_run=False)
+
+    assert report.quarantined_games == 0
+    assert report.games_created == 1
+    assert db.query(Game).count() == 2
+
+
+def test_provider_duplicate_risk_quarantines_both_records(db):
+    report = NCAAFHistoricalResultsImportService(
+        db,
+        DuplicateGameCFBDClient(),
+    ).import_seasons([2025], dry_run=False, completed_only=True)
+
+    assert report.provider_duplicate_risk_games == 2
+    assert report.quarantined_games == 2
+    assert report.games_created == 0
+    assert report.observations_created == 0
+    assert db.query(Game).count() == 0
+
+
+def test_completed_only_skips_unmatched_future_without_side_effects(db):
+    report = NCAAFHistoricalResultsImportService(
+        db,
+        FutureOnlyCFBDClient(),
+    ).import_seasons([2025], dry_run=False, completed_only=True)
+
+    assert report.future_cfbd_only_skipped == 1
+    assert report.future_cfbd_only_games_created == 0
+    assert report.teams_proposed_create == 0
+    assert db.query(Team).count() == 0
+    assert db.query(Game).count() == 0
+    assert db.query(GameProviderIdentity).count() == 0
+    assert db.query(GameResultObservation).count() == 0
+
+
+def test_completed_only_reuses_existing_future_game(db):
+    home = Team(name="Away Tech", league="NCAAF", sport="NCAAF")
+    away = Team(name="Home State", league="NCAAF", sport="NCAAF")
+    db.add_all([home, away])
+    db.flush()
+    existing = Game(
+        sport="NCAAF",
+        league="NCAAF",
+        season=2025,
+        provider_game_id="odds-future",
+        home_team_id=home.id,
+        away_team_id=away.id,
+        game_date=datetime(2025, 9, 13, 19, 30),
+        status="scheduled",
+    )
+    db.add(existing)
+    db.commit()
+
+    report = NCAAFHistoricalResultsImportService(
+        db,
+        FutureOnlyCFBDClient(),
+    ).import_seasons([2025], dry_run=False, completed_only=True)
+
+    assert report.future_existing_matches == 1
+    assert report.future_cfbd_only_skipped == 0
+    assert report.future_cfbd_only_games_created == 0
+    assert db.query(Game).count() == 1
+    assert existing.provider_game_id == "odds-future"
+    assert db.query(GameProviderIdentity).filter(
+        GameProviderIdentity.provider == "cfbd",
+        GameProviderIdentity.game_id == existing.id,
+    ).count() == 1
+    assert db.query(GameResultObservation).count() == 0
+
+
+def test_completed_only_creates_scored_game_with_known_neutral_status(db):
+    report = NCAAFHistoricalResultsImportService(
+        db,
+        SingleGameCFBDClient(),
+    ).import_seasons([2025], dry_run=False, completed_only=True)
+
+    game = db.query(Game).one()
+    observation = db.query(GameResultObservation).one()
+    assert report.completed_games_proposed_create == 1
+    assert report.completed_create_candidates_validated == 1
+    assert report.unresolved_reviewed_duplicate_candidates == 0
+    assert report.completed_observations_proposed == 1
+    assert game.neutral_site is True
+    assert game.venue_name == "History Field"
+    assert observation.observed_at == game.game_date + timedelta(hours=6)
+    assert db.query(GameProviderIdentity).filter(
+        GameProviderIdentity.provider == "cfbd",
+        GameProviderIdentity.game_id == game.id,
+    ).count() == 1
+
+
+def test_completed_only_quarantines_unknown_neutral_without_observation(db):
+    report = NCAAFHistoricalResultsImportService(
+        db,
+        UnknownNeutralCFBDClient(),
+    ).import_seasons([2025], dry_run=False, completed_only=True)
+
+    assert report.quarantined_games == 1
+    assert report.completed_games_proposed_create == 0
+    assert report.completed_observations_proposed == 0
+    assert db.query(Game).count() == 0
+    assert db.query(GameProviderIdentity).count() == 0
+    assert db.query(GameResultObservation).count() == 0
