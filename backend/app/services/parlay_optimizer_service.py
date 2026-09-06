@@ -8,6 +8,8 @@ from app.models.game import Game
 from app.models.odds import Odds
 from app.models.prediction_record import Prediction
 from app.models.team import Team
+from app.services.model_runtime_service import ModelRuntimeService
+from app.services.prediction_engine import PredictionEngine
 from app.services.recommendation_eligibility import (
     LOWER_PRIORITY,
     is_recommendation_eligible,
@@ -25,6 +27,8 @@ class ParlayOptimizerService:
     MAX_ODDS_AGE = timedelta(hours=6)
     MIN_PROJECTED_EDGE = 1.0
     BEAM_WIDTH = 500
+    FIXED_STANDARD_PRICE = -110
+    model_runtime = ModelRuntimeService()
     MARKET_MIX_RULES = {
         2: {"max_moneylines": 1, "min_spreads": 0, "min_totals": 0},
         4: {"max_moneylines": 2, "min_spreads": 1, "min_totals": 1},
@@ -101,7 +105,7 @@ class ParlayOptimizerService:
             .filter(
                 Game.game_date >= now,
                 Game.game_date <= horizon_end,
-                Game.status != "final",
+                Game.status == "scheduled",
                 Prediction.market.in_(("spread", "moneyline", "total")),
                 Prediction.selection != "PASS",
                 Prediction.odds_snapshot_id.is_not(None),
@@ -120,7 +124,28 @@ class ParlayOptimizerService:
             query = query.filter(Game.sport == sport.upper())
 
         candidates = []
+        active_versions = {}
+        current_snapshots = {}
         for prediction, game, odds, home, away in query.all():
+            if game.sport not in active_versions:
+                try:
+                    active_versions[game.sport] = self.model_runtime.resolve(
+                        db=db,
+                        sport=game.sport,
+                    )["model_version"]
+                except ValueError:
+                    active_versions[game.sport] = None
+            if prediction.model_version != active_versions[game.sport]:
+                continue
+            if game.id not in current_snapshots:
+                current_snapshots[game.id] = PredictionEngine._select_complete_snapshot(
+                    db.query(Odds).filter(Odds.game_id == game.id).all()
+                )
+            current_snapshot = current_snapshots[game.id]
+            if current_snapshot is None or odds.id != current_snapshot.id:
+                continue
+            if not self._matches_frozen_snapshot(prediction, odds):
+                continue
             if not is_recommendation_eligible(
                 prediction.market,
                 prediction.american_odds,
@@ -179,6 +204,52 @@ class ParlayOptimizerService:
             candidates,
             key=lambda item: (-item["parlay_score"], item["prediction_id"]),
         )
+
+    @classmethod
+    def _matches_frozen_snapshot(
+        cls,
+        prediction: Prediction,
+        odds: Odds,
+    ) -> bool:
+        market = prediction.market.lower()
+        selection = prediction.selection.upper()
+
+        if market == "spread":
+            if selection == "HOME":
+                snapshot_line = odds.spread_home
+            elif selection == "AWAY":
+                snapshot_line = odds.spread_away
+            else:
+                return False
+            return (
+                cls._same_number(prediction.line_value, snapshot_line)
+                and prediction.american_odds == cls.FIXED_STANDARD_PRICE
+            )
+
+        if market == "moneyline":
+            if selection == "HOME":
+                snapshot_price = odds.moneyline_home
+            elif selection == "AWAY":
+                snapshot_price = odds.moneyline_away
+            else:
+                return False
+            return prediction.american_odds == snapshot_price
+
+        if market == "total":
+            if selection not in {"OVER", "UNDER"}:
+                return False
+            return (
+                cls._same_number(prediction.line_value, odds.total)
+                and prediction.american_odds == cls.FIXED_STANDARD_PRICE
+            )
+
+        return False
+
+    @staticmethod
+    def _same_number(left, right) -> bool:
+        if left is None or right is None:
+            return False
+        return float(left) == float(right)
 
     def _score(self, prediction: Prediction, now: datetime) -> tuple[float, dict]:
         age = max(

@@ -11,6 +11,7 @@ from app.auth.dependencies import require_viewer
 from app.auth.schemas import AuthUser
 from app.main import app
 from app.models.game import Game
+from app.models.model_registry import ModelRegistry
 from app.models.odds import Odds
 from app.models.prediction_record import Prediction
 from app.models.team import Team
@@ -27,7 +28,22 @@ def _session():
         poolclass=StaticPool,
     )
     Base.metadata.create_all(bind=engine)
-    return sessionmaker(bind=engine)()
+    db = sessionmaker(bind=engine)()
+    db.add_all(
+        [
+            ModelRegistry(
+                model_name=f"{sport} production model",
+                model_version="NPI-4.0",
+                sport=sport,
+                version="4.0",
+                is_active=True,
+                production_status=True,
+            )
+            for sport in ("NFL", "NCAAF")
+        ]
+    )
+    db.commit()
+    return db
 
 
 def _add_candidate(
@@ -58,20 +74,30 @@ def _add_candidate(
     observed_at = datetime.now(UTC).replace(tzinfo=None) - (
         timedelta(hours=8) if stale else timedelta(minutes=index)
     )
+    if selection is None:
+        selection = (
+            "OVER" if index % 2 else "UNDER"
+        ) if market == "total" else "HOME"
     odds = Odds(
         game_id=game.id,
         sportsbook="Test Book",
         spread_home=-3.5,
         spread_away=3.5,
-        moneyline_home=-150,
-        moneyline_away=130,
+        moneyline_home=(
+            american_odds
+            if market == "moneyline" and selection == "HOME" and american_odds is not None
+            else -150
+        ),
+        moneyline_away=(
+            american_odds
+            if market == "moneyline" and selection == "AWAY" and american_odds is not None
+            else 130
+        ),
         total=44.5,
         created_at=observed_at,
     )
     db.add(odds)
     db.flush()
-    if selection is None:
-        selection = "OVER" if market == "total" and index % 2 else "HOME"
     prediction = Prediction(
         game_id=game.id,
         model_version="NPI-4.0",
@@ -81,7 +107,13 @@ def _add_candidate(
         american_odds=(
             american_odds
             if american_odds is not None
-            else -150 if market == "moneyline" else -110
+            else (
+                odds.moneyline_home
+                if market == "moneyline" and selection == "HOME"
+                else odds.moneyline_away
+                if market == "moneyline"
+                else -110
+            )
         ),
         odds_snapshot_id=odds.id,
         sportsbook=odds.sportsbook,
@@ -177,10 +209,10 @@ def test_optimizer_never_selects_two_markets_from_the_same_game():
 def test_optimizer_preserves_prediction_game_snapshot_and_selected_price_identity():
     db = _session()
     fixtures = [
-        ("Nebraska", "Cincinnati", "moneyline", "HOME", None, -145),
-        ("Clemson", "Duke", "moneyline", "AWAY", None, 125),
-        ("Army", "Tarleton State", "total", "OVER", 48.5, -108),
-        ("Ohio", "Rutgers", "spread", "HOME", -3.5, -112),
+        ("Nebraska", "Cincinnati", "moneyline", "HOME", None, -201),
+        ("Clemson", "Duke", "moneyline", "AWAY", None, 182),
+        ("Army", "Tarleton State", "total", "OVER", 43.0, -110),
+        ("Ohio", "Rutgers", "spread", "HOME", -7.5, -110),
     ]
     predictions = []
     expected_games = {}
@@ -260,10 +292,10 @@ def test_optimizer_preserves_prediction_game_snapshot_and_selected_price_identit
         assert leg["away_team"] == expected_away
 
     legs_by_team = {leg["home_team"]: leg for leg in result["legs"]}
-    assert legs_by_team["Nebraska"]["display_selection"] == "Nebraska ML -145"
-    assert legs_by_team["Clemson"]["display_selection"] == "Duke ML +125"
+    assert legs_by_team["Nebraska"]["display_selection"] == "Nebraska ML -201"
+    assert legs_by_team["Clemson"]["display_selection"] == "Duke ML +182"
     assert legs_by_team["Army"]["display_selection"] == (
-        "Tarleton State at Army OVER 48.5"
+        "Tarleton State at Army OVER 43"
     )
 
 
@@ -319,6 +351,116 @@ def test_parlay_moneyline_price_boundaries_and_other_markets():
     assert fixtures[3].id not in candidate_ids
     assert fixtures[4].id in candidate_ids
     assert fixtures[5].id in candidate_ids
+
+
+@pytest.mark.parametrize(
+    ("case", "market", "selection", "line", "price", "expected"),
+    [
+        ("A", "spread", "HOME", -3.5, -110, True),
+        ("B", "spread", "AWAY", 3.5, -110, True),
+        ("C", "spread", "HOME", 3.5, -110, False),
+        ("D", "spread", "AWAY", -3.5, -110, False),
+        ("E", "spread", "HOME", None, -110, False),
+        ("F", "spread", "HOME", -3.5, -105, False),
+        ("G", "moneyline", "HOME", None, -150, True),
+        ("H", "moneyline", "AWAY", None, 130, True),
+        ("I", "moneyline", "HOME", None, 130, False),
+        ("J", "moneyline", "AWAY", None, -150, False),
+        ("K", "total", "OVER", 44.5, -110, True),
+        ("L", "total", "UNDER", 44.5, -110, True),
+        ("M", "total", "OVER", 45.5, -110, False),
+        ("N", "total", "HOME", 44.5, -110, False),
+        ("O", "total", "UNDER", 44.5, -105, False),
+        ("P", "prop", "HOME", 44.5, -110, False),
+    ],
+    ids=lambda value: value if isinstance(value, str) and len(value) == 1 else None,
+)
+def test_frozen_snapshot_market_integrity(
+    case,
+    market,
+    selection,
+    line,
+    price,
+    expected,
+):
+    del case
+    prediction = Prediction(
+        market=market,
+        selection=selection,
+        line_value=line,
+        american_odds=price,
+    )
+    odds = Odds(
+        spread_home=-3.5,
+        spread_away=3.5,
+        moneyline_home=-150,
+        moneyline_away=130,
+        total=44.5,
+    )
+
+    assert ParlayOptimizerService._matches_frozen_snapshot(prediction, odds) is expected
+
+
+def _candidate_ids(db):
+    now = datetime.now(UTC).replace(tzinfo=None)
+    return {
+        candidate["prediction_id"]
+        for candidate in ParlayOptimizerService()._load_candidates(
+            db,
+            sport=None,
+            now=now,
+            horizon_end=now + timedelta(days=7),
+        )
+    }
+
+
+def test_q_optimizer_excludes_non_active_model_version():
+    db = _session()
+    _, prediction = _add_candidate(db, 1, "spread")
+    prediction.model_version = "NPI-3.9"
+    db.commit()
+
+    assert prediction.id not in _candidate_ids(db)
+
+
+def test_r_optimizer_excludes_superseded_odds_snapshot():
+    db = _session()
+    game, prediction = _add_candidate(db, 1, "spread")
+    old_snapshot = db.get(Odds, prediction.odds_snapshot_id)
+    db.add(
+        Odds(
+            game_id=game.id,
+            sportsbook="New Book",
+            spread_home=-4.5,
+            spread_away=4.5,
+            moneyline_home=-175,
+            moneyline_away=150,
+            total=45.5,
+            created_at=old_snapshot.created_at + timedelta(minutes=1),
+        )
+    )
+    db.commit()
+
+    assert prediction.id not in _candidate_ids(db)
+
+
+@pytest.mark.parametrize("status", ["final", "started", "postponed", "cancelled"])
+def test_s_optimizer_excludes_non_scheduled_statuses(status):
+    db = _session()
+    game, prediction = _add_candidate(db, 1, "spread")
+    game.status = status
+    db.commit()
+
+    assert prediction.id not in _candidate_ids(db)
+
+
+def test_t_optimizer_fails_closed_without_active_model_configuration():
+    db = _session()
+    _, prediction = _add_candidate(db, 1, "spread")
+    db.query(ModelRegistry).delete()
+    db.commit()
+
+    assert prediction.id not in _candidate_ids(db)
 
 
 def test_preferred_moneyline_outranks_equivalent_lower_priority_moneyline():
