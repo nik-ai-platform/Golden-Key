@@ -125,7 +125,6 @@ class ParlayOptimizerService:
 
         candidates = []
         active_versions = {}
-        current_snapshots = {}
         for prediction, game, odds, home, away in query.all():
             if game.sport not in active_versions:
                 try:
@@ -133,16 +132,11 @@ class ParlayOptimizerService:
                         db=db,
                         sport=game.sport,
                     )["model_version"]
-                except ValueError:
-                    active_versions[game.sport] = None
+                except ValueError as error:
+                    if "No production model configured for sport:" not in str(error):
+                        raise
+                    active_versions[game.sport] = PredictionEngine.MODEL_VERSION
             if prediction.model_version != active_versions[game.sport]:
-                continue
-            if game.id not in current_snapshots:
-                current_snapshots[game.id] = PredictionEngine._select_complete_snapshot(
-                    db.query(Odds).filter(Odds.game_id == game.id).all()
-                )
-            current_snapshot = current_snapshots[game.id]
-            if current_snapshot is None or odds.id != current_snapshot.id:
                 continue
             if not self._matches_frozen_snapshot(prediction, odds):
                 continue

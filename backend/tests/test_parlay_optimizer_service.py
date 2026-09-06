@@ -423,10 +423,10 @@ def test_q_optimizer_excludes_non_active_model_version():
     assert prediction.id not in _candidate_ids(db)
 
 
-def test_r_optimizer_excludes_superseded_odds_snapshot():
+def test_newer_odds_alone_does_not_supersede_a_coherent_prediction():
     db = _session()
     game, prediction = _add_candidate(db, 1, "spread")
-    old_snapshot = db.get(Odds, prediction.odds_snapshot_id)
+    frozen_snapshot = db.get(Odds, prediction.odds_snapshot_id)
     db.add(
         Odds(
             game_id=game.id,
@@ -436,12 +436,64 @@ def test_r_optimizer_excludes_superseded_odds_snapshot():
             moneyline_home=-175,
             moneyline_away=150,
             total=45.5,
-            created_at=old_snapshot.created_at + timedelta(minutes=1),
+            created_at=frozen_snapshot.created_at + timedelta(minutes=1),
         )
     )
     db.commit()
 
-    assert prediction.id not in _candidate_ids(db)
+    assert prediction.id in _candidate_ids(db)
+
+
+def test_prediction_lifecycle_replacement_excludes_superseded_prediction():
+    db = _session()
+    game, old_prediction = _add_candidate(db, 1, "spread")
+    old_snapshot = db.get(Odds, old_prediction.odds_snapshot_id)
+    new_snapshot = Odds(
+        game_id=game.id,
+        sportsbook="New Book",
+        spread_home=-4.5,
+        spread_away=4.5,
+        moneyline_home=-175,
+        moneyline_away=150,
+        total=45.5,
+        created_at=old_snapshot.created_at + timedelta(minutes=1),
+    )
+    db.add(new_snapshot)
+    db.flush()
+    db.delete(old_prediction)
+    db.flush()
+    current_prediction = Prediction(
+        game_id=game.id,
+        model_version="NPI-4.0",
+        market="spread",
+        selection="HOME",
+        line_value=new_snapshot.spread_home,
+        american_odds=-110,
+        odds_snapshot_id=new_snapshot.id,
+        sportsbook=new_snapshot.sportsbook,
+        odds_observed_at=new_snapshot.created_at,
+        npi_score=170,
+        simulation_probability=72,
+        confidence_score=82,
+        projected_edge=6,
+        risk_level="LOW",
+        reasoning="Current lifecycle replacement.",
+    )
+    db.add(current_prediction)
+    db.commit()
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    candidates = ParlayOptimizerService()._load_candidates(
+        db,
+        sport=None,
+        now=now,
+        horizon_end=now + timedelta(days=7),
+    )
+
+    assert len(candidates) == 1
+    assert candidates[0]["prediction_id"] == current_prediction.id
+    assert candidates[0]["odds_snapshot_id"] == new_snapshot.id
+    assert candidates[0]["odds_snapshot_id"] != old_snapshot.id
 
 
 @pytest.mark.parametrize("status", ["final", "started", "postponed", "cancelled"])
@@ -454,13 +506,13 @@ def test_s_optimizer_excludes_non_scheduled_statuses(status):
     assert prediction.id not in _candidate_ids(db)
 
 
-def test_t_optimizer_fails_closed_without_active_model_configuration():
+def test_optimizer_uses_prediction_engine_fallback_without_active_model_configuration():
     db = _session()
     _, prediction = _add_candidate(db, 1, "spread")
     db.query(ModelRegistry).delete()
     db.commit()
 
-    assert prediction.id not in _candidate_ids(db)
+    assert prediction.id in _candidate_ids(db)
 
 
 def test_preferred_moneyline_outranks_equivalent_lower_priority_moneyline():
