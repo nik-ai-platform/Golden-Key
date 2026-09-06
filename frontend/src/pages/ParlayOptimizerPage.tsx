@@ -21,7 +21,7 @@ import {
   type OptimizedParlay,
   type ParlayLeg,
 } from "../services/parlayOptimizerApi";
-import { customerFacingReasoning } from "../utils/productFormat";
+import { customerFacingReasoning, formatProductDate } from "../utils/productFormat";
 
 const legCounts = [2, 4, 6, 8, 10] as const;
 
@@ -35,6 +35,7 @@ function titleCase(value: string): string {
 
 function LegCard({ leg, index }: { leg: ParlayLeg; index: number }) {
   const visibleReasoning = customerFacingReasoning(leg.reasoning);
+  const matchup = `${leg.away_team} at ${leg.home_team}`;
 
   return (
     <Card variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>
@@ -44,7 +45,13 @@ function LegCard({ leg, index }: { leg: ParlayLeg; index: number }) {
             <Typography variant="overline" color="text.secondary">
               Leg {index + 1} · {leg.sport}
             </Typography>
-            <Typography variant="h6" fontWeight={800} sx={{ overflowWrap: "anywhere" }}>
+            <Typography variant="body2" fontWeight={700} sx={{ overflowWrap: "anywhere" }}>
+              {matchup}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
+              {formatProductDate(leg.game_date)}
+            </Typography>
+            <Typography variant="h6" fontWeight={800} sx={{ mt: 0.75, overflowWrap: "anywhere" }}>
               {leg.display_selection}
             </Typography>
           </Box>
