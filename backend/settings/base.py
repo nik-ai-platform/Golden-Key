@@ -37,6 +37,8 @@ class BaseAppSettings(BaseSettings):
     SPORTSBOOK_API_KEYS: dict[str, str] = {}
     ODDS_API_KEY: str
     ODDS_API_BASE_URL: str = "https://api.the-odds-api.com/v4"
+    CFBD_API_KEY: str = ""
+    CFBD_API_BASE_URL: str = "https://api.collegefootballdata.com"
 
     REDIS_URL: str = ""
     STORAGE_BACKEND: str = "local"

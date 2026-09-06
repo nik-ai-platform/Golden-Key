@@ -19,3 +19,9 @@ from app.models.npi_factor_result import NPIFactorResult  # noqa: E402,F401
 from app.models.model_version import ModelVersion  # noqa: E402,F401
 from app.models.npi_weight_profile import NPIWeightProfile  # noqa: E402,F401
 from app.models.prediction_line_correction import PredictionLineCorrection  # noqa: E402,F401
+from app.models.team_provider_identity import TeamProviderIdentity  # noqa: E402,F401
+from app.models.team_alias import TeamAlias  # noqa: E402,F401
+from app.models.team_season import TeamSeason  # noqa: E402,F401
+from app.models.game_provider_identity import GameProviderIdentity  # noqa: E402,F401
+from app.models.import_run import ImportRun  # noqa: E402,F401
+from app.models.game_result_observation import GameResultObservation  # noqa: E402,F401

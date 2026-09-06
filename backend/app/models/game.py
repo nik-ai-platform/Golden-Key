@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.database.base import Base
@@ -78,6 +78,16 @@ class Game(Base):
         DateTime,
         nullable=True,
     )
+
+    neutral_site = Column(Boolean, nullable=True)
+
+    venue_name = Column(String, nullable=True)
+
+    venue_city = Column(String, nullable=True)
+
+    venue_state = Column(String, nullable=True)
+
+    historical_result_observed_at = Column(DateTime, nullable=True)
 
     home_team = relationship(
         "Team",

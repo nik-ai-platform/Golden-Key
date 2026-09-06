@@ -47,3 +47,9 @@ from app.models.discussion import Discussion
 from app.models.pipeline_run import PipelineRun
 from app.models.prediction_record import Prediction
 from app.models.ai_analysis import AIAnalysis
+from app.models.team_provider_identity import TeamProviderIdentity
+from app.models.team_alias import TeamAlias
+from app.models.team_season import TeamSeason
+from app.models.game_provider_identity import GameProviderIdentity
+from app.models.import_run import ImportRun
+from app.models.game_result_observation import GameResultObservation
