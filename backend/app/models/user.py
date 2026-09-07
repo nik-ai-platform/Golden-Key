@@ -1,4 +1,5 @@
 from sqlalchemy import Boolean, Column, DateTime, Enum, Integer, String
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.core.roles import UserRole
@@ -23,3 +24,12 @@ class User(Base):
     )
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    provider_subscriptions = relationship(
+        "ProviderSubscription",
+        back_populates="user",
+    )
+    application_entitlements = relationship(
+        "ApplicationEntitlement",
+        back_populates="user",
+    )
