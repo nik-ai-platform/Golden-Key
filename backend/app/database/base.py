@@ -14,6 +14,9 @@ from app.models.recovery_email_verification import RecoveryEmailVerification  # 
 from app.models.forgot_email_challenge import ForgotEmailChallenge  # noqa: E402,F401
 from app.models.user_prediction import UserPrediction  # noqa: E402,F401
 from app.models.subscription import Subscription  # noqa: E402,F401
+from app.models.provider_subscription import ProviderSubscription  # noqa: E402,F401
+from app.models.application_entitlement import ApplicationEntitlement  # noqa: E402,F401
+from app.models.provider_subscription_event import ProviderSubscriptionEvent  # noqa: E402,F401
 from app.models.prediction_result import PredictionResult  # noqa: E402,F401
 from app.models.npi_factor_result import NPIFactorResult  # noqa: E402,F401
 from app.models.model_version import ModelVersion  # noqa: E402,F401
