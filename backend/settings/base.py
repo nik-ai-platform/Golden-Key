@@ -62,6 +62,11 @@ class BaseAppSettings(BaseSettings):
     NCAAF_SHADOW_COLLECTION_ENABLED: bool = False
     NCAAF_SHADOW_SPEC_VERSION: str = "NCAAF-SHADOW-1.0"
 
+    STRIPE_TEST_MODE_ENABLED: bool = False
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+    STRIPE_PRICE_IDS: dict[str, str] = {}
+
     AUTH_DEMO_EMAIL: str
     AUTH_DEMO_PASSWORD: str
 
@@ -85,6 +90,22 @@ class BaseAppSettings(BaseSettings):
             if isinstance(parsed, dict):
                 return {str(key): str(item) for key, item in parsed.items()}
         raise ValueError("SPORTSBOOK_API_KEYS must be a JSON object")
+
+    @field_validator("STRIPE_PRICE_IDS", mode="before")
+    @classmethod
+    def parse_stripe_price_ids(cls, value: Any) -> dict[str, str]:
+        if value in (None, ""):
+            return {}
+        if isinstance(value, dict):
+            return {str(key).lower(): str(item) for key, item in value.items()}
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError as exc:
+                raise ValueError("STRIPE_PRICE_IDS must be a JSON object") from exc
+            if isinstance(parsed, dict):
+                return {str(key).lower(): str(item) for key, item in parsed.items()}
+        raise ValueError("STRIPE_PRICE_IDS must be a JSON object")
 
     @field_validator("SMTP_SETTINGS", mode="before")
     @classmethod

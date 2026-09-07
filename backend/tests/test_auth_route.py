@@ -80,13 +80,19 @@ def test_login_token_authenticates_users_me_route(monkeypatch):
     )
     monkeypatch.setattr(
         subscriptions,
-        "get_user_subscription",
-        lambda *_: {
-            "id": None,
-            "plan": "free",
-            "active": False,
-            "created_at": None,
-        },
+        "_persistent_user",
+        lambda *_: type("PersistentUser", (), {"id": 1})(),
+    )
+    monkeypatch.setattr(subscriptions, "get_entitlement", lambda *_: None)
+    monkeypatch.setattr(
+        subscriptions,
+        "has_active_entitlement",
+        lambda *_: False,
+    )
+    monkeypatch.setattr(
+        subscriptions,
+        "get_user_provider_subscriptions",
+        lambda *_: [],
     )
     monkeypatch.setattr(premium, "require_premium", lambda *_: True)
     client = TestClient(app)

@@ -20,6 +20,7 @@ Backend services and API layer for the nik-ai-platform.
 	```
 
 	Required variables: `DATABASE_URL`, `SECRET_KEY`, `JWT_SECRET`, `OPENAI_API_KEY`, `SPORTSBOOK_API_KEYS`, `REDIS_URL`, `SMTP_SETTINGS`.
+	Stripe sandbox billing is disabled by default. To enable it locally, set `STRIPE_TEST_MODE_ENABLED=true`, provide an `sk_test_` value through `STRIPE_SECRET_KEY`, set `STRIPE_WEBHOOK_SECRET`, and map plans to test prices with `STRIPE_PRICE_IDS`.
 
 2. Start PostgreSQL with Docker (host port `5433` -> container `5432`):
 
