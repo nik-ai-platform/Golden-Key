@@ -9,11 +9,27 @@ from app.auth.schemas import AuthUser
 from app.core.config import settings
 from app.database.session import get_db
 from app.models.application_entitlement import EntitlementStatus
+from app.schemas.apple_subscription import (
+    AppleNotificationRequest,
+    AppleTransactionVerificationRequest,
+    AppleWebhookResponse,
+)
 from app.schemas.stripe_subscription import (
     CheckoutSessionCreateRequest,
     StripeSessionResponse,
     StripeWebhookResponse,
     SubscriptionOverviewResponse,
+)
+from app.providers.apple_subscription_provider import (
+    AppleSubscriptionConfigurationError,
+    AppleSubscriptionProvider,
+    AppleVerificationError,
+)
+from app.services.apple_subscription_service import (
+    AppleSubscriptionError,
+    AppleSubscriptionOwnershipError,
+    process_verified_apple_notification,
+    verify_and_synchronize_apple_transaction,
 )
 from app.services.entitlement_service import get_entitlement, has_active_entitlement
 from app.services.entitlement_reconciliation_service import PREMIUM_ENTITLEMENT_KEY
@@ -41,13 +57,17 @@ def my_subscription(
     db: Session = Depends(get_db),
 ):
     user = _persistent_user(db, current_user)
-    entitlement = get_entitlement(db, user.id, PREMIUM_ENTITLEMENT_KEY)
-    subscriptions = get_user_provider_subscriptions(db, user.id)
+    return _subscription_overview(db, user.id)
+
+
+def _subscription_overview(db: Session, user_id: int):
+    entitlement = get_entitlement(db, user_id, PREMIUM_ENTITLEMENT_KEY)
+    subscriptions = get_user_provider_subscriptions(db, user_id)
     return {
         "entitlement_key": PREMIUM_ENTITLEMENT_KEY,
         "plan": entitlement.plan if entitlement else "free",
         "status": entitlement.status if entitlement else EntitlementStatus.INACTIVE.value,
-        "active": has_active_entitlement(db, user.id, PREMIUM_ENTITLEMENT_KEY),
+        "active": has_active_entitlement(db, user_id, PREMIUM_ENTITLEMENT_KEY),
         "starts_at": entitlement.starts_at if entitlement else None,
         "ends_at": entitlement.ends_at if entitlement else None,
         "provider_subscriptions": subscriptions,
@@ -68,6 +88,16 @@ def _stripe_gateway(*, require_webhook_secret: bool = False) -> StripeGateway:
     try:
         return StripeGateway.from_settings(require_webhook_secret=require_webhook_secret)
     except StripeSandboxConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+
+def _apple_provider() -> AppleSubscriptionProvider:
+    try:
+        return AppleSubscriptionProvider.from_settings()
+    except AppleSubscriptionConfigurationError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
@@ -122,4 +152,58 @@ async def stripe_webhook(
         processing_status, duplicate = process_verified_stripe_event(db, gateway, event)
     except StripeEventProcessingError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    return {"status": processing_status, "duplicate": duplicate}
+
+
+@router.post("/apple/verify", response_model=SubscriptionOverviewResponse)
+def verify_apple_subscription(
+    payload: AppleTransactionVerificationRequest,
+    current_user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user = _persistent_user(db, current_user)
+    provider = _apple_provider()
+    try:
+        verify_and_synchronize_apple_transaction(
+            db,
+            provider,
+            user_id=user.id,
+            signed_transaction=payload.signedTransaction,
+        )
+        db.commit()
+    except AppleSubscriptionOwnershipError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except (AppleVerificationError, AppleSubscriptionError) as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+    return _subscription_overview(db, user.id)
+
+
+@router.post("/webhooks/apple", response_model=AppleWebhookResponse)
+def apple_webhook(
+    payload: AppleNotificationRequest,
+    db: Session = Depends(get_db),
+):
+    provider = _apple_provider()
+    try:
+        notification = provider.verify_notification(payload.signedPayload)
+    except AppleVerificationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid Apple notification signature or claims",
+        ) from exc
+    try:
+        processing_status, duplicate = process_verified_apple_notification(
+            db,
+            notification,
+        )
+    except AppleSubscriptionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
     return {"status": processing_status, "duplicate": duplicate}

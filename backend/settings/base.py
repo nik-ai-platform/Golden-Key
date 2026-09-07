@@ -67,6 +67,18 @@ class BaseAppSettings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: str = ""
     STRIPE_PRICE_IDS: dict[str, str] = {}
 
+    APPLE_SUBSCRIPTIONS_ENABLED: bool = False
+    APPLE_BUNDLE_ID: str = ""
+    APPLE_PRO_MONTHLY_PRODUCT_ID: str = ""
+    APPLE_PRO_ANNUAL_PRODUCT_ID: str = ""
+    APPLE_APP_STORE_ENVIRONMENT: str = "sandbox"
+    APPLE_APP_STORE_ISSUER_ID: str = ""
+    APPLE_APP_STORE_KEY_ID: str = ""
+    APPLE_APP_STORE_PRIVATE_KEY: str = ""
+    APPLE_APPLE_ID: int | None = None
+    APPLE_ROOT_CA_PATHS: list[str] = Field(default_factory=list)
+    APPLE_ENABLE_ONLINE_CHECKS: bool = False
+
     AUTH_DEMO_EMAIL: str
     AUTH_DEMO_PASSWORD: str
 
@@ -106,6 +118,13 @@ class BaseAppSettings(BaseSettings):
             if isinstance(parsed, dict):
                 return {str(key).lower(): str(item) for key, item in parsed.items()}
         raise ValueError("STRIPE_PRICE_IDS must be a JSON object")
+
+    @field_validator("APPLE_APPLE_ID", mode="before")
+    @classmethod
+    def parse_optional_apple_id(cls, value: Any) -> int | None:
+        if value in (None, ""):
+            return None
+        return int(value)
 
     @field_validator("SMTP_SETTINGS", mode="before")
     @classmethod
