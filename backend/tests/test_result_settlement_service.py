@@ -154,7 +154,12 @@ def test_moneyline_tie_pushes_for_tie_capable_game():
     assert result["outcome"] == "PUSH"
 
 
-def test_settle_game_persists_and_reports_all_three_markets():
+def test_settle_game_persists_and_reports_all_three_markets(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.result_settlement_service."
+        "settle_rule_intelligence_for_prediction",
+        lambda **_kwargs: None,
+    )
     game = _game(home_score=84, away_score=81)
     predictions = [
         _prediction("spread", "HOME", -3),
@@ -195,7 +200,12 @@ def test_settle_game_persists_and_reports_all_three_markets():
     db.commit.assert_called_once_with()
 
 
-def test_existing_result_is_not_settled_twice():
+def test_existing_result_is_not_settled_twice(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.result_settlement_service."
+        "settle_rule_intelligence_for_prediction",
+        lambda **_kwargs: None,
+    )
     game = SimpleNamespace(
         id=123,
         home_score=88,

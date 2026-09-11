@@ -55,3 +55,4 @@ from app.models.import_run import ImportRun
 from app.models.game_result_observation import GameResultObservation
 from app.models.team_power_rating import TeamPowerRatingRecord
 from app.models.prediction_power_snapshot import PredictionPowerSnapshot
+from app.models.ncaaf_rule_intelligence import NcaafRuleIntelligence
