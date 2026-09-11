@@ -5,6 +5,9 @@ from sqlalchemy.orm import Session
 from app.models.game import Game
 from app.models.prediction_record import Prediction
 from app.models.prediction_result import PredictionResult
+from app.services.ncaaf_rule_intelligence_service import (
+    settle_rule_intelligence_for_prediction,
+)
 
 
 class ResultSettlementService:
@@ -44,6 +47,11 @@ class ResultSettlementService:
                 .first()
             )
             if existing:
+                settle_rule_intelligence_for_prediction(
+                    db=db,
+                    prediction_result=existing,
+                    game=game,
+                )
                 results.append(
                     {
                         "prediction_id": prediction.id,
@@ -58,14 +66,19 @@ class ResultSettlementService:
                 game=game,
                 prediction=prediction,
             )
-            db.add(
-                PredictionResult(
-                    prediction_id=prediction.id,
-                    actual_result=graded["actual_result"],
-                    predicted_result=graded["predicted_result"],
-                    outcome=graded["outcome"],
-                    profit_loss=graded["profit_loss"],
-                )
+            prediction_result = PredictionResult(
+                prediction_id=prediction.id,
+                actual_result=graded["actual_result"],
+                predicted_result=graded["predicted_result"],
+                outcome=graded["outcome"],
+                profit_loss=graded["profit_loss"],
+            )
+            db.add(prediction_result)
+            db.flush()
+            settle_rule_intelligence_for_prediction(
+                db=db,
+                prediction_result=prediction_result,
+                game=game,
             )
             results.append(
                 {
@@ -119,6 +132,12 @@ class ResultSettlementService:
         result.predicted_result = graded["predicted_result"]
         result.outcome = graded["outcome"]
         result.profit_loss = graded["profit_loss"]
+        db.flush()
+        settle_rule_intelligence_for_prediction(
+            db=db,
+            prediction_result=result,
+            game=game,
+        )
         db.commit()
         db.refresh(result)
         return result

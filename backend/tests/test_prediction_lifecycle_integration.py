@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 import app.services.v1_read_service as v1_read_service
 from app.database.base import Base
 from app.models.game import Game
+from app.models.ncaaf_rule_intelligence import NcaafRuleIntelligence
 from app.models.odds import Odds
 from app.models.prediction_record import Prediction
 from app.models.prediction_result import PredictionResult
@@ -112,6 +113,12 @@ def test_prediction_generation_settlement_and_performance_lifecycle():
         assert by_market["moneyline"].american_odds is not None
         assert by_market["total"].line_value is not None
         assert by_market["total"].american_odds is not None
+        tracker_rows = db.query(NcaafRuleIntelligence).all()
+        assert len(tracker_rows) == 1
+        tracker = tracker_rows[0]
+        assert tracker.prediction_id == by_market["spread"].id
+        assert tracker.rule_code == "HOME_NEG_7_5_DOES_NOT_COVER"
+        assert tracker.odds_snapshot_id == odds.id
 
         game.home_score = 31
         game.away_score = 21
@@ -127,11 +134,28 @@ def test_prediction_generation_settlement_and_performance_lifecycle():
         assert {result.prediction_id for result in first_results} == {
             prediction.id for prediction in predictions
         }
+        assert tracker.rule_result == "LOSS"
+        assert tracker.npi_result == next(
+            result.outcome
+            for result in first_results
+            if result.prediction_id == tracker.prediction_id
+        )
+        first_tracker_state = (
+            tracker.rule_result,
+            tracker.npi_result,
+            tracker.settled_at,
+        )
 
         second_settlement = settlement_service.settle_game(db, game.id)
 
         assert second_settlement["settled"] == 0
         assert db.query(PredictionResult).count() == 3
+        assert db.query(NcaafRuleIntelligence).count() == 1
+        assert (
+            tracker.rule_result,
+            tracker.npi_result,
+            tracker.settled_at,
+        ) == first_tracker_state
 
         performance = V1ReadService().get_performance(db)
 
