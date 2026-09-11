@@ -1,7 +1,7 @@
 """add ncaaf rule intelligence
 
-Revision ID: b8d4e6f2a731
-Revises: a4c8e2f19b73
+Revision ID: c6f2a8d4e913
+Revises: f3a9c7d2e641
 Create Date: 2026-09-11 00:00:00.000000
 """
 
@@ -11,8 +11,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = "b8d4e6f2a731"
-down_revision: Union[str, None] = "a4c8e2f19b73"
+revision: str = "c6f2a8d4e913"
+down_revision: Union[str, None] = "f3a9c7d2e641"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
