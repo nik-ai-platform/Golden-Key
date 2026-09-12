@@ -157,7 +157,7 @@ describe("Game Analysis", () => {
     expect(screen.getAllByText("Model Probability")).toHaveLength(6);
     expect(screen.getAllByText("Low")).toHaveLength(4);
     expect(screen.queryByText("LOW")).toBeNull();
-    expect(screen.getAllByText("Golden Key Best Pick")).toHaveLength(1);
+    expect(screen.getAllByText("Bear A Hand Sports Best Pick")).toHaveLength(1);
     expect(screen.getByText("High Probability — Low Betting Value")).toBeTruthy();
     expect(screen.getByText("NPI Score: 175. Seattle owns the stronger matchup profile.")).toBeTruthy();
     expect(screen.queryByText(/projected market edge/i)).toBeNull();
@@ -204,6 +204,6 @@ describe("Game Analysis", () => {
     renderPage();
 
     expect(screen.getByText("New England Patriots @ Seattle Seahawks")).toBeTruthy();
-    expect(screen.getByText("No Golden Key predictions are available for this game yet.")).toBeTruthy();
+    expect(screen.getByText("No Bear A Hand Sports predictions are available for this game yet.")).toBeTruthy();
   });
 });

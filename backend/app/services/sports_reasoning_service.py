@@ -12,14 +12,14 @@ class SportsReasoningService:
             "Simulation probability exceeds implied odds.",
         ]
 
-        explanation = "Golden Key identifies value because:\n\n1. {one}\n\n2. {two}\n\n3. {three}".format(
+        explanation = "Bear A Hand Sports identifies value because:\n\n1. {one}\n\n2. {two}\n\n3. {three}".format(
             one=lines[0],
             two=lines[1],
             three=lines[2],
         )
 
         return {
-            "question": f"Why does Golden Key like {matchup}?",
+            "question": f"Why does Bear A Hand Sports like {matchup}?",
             "explanation": explanation,
             "highlights": lines,
         }

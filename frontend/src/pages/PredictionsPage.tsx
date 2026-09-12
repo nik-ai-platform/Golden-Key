@@ -55,7 +55,7 @@ export function PredictionsPage() {
       { field: "home_team", headerName: "Home Team", flex: 1.2, minWidth: 160 },
       { field: "away_team", headerName: "Away Team", flex: 1.2, minWidth: 160 },
       { field: "market", headerName: "Market", width: 120 },
-      { field: "display_selection", headerName: "Golden Key Pick", flex: 1, minWidth: 170 },
+      { field: "display_selection", headerName: "Bear A Hand Sports Pick", flex: 1, minWidth: 170 },
       {
         field: "confidence_score",
         headerName: "Confidence",

@@ -74,7 +74,7 @@ function LegCard({ leg, index }: { leg: ParlayLeg; index: number }) {
         <Divider sx={{ my: 2 }} />
         <Typography variant="subtitle2">Why it qualified</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          {visibleReasoning || "Golden Key model signals align on this selection."}
+          {visibleReasoning || "Bear A Hand Sports model signals align on this selection."}
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.5 }}>
           {leg.sportsbook} · {formatAmericanOdds(leg.american_odds)}
@@ -123,7 +123,7 @@ export function ParlayOptimizerPage() {
       <Box>
         <Typography variant="h4" fontWeight={800}>Parlay Optimizer</Typography>
         <Typography color="text.secondary" sx={{ mt: 1 }}>
-          Build a diversified parlay from current Golden Key predictions.
+          Build a diversified parlay from current Bear A Hand Sports predictions.
         </Typography>
       </Box>
 
@@ -163,7 +163,7 @@ export function ParlayOptimizerPage() {
         <Stack spacing={3}>
           <Box>
             <Typography variant="overline" color="secondary.main" fontWeight={800}>
-              Golden Key
+              Bear A Hand Sports
             </Typography>
             <Typography variant="h5" fontWeight={800}>
               {mutation.data.leg_count}-Leg Optimized Parlay

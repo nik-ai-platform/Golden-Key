@@ -8,7 +8,7 @@ class DailyReportService:
             ]
 
         return {
-            "title": "Golden Key Daily Report",
+            "title": "Bear A Hand Sports Daily Report",
             "top_opportunities": opportunities,
             "avoid": [{"name": "NYK -8", "reason": "Market agrees with model."}],
         }

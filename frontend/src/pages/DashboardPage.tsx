@@ -244,7 +244,7 @@ export function DashboardPage() {
               </Card>
               <Card variant="outlined" sx={{ mt: 1.5 }}>
                 <CardContent>
-                  <Typography variant="subtitle1" fontWeight={700}>Golden Key Coach</Typography>
+                  <Typography variant="subtitle1" fontWeight={700}>Bear A Hand Coach</Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                     {coachBriefingQuery.data?.briefing?.headline ?? "Good Morning"}
                   </Typography>
@@ -393,7 +393,7 @@ export function DashboardPage() {
         <CardContent>
           <Typography variant="h6" gutterBottom>AI Model Center</Typography>
           <Typography color="text.secondary" sx={{ mb: 2 }}>
-            Golden Key AI combines NPI, ML, calibration, and explainability signals into a single decision surface.
+            Bear A Hand AI combines NPI, ML, calibration, and explainability signals into a single decision surface.
           </Typography>
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 4 }}>

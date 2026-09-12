@@ -139,7 +139,7 @@ export function ProductProfilePage() {
         </Typography>
 
         <Typography color="text.secondary" sx={{ mt: 1 }}>
-          Your Golden Key account and access information.
+          Your Bear A Hand Sports account and access information.
         </Typography>
       </Box>
 

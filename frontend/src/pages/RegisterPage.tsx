@@ -63,7 +63,7 @@ export function RegisterPage() {
       <Card sx={{ width: "100%", maxWidth: 440 }}>
         <CardContent sx={{ p: 4 }}>
           <Stack spacing={2.5} component="form" onSubmit={onSubmit}>
-            <Box><Typography variant="overline" color="text.secondary">Golden Key</Typography><Typography variant="h4">Create account</Typography><Typography color="text.secondary" sx={{ mt: 1 }}>Start tracking predictions and performance.</Typography></Box>
+            <Box><Typography variant="overline" color="text.secondary">Bear A Hand Sports</Typography><Typography variant="h4">Create account</Typography><Typography color="text.secondary" sx={{ mt: 1 }}>Start tracking predictions and performance.</Typography></Box>
             {error ? <Alert severity="error">{error}</Alert> : null}
             <TextField label="Username" value={username} onChange={(event) => setUsername(event.target.value)} required />
             <TextField label="Email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />

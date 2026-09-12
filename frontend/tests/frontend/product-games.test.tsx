@@ -172,13 +172,13 @@ describe("Games decision screen", () => {
     expect(within(nflCard).getByText("Odds +125")).toBeTruthy();
     expect(within(nflCard).getByText("180.0 / 200")).toBeTruthy();
     expect(within(nflCard).getAllByText("83.0%")).toHaveLength(3);
-    expect(within(nflCard).getAllByText("Golden Key Best Pick")).toHaveLength(1);
-    expect(within(nbaCard).getAllByText("Golden Key Best Pick")).toHaveLength(1);
+    expect(within(nflCard).getAllByText("Bear A Hand Sports Best Pick")).toHaveLength(1);
+    expect(within(nbaCard).getAllByText("Bear A Hand Sports Best Pick")).toHaveLength(1);
     expect(within(nbaCard).getByText("High Probability — Low Betting Value")).toBeTruthy();
     expect(within(nbaCard).getByText("Odds -1000")).toBeTruthy();
     expect(
       within(nbaCard).getByText("Boston Celtics -2.5").parentElement?.textContent,
-    ).toContain("Golden Key Best Pick");
+    ).toContain("Bear A Hand Sports Best Pick");
     expect(screen.getAllByRole("button", { name: /save pick/i })).toHaveLength(6);
     expect(
       within(nflCard)

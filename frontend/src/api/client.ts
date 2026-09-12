@@ -69,7 +69,7 @@ client.interceptors.response.use(
     const message = timedOut
       ? "Request timed out"
       : isNetworkError
-        ? "Unable to connect to Golden Key API."
+        ? "Unable to connect to Bear A Hand Sports API."
         : status === 401
           ? "Your session has expired. Please sign in again."
           : apiMessage !== defaultMessage

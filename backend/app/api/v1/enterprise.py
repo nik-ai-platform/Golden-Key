@@ -54,7 +54,7 @@ def create_organization(payload: dict):
 @router.get("/workspaces")
 def list_workspaces():
     if not WORKSPACES:
-        workspace = Workspace(organization_id=1, name="Golden Key NBA Research Lab", settings='{"members": 15, "active_projects": 42}')
+        workspace = Workspace(organization_id=1, name="Bear A Hand Sports NBA Research Lab", settings='{"members": 15, "active_projects": 42}')
         WORKSPACES.append({"id": 1, "organization_id": workspace.organization_id, "name": workspace.name, "settings": workspace.settings, "created_at": str(workspace.created_at)})
     return WORKSPACES
 

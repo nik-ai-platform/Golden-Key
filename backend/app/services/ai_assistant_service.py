@@ -66,7 +66,7 @@ class AIAssistantService:
                 recommendation="Boston -4.5",
             )
             return (
-                f"Golden Key favors this matchup because {', '.join(explanation['reasons'])}. "
+                f"Bear A Hand Sports favors this matchup because {', '.join(explanation['reasons'])}. "
                 f"The model's confidence is {profile_context.get('confidence', 82)}%."
             )
 

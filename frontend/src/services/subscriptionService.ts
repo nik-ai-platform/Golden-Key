@@ -2,11 +2,11 @@ import { client } from "../api/client";
 
 export const SUBSCRIPTION_PLANS = {
   pro_monthly: {
-    name: "Golden Key Pro Monthly",
+    name: "Bear A Hand Pro Monthly",
     billingLabel: "Monthly",
   },
   pro_annual: {
-    name: "Golden Key Pro Annual",
+    name: "Bear A Hand Pro Annual",
     billingLabel: "Annual",
   },
 } as const;

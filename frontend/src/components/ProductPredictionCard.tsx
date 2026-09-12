@@ -30,7 +30,7 @@ export function ProductPredictionCard({ prediction, rank }: ProductPredictionCar
             <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 1.1 }}>
               {rank ? `#${rank}  ` : ""}{prediction.sport} · {marketLabel(prediction.market)}
             </Typography>
-            <Typography variant="overline" color="text.secondary">Golden Key Best Pick</Typography>
+            <Typography variant="overline" color="text.secondary">Bear A Hand Sports Best Pick</Typography>
             <Typography variant="h6">{prediction.away_team} @ {prediction.home_team}</Typography>
             <Typography variant="body2" color="text.secondary">{formatProductDate(prediction.game_date)}</Typography>
           </Stack>

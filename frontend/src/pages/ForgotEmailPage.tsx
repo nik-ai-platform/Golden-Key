@@ -47,13 +47,13 @@ export function ForgotEmailPage() {
         <Typography variant="h4">{maskedEmail ? "Account found" : "Forgot your email?"}</Typography>
         {maskedEmail ? (
           <>
-            <Typography color="text.secondary">Your Golden Key sign-in email:</Typography>
+            <Typography color="text.secondary">Your Bear A Hand Sports sign-in email:</Typography>
             <Typography variant="h6" fontWeight={700}>{maskedEmail}</Typography>
           </>
         ) : (
           <>
             <Typography color="text.secondary">
-              Enter the verified recovery email associated with your Golden Key account.
+              Enter the verified recovery email associated with your Bear A Hand Sports account.
             </Typography>
             {requested ? (
               <Alert severity="success">

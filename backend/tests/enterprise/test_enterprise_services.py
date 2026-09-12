@@ -33,7 +33,7 @@ def test_api_keys_and_data_licensing_are_supported():
     branding = white_label.build_branding("Client Branding")
 
     assert "NBA Historical Database" in access["access"]
-    assert branding["powered_by"] == "Golden Key"
+    assert branding["powered_by"] == "Bear A Hand Sports"
 
 
 def test_audit_logs_and_security_monitoring_work():

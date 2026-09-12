@@ -39,13 +39,13 @@ def test_reports_generate_consistently():
     service = DailyReportService()
     report = service.generate_report()
 
-    assert report["title"] == "Golden Key Daily Report"
+    assert report["title"] == "Bear A Hand Sports Daily Report"
     assert len(report["top_opportunities"]) == 2
 
 
 def test_analyst_never_changes_predictions():
     service = AIAnalystService()
     context = {"prediction": "DAL"}
-    response = service.answer_question("Why does Golden Key like this game?", context)
+    response = service.answer_question("Why does Bear A Hand Sports like this game?", context)
 
     assert "DAL" in response["answer"]

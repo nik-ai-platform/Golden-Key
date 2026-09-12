@@ -83,7 +83,7 @@ class AIAnalysisEngine:
 
         if confidence >= 80:
             return (
-                "Strong Golden Key edge detected."
+                "Strong Bear A Hand Sports edge detected."
             )
 
         if confidence >= 70:

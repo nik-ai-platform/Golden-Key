@@ -79,7 +79,7 @@ export function OnboardingPage() {
       <Card sx={{ width: "100%", maxWidth: 760 }}>
         <CardContent>
           <Stack spacing={2.5}>
-            <Typography variant="h4">Welcome to Golden Key</Typography>
+            <Typography variant="h4">Welcome to Bear A Hand Sports</Typography>
             <Typography color="text.secondary">Step {stepIndex + 1} of {STEPS.length}: {STEPS[stepIndex]}</Typography>
             <LinearProgress variant="determinate" value={progress} />
 

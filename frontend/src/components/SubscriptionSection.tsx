@@ -74,7 +74,7 @@ export function SubscriptionSection() {
     <Stack spacing={2.5} aria-labelledby="subscription-heading">
       <Box>
         <Typography id="subscription-heading" variant="h6" fontWeight={700}>
-          Golden Key Pro
+          Bear A Hand Pro
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
           Choose a billing interval or manage your current subscription.
@@ -83,7 +83,7 @@ export function SubscriptionSection() {
 
       {checkoutState === "success" ? (
         <Alert severity="success">
-          Your payment was completed. Updating your Golden Key Pro access...
+          Your payment was completed. Updating your Bear A Hand Pro access...
         </Alert>
       ) : null}
       {checkoutState === "canceled" ? (
