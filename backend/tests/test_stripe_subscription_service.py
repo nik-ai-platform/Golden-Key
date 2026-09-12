@@ -26,6 +26,7 @@ from app.services.provider_subscription_event_service import record_provider_eve
 from app.services.provider_subscription_service import create_or_update_provider_subscription
 from app.services.stripe_gateway import StripeGateway, StripeSandboxConfigurationError
 from app.services.stripe_subscription_service import (
+    StripeEventProcessingError,
     create_billing_portal_session,
     create_checkout_session,
     process_verified_stripe_event,
@@ -92,14 +93,14 @@ def database():
         engine.dispose()
 
 
-def _stripe_subscription(status="active", **overrides):
+def _stripe_subscription(status="active", plan="pro_monthly", **overrides):
     values = {
         "id": "sub_test_123",
         "customer": "cus_test_123",
         "status": status,
         "metadata": {
             "golden_key_user_id": "1",
-            "golden_key_plan": "pro",
+            "golden_key_plan": plan,
         },
         "items": {
             "data": [
@@ -160,17 +161,88 @@ def test_real_stripe_sdk_verifies_test_webhook_signature():
     assert event.id == "evt_signature_test"
 
 
-def test_checkout_and_portal_use_mocked_gateway(database, monkeypatch):
+@pytest.mark.parametrize(
+    ("plan", "price_id"),
+    (
+        ("pro_monthly", "price_test_monthly"),
+        ("pro_annual", "price_test_annual"),
+    ),
+)
+def test_checkout_uses_canonical_plan_price(database, monkeypatch, plan, price_id):
     db, _ = database
     gateway = FakeStripeGateway()
     user = db.get(User, 1)
-    monkeypatch.setattr(settings, "STRIPE_PRICE_IDS", {"pro": "price_test_pro"})
+    monkeypatch.setattr(
+        settings,
+        "STRIPE_PRICE_IDS",
+        {
+            "pro_monthly": "price_test_monthly",
+            "pro_annual": "price_test_annual",
+        },
+    )
     monkeypatch.setattr(settings, "FRONTEND_URL", "https://app.test")
 
-    checkout = create_checkout_session(db, gateway, user=user, plan="PRO")
+    checkout = create_checkout_session(db, gateway, user=user, plan=plan.upper())
     assert checkout.url == "https://checkout.stripe.test/session"
-    assert gateway.checkout_calls[0]["price_id"] == "price_test_pro"
+    assert gateway.checkout_calls[0]["plan"] == plan
+    assert gateway.checkout_calls[0]["price_id"] == price_id
     assert gateway.checkout_calls[0]["customer_id"] is None
+
+
+@pytest.mark.parametrize("plan", ("pro_monthly", "pro_annual"))
+def test_checkout_sets_canonical_plan_metadata(database, monkeypatch, plan):
+    db, _ = database
+    user = db.get(User, 1)
+    calls = []
+
+    def create_session(**kwargs):
+        calls.append(kwargs)
+        return type("Session", (), {"url": "https://checkout.stripe.test/session"})()
+
+    monkeypatch.setattr(
+        "app.services.stripe_gateway.stripe.checkout.Session.create",
+        create_session,
+    )
+    monkeypatch.setattr(settings, "STRIPE_PRICE_IDS", {plan: f"price_test_{plan}"})
+
+    create_checkout_session(
+        db,
+        StripeGateway("sk_test_local_only"),
+        user=user,
+        plan=plan,
+    )
+
+    assert calls[0]["metadata"] == {
+        "golden_key_user_id": "1",
+        "golden_key_plan": plan,
+    }
+    assert calls[0]["subscription_data"]["metadata"] == calls[0]["metadata"]
+
+
+def test_checkout_rejects_noncanonical_plans(database, monkeypatch):
+    db, _ = database
+    gateway = FakeStripeGateway()
+    user = db.get(User, 1)
+    monkeypatch.setattr(
+        settings,
+        "STRIPE_PRICE_IDS",
+        {
+            "pro": "price_test_legacy",
+            "unknown": "price_test_unknown",
+        },
+    )
+
+    for plan in ("pro", "unknown", ""):
+        with pytest.raises(StripeEventProcessingError, match="Unsupported"):
+            create_checkout_session(db, gateway, user=user, plan=plan)
+    assert gateway.checkout_calls == []
+
+
+def test_portal_uses_existing_stripe_customer(database, monkeypatch):
+    db, _ = database
+    gateway = FakeStripeGateway()
+    user = db.get(User, 1)
+    monkeypatch.setattr(settings, "FRONTEND_URL", "https://app.test")
 
     create_or_update_provider_subscription(
         db,
@@ -178,7 +250,7 @@ def test_checkout_and_portal_use_mocked_gateway(database, monkeypatch):
         provider="stripe",
         external_customer_id="cus_test_123",
         external_subscription_id="sub_test_123",
-        plan="pro",
+        plan="pro_monthly",
         status="active",
     )
     portal = create_billing_portal_session(db, gateway, user=user)
@@ -188,13 +260,14 @@ def test_checkout_and_portal_use_mocked_gateway(database, monkeypatch):
     ]
 
 
-def test_verified_webhook_synchronizes_subscription_and_entitlement(database):
+@pytest.mark.parametrize("plan", ("pro_monthly", "pro_annual"))
+def test_verified_webhook_synchronizes_subscription_and_entitlement(database, plan):
     db, _ = database
     gateway = FakeStripeGateway()
     event = _stripe_event(
         "evt_test_created",
         "customer.subscription.created",
-        _stripe_subscription(),
+        _stripe_subscription(plan=plan),
     )
 
     processing_status, duplicate = process_verified_stripe_event(db, gateway, event)
@@ -205,6 +278,9 @@ def test_verified_webhook_synchronizes_subscription_and_entitlement(database):
     assert (processing_status, duplicate) == ("processed", False)
     assert provider.external_subscription_id == "sub_test_123"
     assert provider.external_product_id == "prod_test_pro"
+    assert provider.plan == plan
+    assert entitlement.entitlement_key == "premium"
+    assert entitlement.plan == plan
     assert entitlement.status == "active"
     assert entitlement.source_provider == "stripe"
     assert provider_event.processing_status == "processed"
@@ -291,6 +367,20 @@ def test_failed_webhook_is_durable_and_retryable(database):
     assert db.query(ProviderSubscriptionEvent).one().processing_status == "processed"
 
 
+def test_canceled_subscription_does_not_grant_premium(database):
+    db, _ = database
+    gateway = FakeStripeGateway()
+    event = _stripe_event(
+        "evt_test_canceled",
+        "customer.subscription.deleted",
+        _stripe_subscription(status="canceled", plan="pro_annual"),
+    )
+
+    assert process_verified_stripe_event(db, gateway, event) == ("processed", False)
+    assert db.query(ProviderSubscription).one().status == "canceled"
+    assert db.query(ApplicationEntitlement).count() == 0
+
+
 def test_stripe_cancellation_does_not_revoke_active_apple_entitlement(database):
     db, _ = database
     stripe_subscription = create_or_update_provider_subscription(
@@ -298,7 +388,7 @@ def test_stripe_cancellation_does_not_revoke_active_apple_entitlement(database):
         user_id=1,
         provider="stripe",
         external_subscription_id="sub_stripe",
-        plan="pro",
+        plan="pro_monthly",
         status="active",
         current_period_start=NOW,
         current_period_end=NOW + timedelta(days=30),
@@ -329,7 +419,7 @@ def test_last_provider_cancellation_inactivates_entitlement(database):
         user_id=1,
         provider="stripe",
         external_subscription_id="sub_only",
-        plan="pro",
+        plan="pro_monthly",
         status="active",
         current_period_start=NOW,
         current_period_end=NOW + timedelta(days=30),
@@ -356,12 +446,12 @@ def test_checkout_and_portal_routes_use_mocked_gateway(database, monkeypatch):
         provider="stripe",
         external_customer_id="cus_test_123",
         external_subscription_id="sub_test_123",
-        plan="pro",
+        plan="pro_monthly",
         status="active",
     )
     db.commit()
     gateway = FakeStripeGateway()
-    monkeypatch.setattr(settings, "STRIPE_PRICE_IDS", {"pro": "price_test_pro"})
+    monkeypatch.setattr(settings, "STRIPE_PRICE_IDS", {"pro_monthly": "price_test_monthly"})
     monkeypatch.setattr(subscription_routes, "_stripe_gateway", lambda **_: gateway)
 
     def override_db():
@@ -383,7 +473,7 @@ def test_checkout_and_portal_routes_use_mocked_gateway(database, monkeypatch):
         client = TestClient(app)
         checkout = client.post(
             "/api/v1/subscriptions/checkout-session",
-            json={"plan": "pro"},
+            json={"plan": "pro_monthly", "price_id": "price_client_supplied"},
         )
         portal = client.post("/api/v1/subscriptions/billing-portal")
         assert checkout.status_code == 200
@@ -391,6 +481,7 @@ def test_checkout_and_portal_routes_use_mocked_gateway(database, monkeypatch):
         assert portal.status_code == 200
         assert portal.json() == {"url": "https://billing.stripe.test/session"}
         assert len(gateway.checkout_calls) == 1
+        assert gateway.checkout_calls[0]["price_id"] == "price_test_monthly"
         assert len(gateway.portal_calls) == 1
     finally:
         app.dependency_overrides.pop(get_db, None)
@@ -432,7 +523,7 @@ def test_canonical_subscription_me_response(database):
         external_customer_id="cus_private",
         external_subscription_id="sub_private",
         external_product_id="price_private",
-        plan="pro",
+        plan="pro_monthly",
         status="active",
         current_period_start=NOW,
         current_period_end=NOW + timedelta(days=30),
@@ -460,7 +551,7 @@ def test_canonical_subscription_me_response(database):
         assert response.status_code == 200
         body = response.json()
         assert body["active"] is True
-        assert body["plan"] == "pro"
+        assert body["plan"] == "pro_monthly"
         assert body["provider_subscriptions"][0]["provider"] == "stripe"
         assert "external_customer_id" not in body["provider_subscriptions"][0]
         assert "external_subscription_id" not in body["provider_subscriptions"][0]

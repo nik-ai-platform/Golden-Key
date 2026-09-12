@@ -24,6 +24,8 @@ from app.services.provider_subscription_service import (
 from app.services.stripe_gateway import StripeGateway
 
 
+SUPPORTED_STRIPE_PLANS = frozenset({"pro_monthly", "pro_annual"})
+
 SUPPORTED_SUBSCRIPTION_EVENTS = {
     "customer.subscription.created",
     "customer.subscription.updated",
@@ -81,18 +83,25 @@ def _first_product_id(subscription: Any) -> str | None:
     return _resource_id(_get(_first_price(subscription), "product"))
 
 
+def _canonical_stripe_plan(value: Any) -> str:
+    plan = str(value or "").strip().lower()
+    if plan not in SUPPORTED_STRIPE_PLANS:
+        raise StripeEventProcessingError("Unsupported Stripe subscription plan")
+    return plan
+
+
 def _plan_for_subscription(subscription: Any, existing_plan: str | None = None) -> str:
     metadata = _get(subscription, "metadata", {}) or {}
     plan = _get(metadata, "golden_key_plan")
     if plan:
-        return str(plan).lower()
+        return _canonical_stripe_plan(plan)
 
     price_id = _first_price_id(subscription)
     for configured_plan, configured_price_id in settings.STRIPE_PRICE_IDS.items():
         if configured_price_id == price_id:
-            return configured_plan.lower()
+            return _canonical_stripe_plan(configured_plan)
     if existing_plan:
-        return existing_plan
+        return _canonical_stripe_plan(existing_plan)
     raise StripeEventProcessingError("Stripe subscription plan cannot be resolved")
 
 
@@ -159,7 +168,7 @@ def create_checkout_session(
     user: User,
     plan: str,
 ) -> Any:
-    plan = plan.lower()
+    plan = _canonical_stripe_plan(plan)
     price_id = settings.STRIPE_PRICE_IDS.get(plan)
     if not price_id or not price_id.startswith("price_"):
         raise StripeEventProcessingError("Stripe test price is not configured for this plan")
