@@ -11,6 +11,7 @@ import { ProductProfilePage } from "../../src/pages/ProductProfilePage";
 import { ThemeModeProvider } from "../../src/theme/ThemeModeProvider";
 import * as authService from "../../src/services/authService";
 import * as productApi from "../../src/services/productApi";
+import * as subscriptionService from "../../src/services/subscriptionService";
 
 vi.mock("../../src/services/authService", () => ({
   forgotPassword: vi.fn(),
@@ -25,6 +26,17 @@ vi.mock("../../src/services/authService", () => ({
 vi.mock("../../src/services/productApi", () => ({
   getProfile: vi.fn(),
 }));
+
+vi.mock("../../src/services/subscriptionService", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../src/services/subscriptionService")>();
+  return {
+    ...original,
+    getSubscription: vi.fn(),
+    createCheckoutSession: vi.fn(),
+    createBillingPortalSession: vi.fn(),
+    redirectToExternal: vi.fn(),
+  };
+});
 
 vi.mock("../../src/hooks/useAuth", () => ({
   useAuth: () => ({ logout: vi.fn() }),
@@ -52,7 +64,18 @@ function renderProfile() {
 }
 
 describe("account recovery", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(subscriptionService.getSubscription).mockResolvedValue({
+      entitlement_key: "premium",
+      plan: "free",
+      status: "inactive",
+      active: false,
+      starts_at: null,
+      ends_at: null,
+      provider_subscriptions: [],
+    });
+  });
 
   it("submits forgot password and shows the generic confirmation", async () => {
     vi.mocked(authService.forgotPassword).mockResolvedValue({

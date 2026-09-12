@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
+import { SubscriptionSection } from "../components/SubscriptionSection";
 import { useAuth } from "../hooks/useAuth";
 import { getProfile } from "../services/productApi";
 import { changePassword, setRecoveryEmail, verifyRecoveryEmail } from "../services/authService";
@@ -198,6 +199,10 @@ export function ProductProfilePage() {
                 />
               </Box>
             </Stack>
+
+            <Divider />
+
+            <SubscriptionSection />
 
             <Divider />
 
