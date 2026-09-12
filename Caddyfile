@@ -2,11 +2,14 @@
 	email owner@goldenkeysports.com
 }
 
+bearahandsports.com,
+www.bearahandsports.com,
 goldenkeysports.com,
 www.goldenkeysports.com {
 	reverse_proxy frontend:80
 }
 
+api.bearahandsports.com,
 api.goldenkeysports.com {
 	reverse_proxy backend:8000
 }
