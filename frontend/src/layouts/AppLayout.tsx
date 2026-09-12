@@ -52,7 +52,7 @@ export function AppLayout() {
         <Toolbar sx={{ px: 2 }}>
           <Stack direction="row" spacing={1} alignItems="center">
             <DirectionsRunOutlinedIcon color="primary" fontSize="small" />
-            <Typography variant="subtitle1" fontWeight={900}>Golden Key</Typography>
+            <Typography variant="subtitle1" fontWeight={900}>Bear A Hand Sports</Typography>
           </Stack>
         </Toolbar>
         <Divider />
@@ -164,7 +164,7 @@ export function AppLayout() {
         <Outlet />
         <Box component="footer" sx={{ mt: 2.5, pt: 1.5, borderTop: "1px solid", borderTopColor: "divider" }}>
           <Typography variant="caption" color="text.secondary">
-            Golden Key Sports Intelligence
+            Bear A Hand Sports Intelligence
           </Typography>
         </Box>
       </Box>

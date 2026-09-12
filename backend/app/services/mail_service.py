@@ -34,11 +34,11 @@ class SmtpMailSender:
 
         reset_url = f"{self.frontend_url}/reset-password?{urlencode({'token': token})}"
         message = EmailMessage()
-        message["Subject"] = "Reset your Golden Key password"
+        message["Subject"] = "Reset your Bear A Hand Sports password"
         message["From"] = from_email
         message["To"] = recipient
         message.set_content(
-            "A password reset was requested for your Golden Key account.\n\n"
+            "A password reset was requested for your Bear A Hand Sports account.\n\n"
             f"Reset your password: {reset_url}\n\n"
             "This link expires in 20 minutes. If you did not request this, ignore this email."
         )
@@ -48,8 +48,8 @@ class SmtpMailSender:
     def send_recovery_email_verification(self, recipient: str, code: str) -> None:
         message = self._message(
             recipient,
-            "Verify your Golden Key recovery email",
-            "Use this code to verify your Golden Key recovery email:\n\n"
+            "Verify your Bear A Hand Sports recovery email",
+            "Use this code to verify your Bear A Hand Sports recovery email:\n\n"
             f"{code}\n\n"
             "This code expires in 10 minutes. If you did not request this, ignore this email.",
         )
@@ -58,8 +58,8 @@ class SmtpMailSender:
     def send_forgot_email_code(self, recipient: str, code: str) -> None:
         message = self._message(
             recipient,
-            "Your Golden Key account recovery code",
-            "Use this code to recover your Golden Key sign-in email:\n\n"
+            "Your Bear A Hand Sports account recovery code",
+            "Use this code to recover your Bear A Hand Sports sign-in email:\n\n"
             f"{code}\n\n"
             "This code expires in 10 minutes. If you did not request this, ignore this email.",
         )

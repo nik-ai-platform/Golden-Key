@@ -176,7 +176,7 @@ def synchronize_apple_subscription(
     resolved_user_id = existing.user_id if existing is not None else user_id
     if resolved_user_id is None:
         raise AppleSubscriptionError(
-            "Apple subscription is not linked to a Golden Key account"
+            "Apple subscription is not linked to a Bear A Hand Sports account"
         )
     if existing is not None and _is_stale(existing, transaction):
         reconcile_premium_entitlement(db, resolved_user_id)

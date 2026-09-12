@@ -40,7 +40,7 @@ describe("compact pick metrics", () => {
   });
 
   it.each([
-    ["Learn about NPI", "Golden Key's 0–200 model-support score."],
+    ["Learn about NPI", "Bear A Hand Sports' 0–200 model-support score."],
     ["Learn about Confidence Rating", "It is not win probability."],
     ["Learn about Model Probability", "distinct from Confidence"],
   ])("opens the %s information control", async (accessibleName, definition) => {
@@ -56,7 +56,7 @@ describe("compact pick metrics", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Learn about NPI" }));
 
-    const definition = await screen.findByText(/Golden Key's 0–200 model-support score/i);
+    const definition = await screen.findByText(/Bear A Hand Sports' 0–200 model-support score/i);
     const paper = definition.closest(".MuiPopover-paper");
 
     expect(paper).toBeTruthy();

@@ -40,7 +40,7 @@ def get_strategies():
 
 @router.get("/discussions")
 def get_discussions():
-    return [{"body": "Why is Golden Key fading this matchup?", "likes": 3}]
+    return [{"body": "Why is Bear A Hand Sports fading this matchup?", "likes": 3}]
 
 
 @router.get("/reputation")

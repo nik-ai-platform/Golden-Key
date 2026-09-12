@@ -159,7 +159,7 @@ export function ProductGameCard({ predictions }: ProductGameCardProps) {
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                       {prediction.prediction_id === bestPrediction?.prediction_id ? (
                         <Chip
-                          label="Golden Key Best Pick"
+                          label="Bear A Hand Sports Best Pick"
                           color="primary"
                           size="small"
                         />

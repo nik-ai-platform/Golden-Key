@@ -173,7 +173,7 @@ function ProbabilityCalibrationTable({ rows }: { rows: SpreadProbabilityCalibrat
       <Box>
         <Typography variant="h6" fontWeight={700}>Model Probability Calibration</Typography>
         <Typography variant="body2" color="text.secondary">
-          Compares Golden Key&apos;s selected-side probability estimates with actual settled outcomes.
+          Compares Bear A Hand Sports&apos; selected-side probability estimates with actual settled outcomes.
         </Typography>
       </Box>
       <TableContainer sx={{ border: 1, borderColor: "divider", borderRadius: 2, overflowX: "auto", width: "100%" }}>

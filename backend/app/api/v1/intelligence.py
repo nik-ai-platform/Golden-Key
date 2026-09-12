@@ -24,7 +24,7 @@ def analyze(payload: dict):
     question = str(payload.get("question", ""))
     return {
         "analysis": intelligence_core.analyze(question),
-        "persona": "Golden Key Sports Intelligence",
+        "persona": "Bear A Hand Sports Intelligence",
         "context": payload.get("context", {}),
     }
 

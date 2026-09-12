@@ -10,7 +10,7 @@ router = APIRouter(
 @router.get("")
 def version():
     return {
-        "product": "Golden Key",
+        "product": "Bear A Hand Sports",
         "api_version": "v1",
         "contract_status": "frozen",
     }

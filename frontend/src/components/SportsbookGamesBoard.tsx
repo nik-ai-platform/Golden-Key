@@ -66,7 +66,7 @@ function MarketValue({
     <Box
       data-testid={`game-${gameId}-${market}-value`}
       data-recommended={recommended ? "true" : "false"}
-      aria-label={recommended ? `${market} Golden Key recommendation` : undefined}
+      aria-label={recommended ? `${market} Bear A Hand Sports recommendation` : undefined}
       sx={{
         minHeight: 31,
         px: 1,

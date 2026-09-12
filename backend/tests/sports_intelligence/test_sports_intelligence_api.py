@@ -23,7 +23,7 @@ def test_analyze_endpoint_returns_integrated_intelligence():
 
 def test_explain_endpoint_returns_reasoning_payload():
     module = _load_intelligence_module()
-    data = module.explain({"question": "Why does Golden Key like this matchup?", "matchup": "Chiefs vs Bills"})
+    data = module.explain({"question": "Why does Bear A Hand Sports like this matchup?", "matchup": "Chiefs vs Bills"})
 
     assert "explanation" in data
     assert "analysis" in data

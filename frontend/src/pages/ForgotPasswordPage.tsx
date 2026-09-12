@@ -32,7 +32,7 @@ export function ForgotPasswordPage() {
       <Stack spacing={2.5} component="form" onSubmit={onSubmit}>
         <Typography variant="h4">Reset your password</Typography>
         <Typography color="text.secondary">
-          Enter the email used for your Golden Key account.
+          Enter the email used for your Bear A Hand Sports account.
         </Typography>
         {submitted ? <Alert severity="success">{confirmation}</Alert> : null}
         {error ? <Alert severity="error">{error}</Alert> : null}

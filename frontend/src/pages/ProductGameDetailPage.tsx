@@ -118,7 +118,7 @@ function MarketCard({
               {marketLabel(prediction.market)}
             </Typography>
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
-              {isBestPick ? <Chip label="Golden Key Best Pick" color="primary" size="small" /> : null}
+              {isBestPick ? <Chip label="Bear A Hand Sports Best Pick" color="primary" size="small" /> : null}
               {prediction.recommendation_designation ? (
                 <Chip
                   label={prediction.recommendation_designation}
@@ -295,11 +295,11 @@ export function ProductGameDetailPage() {
       </Box>
 
       {predictions.length === 0 ? (
-        <EmptyState title="No Golden Key predictions are available for this game yet." />
+        <EmptyState title="No Bear A Hand Sports predictions are available for this game yet." />
       ) : (
-        <Box component="section" aria-label="Golden Key recommendations">
+        <Box component="section" aria-label="Bear A Hand Sports recommendations">
           <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>
-            Golden Key Recommendations
+            Bear A Hand Recommendations
           </Typography>
           <Grid container spacing={2.5}>
             {predictions.map((prediction) => (

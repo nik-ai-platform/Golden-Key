@@ -114,7 +114,7 @@ export function ProductDashboardPage() {
       >
         <Box>
           <Typography variant="overline" color="primary.main" fontWeight={900}>
-            Golden Key
+            Bear A Hand Sports
           </Typography>
           <Typography variant="h4" fontWeight={850} sx={{ mt: 0.25 }}>
             Today&apos;s Intelligence
