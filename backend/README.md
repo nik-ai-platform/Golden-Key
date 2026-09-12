@@ -20,7 +20,7 @@ Backend services and API layer for the nik-ai-platform.
 	```
 
 	Required variables: `DATABASE_URL`, `SECRET_KEY`, `JWT_SECRET`, `OPENAI_API_KEY`, `SPORTSBOOK_API_KEYS`, `REDIS_URL`, `SMTP_SETTINGS`.
-	Stripe sandbox billing is disabled by default. To enable it locally, set `STRIPE_TEST_MODE_ENABLED=true`, provide an `sk_test_` value through `STRIPE_SECRET_KEY`, set `STRIPE_WEBHOOK_SECRET`, and map plans to test prices with `STRIPE_PRICE_IDS`.
+	Stripe sandbox billing is disabled by default. To enable it locally, set `STRIPE_TEST_MODE_ENABLED=true`, provide an `sk_test_` value through `STRIPE_SECRET_KEY`, set `STRIPE_WEBHOOK_SECRET`, and map the canonical plans to test prices with `STRIPE_PRICE_IDS={"pro_monthly":"price_...","pro_annual":"price_..."}`.
 	Apple subscription verification is also disabled by default. Sandbox verification requires `APPLE_SUBSCRIPTIONS_ENABLED=true`, `APPLE_APP_STORE_ENVIRONMENT=sandbox`, the bundle and product IDs, and `APPLE_ROOT_CA_PATHS` as a JSON list of local DER-encoded Apple root CA certificate paths. App Store Connect API credentials remain environment-only and are not needed by these verification-only endpoints.
 
 2. Start PostgreSQL with Docker (host port `5433` -> container `5432`):

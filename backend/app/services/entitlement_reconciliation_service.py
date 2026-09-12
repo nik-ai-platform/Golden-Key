@@ -17,6 +17,8 @@ PLAN_RANK = {
     "free": 0,
     "starter": 1,
     "pro": 2,
+    "pro_monthly": 2,
+    "pro_annual": 2,
     "elite": 3,
     "enterprise": 4,
 }
