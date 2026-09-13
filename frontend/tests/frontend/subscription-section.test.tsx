@@ -92,8 +92,8 @@ describe("subscription section", () => {
   });
 
   it.each([
-    ["pro_monthly", "Golden Key Pro Monthly"],
-    ["pro_annual", "Golden Key Pro Annual"],
+    ["pro_monthly", "Bear A Hand Pro Monthly"],
+    ["pro_annual", "Bear A Hand Pro Annual"],
   ] as const)("renders canonical premium plan %s", async (plan, label) => {
     vi.mocked(subscriptionService.getSubscription).mockResolvedValue({
       ...freeSubscription,
