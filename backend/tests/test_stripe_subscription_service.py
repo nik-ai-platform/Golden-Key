@@ -36,6 +36,38 @@ from app.services.stripe_subscription_service import (
 NOW = datetime(2026, 9, 7, 12, tzinfo=UTC)
 
 
+class RecordingStripeClient:
+    instances = []
+
+    def __init__(self, secret_key):
+        self.secret_key = secret_key
+        self.checkout_calls = []
+        self.portal_calls = []
+        self.retrieve_calls = []
+        self.v1 = type("V1", (), {})()
+        self.v1.checkout = type("Checkout", (), {})()
+        self.v1.checkout.sessions = type("Sessions", (), {})()
+        self.v1.checkout.sessions.create = self._create_checkout_session
+        self.v1.billing_portal = type("BillingPortal", (), {})()
+        self.v1.billing_portal.sessions = type("Sessions", (), {})()
+        self.v1.billing_portal.sessions.create = self._create_portal_session
+        self.v1.subscriptions = type("Subscriptions", (), {})()
+        self.v1.subscriptions.retrieve = self._retrieve_subscription
+        self.instances.append(self)
+
+    def _create_checkout_session(self, params=None, options=None):
+        self.checkout_calls.append((params, options))
+        return type("Session", (), {"url": "https://checkout.stripe.test/session"})()
+
+    def _create_portal_session(self, params=None, options=None):
+        self.portal_calls.append((params, options))
+        return type("Session", (), {"url": "https://billing.stripe.test/session"})()
+
+    def _retrieve_subscription(self, subscription_id, params=None, options=None):
+        self.retrieve_calls.append((subscription_id, params, options))
+        return {"id": subscription_id}
+
+
 class FakeStripeGateway:
     def __init__(self):
         self.checkout_calls = []
@@ -126,11 +158,24 @@ def _stripe_event(event_id, event_type, data_object):
     }
 
 
-def test_gateway_rejects_live_and_missing_secret_keys(monkeypatch):
+@pytest.mark.parametrize("secret_key", ("sk_test_allowed", "rk_test_allowed"))
+def test_gateway_accepts_test_secret_keys(monkeypatch, secret_key):
+    monkeypatch.setattr("app.services.stripe_gateway.stripe.StripeClient", RecordingStripeClient)
+    gateway = StripeGateway(secret_key)
+
+    assert gateway.client.secret_key == secret_key
+
+
+@pytest.mark.parametrize(
+    "secret_key",
+    ("sk_live_forbidden", "rk_live_forbidden", "", "invalid_key"),
+)
+def test_gateway_rejects_live_missing_and_malformed_secret_keys(secret_key):
     with pytest.raises(StripeSandboxConfigurationError):
-        StripeGateway("sk_live_forbidden")
-    with pytest.raises(StripeSandboxConfigurationError):
-        StripeGateway("")
+        StripeGateway(secret_key)
+
+
+def test_gateway_requires_enabled_sandbox(monkeypatch):
 
     monkeypatch.setattr(settings, "STRIPE_TEST_MODE_ENABLED", False)
     with pytest.raises(StripeSandboxConfigurationError):
@@ -193,30 +238,67 @@ def test_checkout_uses_canonical_plan_price(database, monkeypatch, plan, price_i
 def test_checkout_sets_canonical_plan_metadata(database, monkeypatch, plan):
     db, _ = database
     user = db.get(User, 1)
-    calls = []
-
-    def create_session(**kwargs):
-        calls.append(kwargs)
-        return type("Session", (), {"url": "https://checkout.stripe.test/session"})()
-
     monkeypatch.setattr(
-        "app.services.stripe_gateway.stripe.checkout.Session.create",
-        create_session,
+        "app.services.stripe_gateway.stripe.StripeClient",
+        RecordingStripeClient,
     )
     monkeypatch.setattr(settings, "STRIPE_PRICE_IDS", {plan: f"price_test_{plan}"})
 
+    gateway = StripeGateway("sk_test_local_only")
     create_checkout_session(
         db,
-        StripeGateway("sk_test_local_only"),
+        gateway,
         user=user,
         plan=plan,
     )
 
-    assert calls[0]["metadata"] == {
+    params, options = gateway.client.checkout_calls[0]
+    assert options is None
+    assert params["mode"] == "subscription"
+    assert params["line_items"] == [{"price": f"price_test_{plan}", "quantity": 1}]
+    assert params["customer_email"] == user.email
+    assert "customer" not in params
+    assert params["metadata"] == {
         "golden_key_user_id": "1",
         "golden_key_plan": plan,
     }
-    assert calls[0]["subscription_data"]["metadata"] == calls[0]["metadata"]
+    assert params["subscription_data"] == {
+        "metadata": params["metadata"],
+        "trial_period_days": 7,
+    }
+
+
+def test_gateway_prefers_customer_and_uses_client_for_portal_and_retrieval(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.stripe_gateway.stripe.StripeClient",
+        RecordingStripeClient,
+    )
+    gateway = StripeGateway("rk_test_local_only")
+
+    gateway.create_checkout_session(
+        user_id=1,
+        email="stripe.customer@example.com",
+        plan="pro_monthly",
+        price_id="price_test_monthly",
+        success_url="https://app.test/success",
+        cancel_url="https://app.test/cancel",
+        customer_id="cus_test_123",
+    )
+    gateway.create_billing_portal_session(
+        customer_id="cus_test_123",
+        return_url="https://app.test/profile",
+    )
+    gateway.retrieve_subscription("sub_test_123")
+
+    checkout_params, _ = gateway.client.checkout_calls[0]
+    assert checkout_params["customer"] == "cus_test_123"
+    assert "customer_email" not in checkout_params
+    assert gateway.client.portal_calls == [
+        ({"customer": "cus_test_123", "return_url": "https://app.test/profile"}, None)
+    ]
+    assert gateway.client.retrieve_calls == [
+        ("sub_test_123", {"expand": ["items.data.price"]}, None)
+    ]
 
 
 def test_checkout_rejects_noncanonical_plans(database, monkeypatch):
