@@ -241,6 +241,9 @@ describe("daily card dashboard", () => {
     expect(screen.getAllByTestId("sportsbook-game")).toHaveLength(2);
     expect(screen.queryByRole("heading", { name: "Prediction Summary" })).toBeNull();
     expect(screen.getByText("NPI Top 5")).toBeTruthy();
+    expect(screen.getByTestId("npi-pick-label-4").textContent).toBe(
+      "Dallas Cowboys @ Philadelphia Eagles — OVER 47.5",
+    );
     expect(screen.getByText("200.0")).toBeTruthy();
     expect(screen.getByText("Avg Confidence")).toBeTruthy();
     expect(screen.getByTestId("best-bet-team-accent")).toBeTruthy();
@@ -266,17 +269,81 @@ describe("daily card dashboard", () => {
         name: "View analysis for Los Angeles Lakers at Denver Nuggets",
       }).getAttribute("href"),
     ).toBe("/games/11");
-    expect(within(games[0]).getByText("Buffalo Bills")).toBeTruthy();
-    expect(within(games[0]).getByText("Miami Dolphins")).toBeTruthy();
-    expect(within(games[0]).getByText("-3.5 -110")).toBeTruthy();
-    expect(within(games[0]).getByText("-1000")).toBeTruthy();
-    expect(within(games[0]).getByText("O 47.5 -110")).toBeTruthy();
+    expect(within(games[0]).getAllByText("Buffalo Bills").length).toBeGreaterThan(0);
+    expect(within(games[0]).getAllByText("Miami Dolphins").length).toBeGreaterThan(0);
+    expect(within(games[0]).getAllByText("-3.5 -110").length).toBeGreaterThan(0);
+    expect(within(games[0]).getAllByText("-1000").length).toBeGreaterThan(0);
+    expect(within(games[0]).getAllByText("O 47.5 -110").length).toBeGreaterThan(0);
     expect(within(games[0]).getByText("4:00 PM EDT")).toBeTruthy();
     expect(within(games[1]).getByText("7:30 PM EDT")).toBeTruthy();
-    expect(screen.getAllByTestId("game-10-spread-value").filter((cell) => cell.dataset.recommended === "true")).toHaveLength(1);
+    expect(
+      within(screen.getByTestId("game-10-home-team-row"))
+        .getByTestId("game-10-spread-value").dataset.recommended,
+    ).toBe("true");
+    expect(
+      within(screen.getByTestId("game-10-away-team-row"))
+        .getByTestId("game-10-spread-value").dataset.recommended,
+    ).toBe("false");
     expect(screen.getAllByTestId("game-10-moneyline-value").every((cell) => cell.dataset.recommended === "false")).toBe(true);
     expect(screen.getAllByTestId("game-11-moneyline-value").every((cell) => cell.textContent === "—")).toBe(true);
     expect(screen.getAllByTestId("game-11-total-value").every((cell) => cell.textContent === "—")).toBe(true);
+    expect(within(games[0]).getByTestId("game-10-away-team-row")).toBeTruthy();
+    expect(within(games[0]).getByTestId("game-10-home-team-row")).toBeTruthy();
+    expect(within(games[0]).getByTestId("game-10-away-score").textContent).toBe("—");
+    const totalRows = within(games[0]).getAllByTestId("game-10-total-row");
+    expect(totalRows).toHaveLength(1);
+    expect(within(totalRows[0]).getByText("Game total")).toBeTruthy();
+    expect(within(totalRows[0]).getByText("O 47.5 -110")).toBeTruthy();
+  });
+
+  it("labels NPI totals with both teams and the game-level selection", () => {
+    const over = pick(
+      "TOP_TOTAL",
+      "Top Total",
+      prediction({
+        prediction_id: 20,
+        game_id: 20,
+        away_team: "New York Jets",
+        home_team: "Tennessee Titans",
+        market: "total",
+        selection: "OVER",
+        display_selection: "OVER 38.5",
+        line_value: 38.5,
+      }),
+    );
+    const under = pick(
+      "NEXT_BEST",
+      "Next Best Pick",
+      prediction({
+        prediction_id: 21,
+        game_id: 21,
+        away_team: "Tampa Bay Buccaneers",
+        home_team: "Cincinnati Bengals",
+        market: "total",
+        selection: "UNDER",
+        display_selection: "UNDER 50.5",
+        line_value: 50.5,
+      }),
+    );
+    mockQueries(
+      {
+        ...card,
+        count: 2,
+        best_bet: null,
+        featured_picks: [over],
+        next_best: [under],
+      },
+      [],
+    );
+
+    renderDashboard();
+
+    expect(screen.getByTestId("npi-pick-label-20").textContent).toBe(
+      "New York Jets @ Tennessee Titans — OVER 38.5",
+    );
+    expect(screen.getByTestId("npi-pick-label-21").textContent).toBe(
+      "Tampa Bay Buccaneers @ Cincinnati Bengals — UNDER 50.5",
+    );
   });
 
   it("keeps a long moneyline in Moneyline Value instead of Best Bet", () => {
@@ -292,7 +359,7 @@ describe("daily card dashboard", () => {
     renderDashboard();
 
     const gamesBoard = screen.getByTestId("sportsbook-games-board");
-    expect(within(gamesBoard).getByText("-1000")).toBeTruthy();
+    expect(within(gamesBoard).getAllByText("-1000").length).toBeGreaterThan(0);
     expect(
       screen.getAllByTestId("game-10-moneyline-value").every(
         (cell) => cell.dataset.recommended === "false",

@@ -42,6 +42,7 @@ describe("product navigation", () => {
     expect(screen.getByRole("button", { name: "Open navigation" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Switch to dark mode" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Sign Out" })).toBeTruthy();
+    expect(getComputedStyle(screen.getByTestId("sports-intelligence-title")).color).toBe("rgb(247, 248, 250)");
     expect(screen.queryByText(/Product API/)).toBeNull();
 
     for (const label of ["Dashboard", "Games", "Saved Picks", "Parlay Optimizer", "Performance", "Profile"]) {

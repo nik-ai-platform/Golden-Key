@@ -60,6 +60,13 @@ function finiteAverage(values: Array<number | null>): number | null {
   return finite.length > 0 ? finite.reduce((sum, value) => sum + value, 0) / finite.length : null;
 }
 
+function npiPickLabel(pick: DailyCardPick): string {
+  const prediction = pick.prediction;
+  if (prediction.market.toLowerCase() !== "total") return prediction.display_selection;
+
+  return `${prediction.away_team} @ ${prediction.home_team} — ${prediction.display_selection}`;
+}
+
 export function ProductDashboardPage() {
   const [sport, setSport] = useState<SportFilter>("All");
   const query = useQuery({
@@ -218,8 +225,13 @@ export function ProductDashboardPage() {
                             variant="bar"
                             testId="npi-team-accent"
                           />
-                          <Typography fontFamily="monospace" fontWeight={700} sx={{ flexGrow: 1, minWidth: 0 }} noWrap>
-                            {pick.prediction.display_selection}
+                          <Typography
+                            data-testid={`npi-pick-label-${pick.prediction.prediction_id}`}
+                            fontFamily="monospace"
+                            fontWeight={700}
+                            sx={{ flexGrow: 1, minWidth: 0, overflowWrap: "anywhere" }}
+                          >
+                            {npiPickLabel(pick)}
                           </Typography>
                           <Typography color="info.main" fontFamily="monospace" fontWeight={800}>
                             {pick.prediction.npi_score.toFixed(1)}

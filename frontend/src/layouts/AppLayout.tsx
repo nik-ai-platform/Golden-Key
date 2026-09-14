@@ -111,7 +111,7 @@ export function AppLayout() {
               <MenuOutlinedIcon />
             </IconButton>
             <Stack>
-              <Typography variant="subtitle1" fontWeight={850}>Sports Intelligence</Typography>
+              <Typography data-testid="sports-intelligence-title" variant="subtitle1" fontWeight={850} sx={{ color: "#f7f8fa" }}>Sports Intelligence</Typography>
               <Typography variant="caption" color="text.secondary">Daily model intelligence · {user?.role ?? "user"}</Typography>
             </Stack>
           </Stack>
