@@ -80,7 +80,7 @@ function MarketValue({
     >
       <Typography
         component="span"
-        fontFamily="monospace"
+        fontFamily="var(--gk-font-mono)"
         fontSize="0.78rem"
         fontWeight={recommended ? 900 : 700}
         sx={{ overflowWrap: "anywhere" }}
@@ -127,7 +127,7 @@ function MobileTeamRow({
       }}
     >
       <TeamRow prediction={game} team={team} />
-      <Typography data-testid={`game-${game.game_id}-${side}-score`} fontFamily="monospace" fontSize="0.78rem" fontWeight={700} textAlign="center">
+      <Typography data-testid={`game-${game.game_id}-${side}-score`} fontFamily="var(--gk-font-mono)" fontSize="0.78rem" fontWeight={700} textAlign="center">
         —
       </Typography>
       <MarketValue
@@ -210,7 +210,7 @@ export function SportsbookGamesBoard({ predictions, recommendedPredictionIds, ma
               "@media (hover: hover)": { "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.025)" } },
             }}
           >
-            <Typography color="text.secondary" fontFamily="monospace" fontSize="0.76rem" fontWeight={800} sx={{ pt: { md: 0.75 }, mb: { xs: 1, md: 0 } }}>
+            <Typography color="text.secondary" fontFamily="var(--gk-font-mono)" fontSize="0.76rem" fontWeight={800} sx={{ pt: { md: 0.75 }, mb: { xs: 1, md: 0 } }}>
               {formatProductTime(game.game_date)}
             </Typography>
 

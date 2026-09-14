@@ -4,16 +4,41 @@ export function DashboardHero({ predictionCount }: { predictionCount: number }) 
   const dateLabel = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
 
   return (
-    <Box component="section" sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: { xs: 3, md: 5 }, background: "linear-gradient(135deg, rgba(15,118,110,0.12), rgba(255,255,255,0.72) 55%, rgba(250,204,21,0.12))" }}>
-      <Typography variant="overline" color="primary.main" fontWeight={700}>Bear A Hand Intelligence</Typography>
-      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ md: "flex-end" }} spacing={3} sx={{ mt: 2 }}>
-        <Box>
-          <Typography variant="h3">Today's edge</Typography>
-          <Typography color="text.secondary" sx={{ mt: 1.5, maxWidth: 680, lineHeight: 1.7 }}>Production-model opportunities ranked by confidence, NPI strength, and simulated edge.</Typography>
+    <Box
+      component="section"
+      data-testid="dashboard-hero"
+      sx={{
+        position: "relative",
+        overflow: "hidden",
+        border: "1px solid var(--gk-border-strong)",
+        borderRadius: "var(--gk-radius-lg)",
+        p: { xs: 2.5, sm: 3.5, md: 4.5 },
+        backgroundColor: "var(--gk-surface-raised)",
+        boxShadow: "var(--gk-shadow-sm)",
+        "&::before": {
+          content: '""',
+          position: "absolute",
+          inset: "0 auto 0 0",
+          width: 3,
+          backgroundColor: "var(--gk-gold)",
+        },
+      }}
+    >
+      <Typography variant="overline" color="primary.main" fontWeight={800}>Bear A Hand Intelligence</Typography>
+      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ md: "flex-end" }} spacing={{ xs: 3, md: 5 }} sx={{ mt: 1.5 }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography className="gk-editorial" variant="h3" sx={{ color: "var(--gk-text)", fontWeight: 600, lineHeight: 1.04, letterSpacing: 0 }}>
+            Today&apos;s edge
+          </Typography>
+          <Typography color="text.secondary" sx={{ mt: 1.25, maxWidth: 660, lineHeight: 1.7 }}>
+            Production-model opportunities ranked by confidence, NPI strength, and simulated edge.
+          </Typography>
         </Box>
-        <Stack alignItems={{ xs: "flex-start", md: "flex-end" }} spacing={0.5}>
-          <Typography>{dateLabel}</Typography>
-          <Typography variant="overline" color="text.secondary">{predictionCount} active predictions</Typography>
+        <Stack alignItems={{ xs: "flex-start", md: "flex-end" }} spacing={0.75} sx={{ flexShrink: 0 }}>
+          <Typography color="text.secondary">{dateLabel}</Typography>
+          <Typography className="gk-data" data-testid="active-prediction-count" color="info.main" fontWeight={700}>
+            {predictionCount} active predictions
+          </Typography>
         </Stack>
       </Stack>
     </Box>

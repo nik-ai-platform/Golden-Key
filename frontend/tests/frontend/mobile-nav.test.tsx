@@ -23,6 +23,7 @@ describe("MobileNav", () => {
     expect(navigationStyle.overflowY).toBe("hidden");
     expect(navigationStyle.justifyContent).toBe("flex-start");
     expect(navigationStyle.scrollbarWidth).toBe("none");
+    expect(screen.getByTestId("mobile-navigation-shell").dataset.safeArea).toBe("bottom");
 
     const destinations = [
       "Dashboard",
@@ -37,6 +38,7 @@ describe("MobileNav", () => {
       expect(itemStyle.minWidth).toBe("72px");
       expect(itemStyle.flexShrink).toBe("0");
     }
+    expect(screen.getByRole("button", { name: "Dashboard" }).getAttribute("aria-current")).toBe("page");
 
     fireEvent.click(screen.getByRole("button", { name: "Profile" }));
     expect(screen.getByTestId("location").textContent).toBe("/profile");

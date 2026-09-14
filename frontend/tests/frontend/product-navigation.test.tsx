@@ -42,7 +42,10 @@ describe("product navigation", () => {
     expect(screen.getByRole("button", { name: "Open navigation" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Switch to dark mode" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Sign Out" })).toBeTruthy();
-    expect(getComputedStyle(screen.getByTestId("sports-intelligence-title")).color).toBe("rgb(247, 248, 250)");
+    const title = screen.getByTestId("sports-intelligence-title");
+    expect(getComputedStyle(title).color).toBe("var(--gk-shell-text)");
+    expect(getComputedStyle(document.documentElement).getPropertyValue("--gk-shell-text").trim()).toBe("#f3eee3");
+    expect(title.classList.contains("gk-editorial")).toBe(true);
     expect(screen.queryByText(/Product API/)).toBeNull();
 
     for (const label of ["Dashboard", "Games", "Saved Picks", "Parlay Optimizer", "Performance", "Profile"]) {

@@ -43,10 +43,14 @@ describe("theme mode", () => {
     expect(screen.getByTestId("theme-mode").textContent).toBe("dark");
     expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeTruthy();
     const rootStyles = getComputedStyle(document.documentElement);
-    expect(rootStyles.getPropertyValue("--gk-bg").trim()).toBe("#090b0f");
-    expect(rootStyles.getPropertyValue("--gk-gold").trim()).toBe("#d6ad45");
-    expect(rootStyles.getPropertyValue("--gk-analytics").trim()).toBe("#2dd4a7");
+    expect(rootStyles.getPropertyValue("--gk-bg").trim()).toBe("#0b0d10");
+    expect(rootStyles.getPropertyValue("--gk-text").trim()).toBe("#f3eee3");
+    expect(rootStyles.getPropertyValue("--gk-gold").trim()).toBe("#c6a15b");
+    expect(rootStyles.getPropertyValue("--gk-analytics").trim()).toBe("#22c58b");
     expect(rootStyles.getPropertyValue("--gk-premium").trim()).toBe("#8b7cf6");
-    expect(rootStyles.getPropertyValue("--gk-motion-normal").trim()).toBe("240ms");
+    expect(rootStyles.getPropertyValue("--gk-motion-normal").trim()).toBe("180ms");
+    expect(rootStyles.getPropertyValue("--gk-font-editorial")).toContain("Newsreader Variable");
+    expect(rootStyles.getPropertyValue("--gk-font-sans")).toContain("Manrope Variable");
+    expect(rootStyles.getPropertyValue("--gk-font-mono")).toContain("IBM Plex Mono");
   });
 });

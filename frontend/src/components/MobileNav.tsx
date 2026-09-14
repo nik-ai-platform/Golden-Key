@@ -22,7 +22,24 @@ export function MobileNav() {
   const activePath = items.find((item) => location.pathname.startsWith(item.path))?.path ?? false;
 
   return (
-    <Paper elevation={8} sx={{ display: { xs: "block", sm: "none" }, position: "fixed", left: 0, right: 0, bottom: 0, zIndex: (theme) => theme.zIndex.appBar }}>
+    <Paper
+      data-testid="mobile-navigation-shell"
+      data-safe-area="bottom"
+      elevation={0}
+      sx={{
+        display: { xs: "block", sm: "none" },
+        position: "fixed",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: (theme) => theme.zIndex.appBar,
+        borderTop: "1px solid var(--gk-border-strong)",
+        backgroundColor: "rgba(11, 13, 16, 0.97)",
+        boxShadow: "0 -10px 30px rgba(0, 0, 0, 0.24)",
+        backdropFilter: "blur(14px)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+      }}
+    >
       <BottomNavigation
         showLabels
         value={activePath}
@@ -35,6 +52,8 @@ export function MobileNav() {
             display: "none",
           },
           scrollbarWidth: "none",
+          minHeight: 66,
+          backgroundColor: "transparent",
         }}
       >
         {items.map((item) => (
@@ -47,6 +66,17 @@ export function MobileNav() {
             sx={{
               minWidth: 72,
               flexShrink: 0,
+              minHeight: 66,
+              borderTop: "2px solid transparent",
+              "&.Mui-selected": {
+                backgroundColor: "var(--gk-gold-soft)",
+                borderTopColor: "var(--gk-gold)",
+              },
+              "& .MuiBottomNavigationAction-label": {
+                fontFamily: "var(--gk-font-sans)",
+                fontSize: "0.68rem",
+                fontWeight: 700,
+              },
             }}
           />
         ))}

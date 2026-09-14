@@ -1,3 +1,30 @@
-body { margin: 0; background: #020617; color: #e2e8f0; }
-* { box-sizing: border-box; }
-a { color: inherit; }
+html {
+	min-width: 320px;
+	background: var(--gk-bg, #0b0d10);
+}
+
+body {
+	margin: 0;
+	min-width: 320px;
+	min-height: 100vh;
+	background: var(--gk-bg, #0b0d10);
+	color: var(--gk-text, #f3eee3);
+	font-family: var(--gk-font-sans, "Manrope Variable", "Segoe UI", sans-serif);
+	font-variant-numeric: tabular-nums;
+	text-rendering: optimizeLegibility;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+a {
+	color: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+	font: inherit;
+}

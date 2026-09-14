@@ -169,7 +169,7 @@ export function DailyCardPickCard({
             { label: "Win prob", value: winProbability, color: "text.primary" },
           ].map((metric) => (
             <Box key={metric.label} sx={{ display: { xs: "none", md: "block" }, px: 1.5, py: 1.25, borderLeft: "1px solid var(--gk-border)" }}>
-              <Typography fontFamily="monospace" fontWeight={800} color={metric.color}>
+              <Typography fontFamily="var(--gk-font-mono)" fontWeight={800} color={metric.color}>
                 {metric.label === "Odds" ? (
                   <Box
                     component="span"

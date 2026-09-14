@@ -219,7 +219,7 @@ export function ProductDashboardPage() {
                     <Stack divider={<Divider flexItem />} sx={{ mt: 0.5 }}>
                       {npiLeaders.map((pick, index) => (
                         <Stack key={pick.prediction.prediction_id} direction="row" spacing={1.5} alignItems="center" sx={{ py: 0.85 }}>
-                          <Typography color="text.secondary" fontFamily="monospace">0{index + 1}</Typography>
+                          <Typography color="text.secondary" fontFamily="var(--gk-font-mono)">0{index + 1}</Typography>
                           <TeamAccent
                             identity={getPredictionTeamIdentity(pick.prediction)}
                             variant="bar"
@@ -227,13 +227,13 @@ export function ProductDashboardPage() {
                           />
                           <Typography
                             data-testid={`npi-pick-label-${pick.prediction.prediction_id}`}
-                            fontFamily="monospace"
+                            fontFamily="var(--gk-font-mono)"
                             fontWeight={700}
                             sx={{ flexGrow: 1, minWidth: 0, overflowWrap: "anywhere" }}
                           >
                             {npiPickLabel(pick)}
                           </Typography>
-                          <Typography color="info.main" fontFamily="monospace" fontWeight={800}>
+                          <Typography color="info.main" fontFamily="var(--gk-font-mono)" fontWeight={800}>
                             {pick.prediction.npi_score.toFixed(1)}
                           </Typography>
                         </Stack>
@@ -242,12 +242,12 @@ export function ProductDashboardPage() {
                     <Divider sx={{ my: 1.25 }} />
                     <Stack direction="row" justifyContent="space-between" alignItems="baseline">
                       <Stack direction="row" alignItems="center" spacing={0.25}>
-                        <Typography variant="caption" color="text.secondary" fontFamily="monospace" textTransform="uppercase">
+                        <Typography variant="caption" color="text.secondary" fontFamily="var(--gk-font-mono)" textTransform="uppercase">
                           Avg Confidence
                         </Typography>
                         <MetricInfoControl metric="confidence" />
                       </Stack>
-                      <Typography color="primary.main" fontFamily="monospace" fontWeight={900}>
+                      <Typography color="primary.main" fontFamily="var(--gk-font-mono)" fontWeight={900}>
                         {averageConfidence == null ? "—" : `${averageConfidence.toFixed(1)}%`}
                       </Typography>
                     </Stack>

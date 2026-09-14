@@ -28,7 +28,7 @@ import { useAuth } from "../hooks/useAuth";
 import { MobileNav } from "../components/MobileNav";
 import { ThemeToggleButton } from "../components/ThemeToggleButton";
 
-const drawerWidth = 184;
+const drawerWidth = 208;
 
 const navItems = [
   { label: "Dashboard", path: "/dashboard", icon: <DashboardOutlinedIcon />, roles: ["user", "viewer", "analyst", "admin"] },
@@ -49,14 +49,16 @@ export function AppLayout() {
 
     return (
       <>
-        <Toolbar sx={{ px: 2 }}>
+        <Toolbar sx={{ px: 2.25, minHeight: "64px !important" }}>
           <Stack direction="row" spacing={1} alignItems="center">
             <DirectionsRunOutlinedIcon color="primary" fontSize="small" />
-            <Typography variant="subtitle1" fontWeight={900}>Bear A Hand Sports</Typography>
+            <Typography className="gk-editorial" variant="subtitle1" fontWeight={650} color="var(--gk-shell-text)">
+              Bear A Hand Sports
+            </Typography>
           </Stack>
         </Toolbar>
         <Divider />
-        <List sx={{ px: 1, py: 1.5 }}>
+        <List sx={{ px: 1.25, py: 1.75 }}>
           {availableItems.map((item) => (
             <ListItemButton
               key={item.path}
@@ -66,17 +68,24 @@ export function AppLayout() {
               aria-current={location.pathname === item.path || location.pathname.startsWith(`${item.path}/`) ? "page" : undefined}
               onClick={() => setMobileOpen(false)}
               sx={{
-                minHeight: 38,
-                px: 1.25,
-                py: 0.5,
-                mb: 0.5,
+                minHeight: 42,
+                px: 1.5,
+                py: 0.75,
+                mb: 0.75,
                 borderRadius: "var(--gk-radius-sm)",
-                color: "var(--gk-text-secondary)",
-                borderLeft: "2px solid transparent",
+                color: "var(--gk-shell-text-secondary)",
+                border: "1px solid transparent",
                 "&.Mui-selected": {
                   color: "var(--gk-gold-bright)",
                   backgroundColor: "var(--gk-gold-soft)",
-                  borderLeftColor: "var(--gk-gold)",
+                  borderColor: "rgba(198, 161, 91, 0.28)",
+                },
+                "&.Mui-selected:hover": {
+                  backgroundColor: "rgba(198, 161, 91, 0.16)",
+                },
+                "&:hover": {
+                  color: "var(--gk-shell-text)",
+                  backgroundColor: "rgba(243, 238, 227, 0.04)",
                 },
               }}
             >
@@ -100,9 +109,10 @@ export function AppLayout() {
           ml: { sm: `${drawerWidth}px` },
           borderBottom: "1px solid",
           borderBottomColor: "divider",
-          backgroundColor: "rgba(9, 11, 15, 0.96)",
-          color: "var(--gk-text)",
+          backgroundColor: "rgba(11, 13, 16, 0.96)",
+          color: "var(--gk-shell-text)",
           backdropFilter: "blur(12px)",
+          boxShadow: "0 8px 28px rgba(0, 0, 0, 0.18)",
         }}
       >
         <Toolbar sx={{ minHeight: "56px !important", px: { xs: 1.5, sm: 2.25 }, justifyContent: "space-between" }}>
@@ -111,8 +121,8 @@ export function AppLayout() {
               <MenuOutlinedIcon />
             </IconButton>
             <Stack>
-              <Typography data-testid="sports-intelligence-title" variant="subtitle1" fontWeight={850} sx={{ color: "#f7f8fa" }}>Sports Intelligence</Typography>
-              <Typography variant="caption" color="text.secondary">Daily model intelligence · {user?.role ?? "user"}</Typography>
+              <Typography data-testid="sports-intelligence-title" className="gk-editorial" variant="subtitle1" fontWeight={650} sx={{ color: "var(--gk-shell-text)", lineHeight: 1.15 }}>Sports Intelligence</Typography>
+              <Typography variant="caption" sx={{ color: "var(--gk-shell-text-secondary)" }}>Daily model intelligence · {user?.role ?? "user"}</Typography>
             </Stack>
           </Stack>
           <Stack direction="row" spacing={0.5} alignItems="center">
@@ -133,8 +143,9 @@ export function AppLayout() {
           [`& .MuiDrawer-paper`]: {
             width: drawerWidth,
             boxSizing: "border-box",
-            backgroundColor: "#0b0d11",
-            color: "var(--gk-text)",
+            backgroundColor: "var(--gk-shell)",
+            color: "var(--gk-shell-text)",
+            boxShadow: "var(--gk-shadow-md)",
           },
         }}
       >
@@ -151,9 +162,9 @@ export function AppLayout() {
             width: drawerWidth,
             boxSizing: "border-box",
             borderRight: "1px solid",
-            borderRightColor: "rgba(214, 173, 69, 0.18)",
-            backgroundColor: "#0b0d11",
-            color: "var(--gk-text)",
+            borderRightColor: "var(--gk-border)",
+            backgroundColor: "var(--gk-shell)",
+            color: "var(--gk-shell-text)",
           },
         }}
       >
