@@ -12,7 +12,7 @@ export function DashboardHero({ predictionCount }: { predictionCount: number }) 
         overflow: "hidden",
         border: "1px solid var(--gk-border-strong)",
         borderRadius: "var(--gk-radius-lg)",
-        p: { xs: 2.5, sm: 3.5, md: 4.5 },
+        p: { xs: 2, sm: 3.5, md: 4.5 },
         backgroundColor: "var(--gk-surface-raised)",
         boxShadow: "var(--gk-shadow-sm)",
         "&::before": {
@@ -25,9 +25,9 @@ export function DashboardHero({ predictionCount }: { predictionCount: number }) 
       }}
     >
       <Typography variant="overline" color="primary.main" fontWeight={800}>Bear A Hand Intelligence</Typography>
-      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ md: "flex-end" }} spacing={{ xs: 3, md: 5 }} sx={{ mt: 1.5 }}>
+      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ md: "flex-end" }} spacing={{ xs: 2, md: 5 }} sx={{ mt: { xs: 1, sm: 1.5 } }}>
         <Box sx={{ minWidth: 0 }}>
-          <Typography className="gk-editorial" variant="h3" sx={{ color: "var(--gk-text)", fontWeight: 600, lineHeight: 1.04, letterSpacing: 0 }}>
+          <Typography className="gk-editorial" variant="h3" sx={{ color: "var(--gk-text)", fontSize: { xs: "2.5rem", sm: "3rem" }, fontWeight: 600, lineHeight: 1.04, letterSpacing: 0 }}>
             Today&apos;s edge
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 1.25, maxWidth: 660, lineHeight: 1.7 }}>

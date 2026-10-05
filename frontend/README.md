@@ -106,6 +106,29 @@ Quick friction check before release:
 2. Role behavior: test viewer and analyst/admin access boundaries.
 3. Responsiveness: check a narrow mobile viewport and tablet width.
 
+## Executive Intelligence responsive QA
+
+The dashboard uses the existing theme and MUI breakpoints: mobile below 600px
+(`sm`), with table-oriented market and game panels starting at 900px (`md`).
+Check 320px, 390px, 600px, 900px, and desktop widths in both theme modes.
+
+- Mobile headings and Best Bet spacing are compact; probability and confidence
+  remain separate, two-column metrics. View Analysis is primary; Save Pick retains
+  its existing saved, pending, and error behavior.
+- Model Intelligence totals show the full muted matchup before the prominent
+  OVER/UNDER selection. Spread and moneyline selections retain their supplied labels.
+- Upcoming Games uses mobile matchup cards with team-associated spread/moneyline
+  and a single game-total row. Missing odds/scores remain dashes; supplied scores,
+  including zero, are displayed without introducing another API request.
+- Mobile navigation retains all six destinations and scrolls horizontally.
+  Main content reserves 88px plus the iPhone bottom safe-area inset.
+
+Focused regression command from the repository root:
+
+```powershell
+npm --prefix frontend test -- --run tests/frontend/dashboard-hero.test.tsx tests/frontend/product-dashboard.test.tsx tests/frontend/mobile-nav.test.tsx tests/frontend/product-navigation.test.tsx tests/frontend/pick-metrics.test.tsx tests/frontend/save-pick-button.test.tsx
+```
+
 ## Production Build
 
 ```powershell

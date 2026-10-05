@@ -35,8 +35,6 @@ export function MobileNav() {
         zIndex: (theme) => theme.zIndex.appBar,
         borderTop: "1px solid var(--gk-border-strong)",
         backgroundColor: "rgba(11, 13, 16, 0.97)",
-        boxShadow: "0 -10px 30px rgba(0, 0, 0, 0.24)",
-        backdropFilter: "blur(14px)",
         paddingBottom: "env(safe-area-inset-bottom)",
       }}
     >
@@ -64,7 +62,7 @@ export function MobileNav() {
             icon={item.icon}
             aria-current={activePath === item.path ? "page" : undefined}
             sx={{
-              minWidth: 72,
+              minWidth: 68,
               flexShrink: 0,
               minHeight: 66,
               borderTop: "2px solid transparent",
@@ -74,8 +72,9 @@ export function MobileNav() {
               },
               "& .MuiBottomNavigationAction-label": {
                 fontFamily: "var(--gk-font-sans)",
-                fontSize: "0.68rem",
+                fontSize: "0.64rem",
                 fontWeight: 700,
+                "&.Mui-selected": { fontSize: "0.64rem" },
               },
             }}
           />

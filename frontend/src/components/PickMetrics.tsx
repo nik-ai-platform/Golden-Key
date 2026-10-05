@@ -105,15 +105,17 @@ export function PickMetrics({
     return (
       <Box data-testid="pick-metrics">
         <Box
+          data-testid="hero-metrics-grid"
           sx={{
             display: "grid",
-            gridTemplateColumns: "minmax(0, 1fr)",
+            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
             border: "1px solid var(--gk-border-strong)",
-            backgroundColor: "rgba(0, 0, 0, 0.18)",
+            backgroundColor: "var(--gk-surface-soft)",
           }}
         >
           {[
             { label: "Model Probability", value: formatPercentage(simulationProbability), metric: "modelProbability" as const },
+            { label: "Confidence", value: formatPercentage(confidence), metric: "confidence" as const },
           ].map((metric) => (
             <Box
               key={metric.label}
@@ -121,6 +123,7 @@ export function PickMetrics({
                 minWidth: 0,
                 px: { xs: 1.5, sm: 2 },
                 py: { xs: 1, sm: 1.25 },
+                "& + &": { borderLeft: "1px solid var(--gk-border-strong)" },
               }}
             >
               <MetricLabel label={metric.label} metric={metric.metric} market={market} />
@@ -128,7 +131,7 @@ export function PickMetrics({
                 sx={{
                   mt: 0.25,
                   color: "text.primary",
-                  fontSize: { xs: "1.3rem", sm: "1.65rem" },
+                  fontSize: { xs: "1.15rem", sm: "1.65rem" },
                   fontWeight: 900,
                   lineHeight: 1.15,
                 }}
@@ -138,24 +141,18 @@ export function PickMetrics({
             </Box>
           ))}
         </Box>
-        <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mt: 1.25 }}>
-          <Box sx={{ minWidth: 88 }}>
-            <MetricLabel label="Confidence" metric="confidence" market={market} />
-            <Typography fontWeight={850}>{formatPercentage(confidence)}</Typography>
-          </Box>
           <LinearProgress
             variant="determinate"
             value={confidenceValue}
             aria-label="Confidence"
             sx={{
-              flexGrow: 1,
+              mt: 0.75,
               height: 5,
               borderRadius: 0,
               backgroundColor: "var(--gk-border)",
               "& .MuiLinearProgress-bar": { backgroundColor: "var(--gk-gold)" },
             }}
           />
-        </Stack>
       </Box>
     );
   }

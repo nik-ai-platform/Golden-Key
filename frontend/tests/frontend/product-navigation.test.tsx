@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AuthContext } from "../../src/auth/AuthContextDefinition";
 import { AppLayout } from "../../src/layouts/AppLayout";
 import { ThemeModeProvider } from "../../src/theme/ThemeModeProvider";
+import { styleAtBreakpoint } from "./responsiveStyles";
 
 const auth = {
   user: { id: 1, email: "user@example.com", username: "user", role: "user" as const },
@@ -54,5 +55,11 @@ describe("product navigation", () => {
     expect(
       screen.getByRole("button", { name: "Games" }).getAttribute("aria-current"),
     ).toBe("page");
+    const main = screen.getByRole("main");
+    expect(styleAtBreakpoint(main, 0, "padding-bottom")).toBe("calc(88px + env(safe-area-inset-bottom))");
+    expect(styleAtBreakpoint(main, 600, "padding-bottom")).toBe("18px");
+    const nav = screen.getByTestId("mobile-navigation-shell");
+    expect(nav.dataset.safeArea).toBe("bottom");
+    expect(88).toBeGreaterThan(Number.parseFloat(getComputedStyle(screen.getByRole("button", { name: "Games" })).minHeight));
   });
 });

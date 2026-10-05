@@ -26,21 +26,26 @@ describe("MobileNav", () => {
     expect(screen.getByTestId("mobile-navigation-shell").dataset.safeArea).toBe("bottom");
 
     const destinations = [
-      "Dashboard",
-      "Games",
-      "Saved Picks",
-      "Parlays",
-      "Performance",
-      "Profile",
+      ["Dashboard", "/dashboard"],
+      ["Games", "/games"],
+      ["Saved Picks", "/saved-picks"],
+      ["Parlays", "/parlays"],
+      ["Performance", "/performance"],
+      ["Profile", "/profile"],
     ];
-    for (const label of destinations) {
+    for (const [label] of destinations) {
       const itemStyle = getComputedStyle(screen.getByRole("button", { name: label }));
-      expect(itemStyle.minWidth).toBe("72px");
+      expect(itemStyle.minWidth).toBe("68px");
       expect(itemStyle.flexShrink).toBe("0");
     }
     expect(screen.getByRole("button", { name: "Dashboard" }).getAttribute("aria-current")).toBe("page");
 
-    fireEvent.click(screen.getByRole("button", { name: "Profile" }));
-    expect(screen.getByTestId("location").textContent).toBe("/profile");
+    for (const [label, path] of destinations) {
+      fireEvent.click(screen.getByRole("button", { name: label }));
+      expect(screen.getByTestId("location").textContent).toBe(path);
+      expect(screen.getByRole("button", { name: label }).getAttribute("aria-current")).toBe("page");
+      const selectedLabel = screen.getByRole("button", { name: label }).querySelector(".MuiBottomNavigationAction-label")!;
+      expect(getComputedStyle(selectedLabel).fontSize).toBe("10.24px");
+    }
   });
 });

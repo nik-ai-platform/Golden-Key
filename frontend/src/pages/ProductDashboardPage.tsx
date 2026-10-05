@@ -60,11 +60,20 @@ function finiteAverage(values: Array<number | null>): number | null {
   return finite.length > 0 ? finite.reduce((sum, value) => sum + value, 0) / finite.length : null;
 }
 
-function npiPickLabel(pick: DailyCardPick): string {
-  const prediction = pick.prediction;
-  if (prediction.market.toLowerCase() !== "total") return prediction.display_selection;
+const panelSx = {
+  border: "1px solid var(--gk-border-strong)",
+  borderRadius: "var(--gk-radius-sm)",
+  backgroundColor: "var(--gk-surface)",
+  p: { xs: 1.5, md: 2 },
+};
 
-  return `${prediction.away_team} @ ${prediction.home_team} — ${prediction.display_selection}`;
+function npiPickSelection(pick: DailyCardPick): string {
+  const prediction = pick.prediction;
+  const direction = prediction.selection.trim().match(/^(OVER|UNDER)\b/i)?.[1];
+  return prediction.market.toLowerCase() === "total" && direction &&
+    prediction.line_value != null && Number.isFinite(prediction.line_value)
+    ? `${direction.toUpperCase()} ${prediction.line_value}`
+    : prediction.display_selection;
 }
 
 export function ProductDashboardPage() {
@@ -112,18 +121,18 @@ export function ProductDashboardPage() {
     .slice(0, 5);
   const averageConfidence = finiteAverage(uniquePicks.map((pick) => pick.prediction.confidence_score));
   return (
-    <Stack spacing={{ xs: 3, md: 2 }} data-testid="intelligence-dashboard">
+    <Stack spacing={{ xs: 2, md: 2 }} data-testid="intelligence-dashboard">
       <Stack
         direction={{ xs: "column", md: "row" }}
         alignItems={{ xs: "stretch", md: "center" }}
         justifyContent="space-between"
-        spacing={{ xs: 2, md: 3 }}
+        spacing={{ xs: 1, sm: 2, md: 3 }}
       >
         <Box>
           <Typography variant="overline" color="primary.main" fontWeight={900}>
             Bear A Hand Sports
           </Typography>
-          <Typography variant="h4" fontWeight={850} sx={{ mt: 0.25 }}>
+          <Typography variant="h4" fontWeight={850} sx={{ mt: 0.25, fontSize: { xs: "1.75rem", sm: "2.125rem" } }}>
             Today&apos;s Intelligence
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
@@ -161,24 +170,24 @@ export function ProductDashboardPage() {
       ) : (
         <>
           {card.best_bet ? (
-            <Box component="section" aria-labelledby="best-bet-heading">
+            <Box component="section" aria-labelledby="best-bet-heading" sx={panelSx}>
               <SectionHeading id="best-bet-heading">Best Bet</SectionHeading>
               <DailyCardPickCard pick={card.best_bet} prominent presentation="hero" />
             </Box>
           ) : null}
 
           {marketLeaders.length > 0 ? (
-            <Box component="section" aria-labelledby="card-markets-heading">
+            <Box component="section" aria-labelledby="card-markets-heading" sx={panelSx}>
               <SectionHeading id="card-markets-heading">Market Leaders</SectionHeading>
               <Box
                 sx={{
                   display: { xs: "none", md: "grid" },
-                  gridTemplateColumns: "minmax(190px, 1.5fr) minmax(220px, 1.4fr) 90px 110px",
+                  gridTemplateColumns: "minmax(0, 1.5fr) minmax(0, 1.4fr) 90px 110px",
                   px: 1.5,
-                  py: 0.75,
+                  py: 1,
                   border: "1px solid var(--gk-border)",
                   borderBottom: 0,
-                  backgroundColor: "rgba(0, 0, 0, 0.22)",
+                  backgroundColor: "var(--gk-surface-soft)",
                 }}
               >
                 {[
@@ -206,7 +215,7 @@ export function ProductDashboardPage() {
           <Box component="section" aria-label="Model intelligence">
                 <Card
                   variant="outlined"
-                  sx={{ height: "100%", borderRadius: "var(--gk-radius-sm)", backgroundColor: "var(--gk-surface-soft)" }}
+                  sx={{ height: "100%", borderColor: "var(--gk-border-strong)", borderRadius: "var(--gk-radius-sm)", backgroundColor: "var(--gk-surface)" }}
                 >
                   <CardContent sx={{ p: { xs: 2, sm: 2.5 }, "&:last-child": { pb: { xs: 2, sm: 2.5 } } }}>
                     <SectionHeading id="model-intelligence-heading">Model Intelligence</SectionHeading>
@@ -225,14 +234,19 @@ export function ProductDashboardPage() {
                             variant="bar"
                             testId="npi-team-accent"
                           />
-                          <Typography
+                          <Box
                             data-testid={`npi-pick-label-${pick.prediction.prediction_id}`}
-                            fontFamily="var(--gk-font-mono)"
-                            fontWeight={700}
                             sx={{ flexGrow: 1, minWidth: 0, overflowWrap: "anywhere" }}
                           >
-                            {npiPickLabel(pick)}
-                          </Typography>
+                            {pick.prediction.market.toLowerCase() === "total" ? (
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>
+                                {pick.prediction.away_team} @ {pick.prediction.home_team}
+                              </Typography>
+                            ) : null}
+                            <Typography fontFamily="var(--gk-font-mono)" fontWeight={700}>
+                              {npiPickSelection(pick)}
+                            </Typography>
+                          </Box>
                           <Typography color="info.main" fontFamily="var(--gk-font-mono)" fontWeight={800}>
                             {pick.prediction.npi_score.toFixed(1)}
                           </Typography>
@@ -256,7 +270,7 @@ export function ProductDashboardPage() {
           </Box>
 
           {gamesQuery.data && gamesQuery.data.predictions.length > 0 ? (
-            <Box component="section" aria-labelledby="upcoming-games-heading">
+            <Box component="section" aria-labelledby="upcoming-games-heading" sx={panelSx}>
               <SectionHeading id="upcoming-games-heading">Upcoming Games</SectionHeading>
               <SportsbookGamesBoard
                 predictions={gamesQuery.data.predictions}

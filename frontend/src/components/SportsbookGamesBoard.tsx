@@ -2,16 +2,17 @@ import { Box, Stack, Typography } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 
 import { NEUTRAL_TEAM_IDENTITY } from "../data/teamIdentity";
-import type { Prediction } from "../types/product";
+import type { GameDetail, Prediction } from "../types/product";
 import { formatAmericanOdds, formatProductTime, parseProductDate } from "../utils/productFormat";
 import { getPredictionTeam, getTeamIdentity } from "../utils/teamIdentity";
 import { TeamAccent } from "./TeamAccent";
 
 const MARKET_KEYS = ["spread", "moneyline", "total"] as const;
 type MarketKey = (typeof MARKET_KEYS)[number];
+type BoardPrediction = Prediction & Partial<Pick<GameDetail, "home_score" | "away_score">>;
 
 interface SportsbookGamesBoardProps {
-  predictions: Prediction[];
+  predictions: BoardPrediction[];
   recommendedPredictionIds: Set<number>;
   maxGames?: number;
 }
@@ -91,11 +92,12 @@ function MarketValue({
   );
 }
 
-function TeamRow({ prediction, team }: { prediction: Prediction; team: string }) {
+function TeamRow({ prediction, team, score }: { prediction: Prediction; team: string; score?: number | null }) {
   return (
     <Stack direction="row" alignItems="center" spacing={1} sx={{ minHeight: 31, minWidth: 0 }}>
       <TeamAccent identity={getTeamIdentity(prediction.sport, team)} variant="bar" />
       <Typography fontWeight={750} fontSize="0.84rem" sx={{ overflowWrap: "anywhere" }}>{team}</Typography>
+      {score != null ? <Typography fontFamily="var(--gk-font-mono)" fontWeight={700}>{score}</Typography> : null}
     </Stack>
   );
 }
@@ -108,7 +110,7 @@ function MobileTeamRow({
   moneyline,
   recommendedPredictionIds,
 }: {
-  game: Prediction;
+  game: BoardPrediction;
   side: "away" | "home";
   team: string;
   spread?: Prediction;
@@ -120,35 +122,43 @@ function MobileTeamRow({
       data-testid={`game-${game.game_id}-${side}-team-row`}
       sx={{
         display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) minmax(42px, auto) minmax(70px, auto) minmax(70px, auto)",
-        alignItems: "center",
-        columnGap: 0.5,
+        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+        gap: 0.5,
+        py: 0.75,
         minWidth: 0,
       }}
     >
-      <TeamRow prediction={game} team={team} />
-      <Typography data-testid={`game-${game.game_id}-${side}-score`} fontFamily="var(--gk-font-mono)" fontSize="0.78rem" fontWeight={700} textAlign="center">
-        —
-      </Typography>
-      <MarketValue
-        gameId={game.game_id}
-        market="spread"
-        prediction={spread}
-        recommended={Boolean(spread && recommendedPredictionIds.has(spread.prediction_id))}
-      />
-      <MarketValue
-        gameId={game.game_id}
-        market="moneyline"
-        prediction={moneyline}
-        recommended={Boolean(moneyline && recommendedPredictionIds.has(moneyline.prediction_id))}
-      />
+      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ gridColumn: "1 / -1" }}>
+        <TeamRow prediction={game} team={team} />
+        <Typography data-testid={`game-${game.game_id}-${side}-score`} aria-label={`${team} score`} fontFamily="var(--gk-font-mono)" fontSize="0.78rem" fontWeight={700}>
+          {game[`${side}_score`] ?? "—"}
+        </Typography>
+      </Stack>
+      <Stack direction="row" alignItems="center" spacing={0.25}>
+        <Typography variant="caption" color="text.secondary">Spread</Typography>
+        <MarketValue
+          gameId={game.game_id}
+          market="spread"
+          prediction={spread}
+          recommended={Boolean(spread && recommendedPredictionIds.has(spread.prediction_id))}
+        />
+      </Stack>
+      <Stack direction="row" alignItems="center" spacing={0.25}>
+        <Typography variant="caption" color="text.secondary">Moneyline</Typography>
+        <MarketValue
+          gameId={game.game_id}
+          market="moneyline"
+          prediction={moneyline}
+          recommended={Boolean(moneyline && recommendedPredictionIds.has(moneyline.prediction_id))}
+        />
+      </Stack>
     </Box>
   );
 }
 
 export function SportsbookGamesBoard({ predictions, recommendedPredictionIds, maxGames }: SportsbookGamesBoardProps) {
   const games = [...predictions]
-    .reduce<Map<number, Prediction[]>>((grouped, prediction) => {
+    .reduce<Map<number, BoardPrediction[]>>((grouped, prediction) => {
       grouped.set(prediction.game_id, [...(grouped.get(prediction.game_id) ?? []), prediction]);
       return grouped;
     }, new Map())
@@ -160,16 +170,16 @@ export function SportsbookGamesBoard({ predictions, recommendedPredictionIds, ma
   ).slice(0, maxGames);
 
   return (
-    <Box data-testid="sportsbook-games-board" sx={{ borderTop: "1px solid var(--gk-border-strong)" }}>
+    <Box data-testid="sportsbook-games-board" sx={{ borderTop: { md: "1px solid var(--gk-border-strong)" } }}>
       <Box
         sx={{
           display: { xs: "none", md: "grid" },
-          gridTemplateColumns: "90px minmax(220px, 1.6fr) minmax(125px, 0.75fr) minmax(115px, 0.7fr) minmax(125px, 0.75fr)",
+          gridTemplateColumns: "64px minmax(140px, 1.6fr) repeat(3, minmax(100px, 0.75fr))",
           gap: 1.5,
           px: 1.5,
-          py: 0.8,
+          py: 1.25,
           borderBottom: "1px solid var(--gk-border-strong)",
-          backgroundColor: "rgba(0, 0, 0, 0.24)",
+          backgroundColor: "var(--gk-surface-soft)",
         }}
       >
         {['Time', 'Matchup', 'Spread', 'Moneyline', 'Total'].map((label) => (
@@ -201,10 +211,14 @@ export function SportsbookGamesBoard({ predictions, recommendedPredictionIds, ma
             data-game-id={game.game_id}
             sx={{
               display: { md: "grid" },
-              gridTemplateColumns: { md: "90px minmax(220px, 1.6fr) minmax(125px, 0.75fr) minmax(115px, 0.7fr) minmax(125px, 0.75fr)" },
+              gridTemplateColumns: { md: "64px minmax(140px, 1.6fr) repeat(3, minmax(100px, 0.75fr))" },
               gap: { md: 1.5 },
               px: { xs: 1.25, md: 1.5 },
-              py: { xs: 1.5, md: 1 },
+              py: { xs: 1.25, md: 1.5 },
+              mb: { xs: 1, md: 0 },
+              border: { xs: "1px solid var(--gk-border-strong)", md: 0 },
+              borderRadius: { xs: "var(--gk-radius-sm)", md: 0 },
+              backgroundColor: "var(--gk-surface)",
               borderBottom: "1px solid var(--gk-border)",
               transition: "background-color 140ms ease",
               "@media (hover: hover)": { "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.025)" } },
@@ -228,73 +242,34 @@ export function SportsbookGamesBoard({ predictions, recommendedPredictionIds, ma
               }}
             >
               <Stack spacing={0.25} sx={{ display: { xs: "none", md: "flex" } }}>
-                <TeamRow prediction={game} team={game.away_team} />
-                <TeamRow prediction={game} team={game.home_team} />
+                <TeamRow prediction={game} team={game.away_team} score={game.away_score} />
+                <TeamRow prediction={game} team={game.home_team} score={game.home_score} />
               </Stack>
-              <Box sx={{ display: { xs: "block", md: "none" }, minWidth: 0 }}>
-              <Box
-                aria-hidden="true"
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: "minmax(0, 1fr) minmax(42px, auto) minmax(70px, auto) minmax(70px, auto)",
-                  columnGap: 0.5,
-                  mb: 0.25,
-                }}
-              >
-                {['Team', 'Score', 'Spread', 'Moneyline'].map((label) => (
-                  <Typography key={label} variant="caption" color="text.secondary" fontWeight={850} textAlign={label === "Team" ? "left" : "center"} textTransform="uppercase">
-                    {label}
-                  </Typography>
-                ))}
-              </Box>
-              <Stack spacing={0.25} sx={{ minWidth: 0 }}>
-                <MobileTeamRow
-                  game={game}
-                  side="away"
-                  team={game.away_team}
-                  spread={awayMarkets[0]}
-                  moneyline={awayMarkets[1]}
-                  recommendedPredictionIds={recommendedPredictionIds}
-                />
-                <MobileTeamRow
-                  game={game}
-                  side="home"
-                  team={game.home_team}
-                  spread={homeMarkets[0]}
-                  moneyline={homeMarkets[1]}
-                  recommendedPredictionIds={recommendedPredictionIds}
-                />
-              </Stack>
-              </Box>
+              <Typography variant="caption" color="primary.main" sx={{ display: { xs: "block", md: "none" } }}>
+                View matchup analysis
+              </Typography>
             </Box>
-
-            <Box
-                data-testid={`game-${game.game_id}-total-row`}
-                sx={{
-                  display: { xs: "grid", md: "none" },
-                  gridTemplateColumns: "minmax(0, 1fr) minmax(140px, auto)",
-                  alignItems: "center",
-                  gap: 1,
-                  mt: 0.75,
-                  pt: 0.75,
-                  borderTop: "1px solid var(--gk-border)",
-                  minWidth: 0,
-                }}
-              >
-                <Typography variant="caption" color="text.secondary" fontWeight={850} textTransform="uppercase">
-                  Game total
-                </Typography>
-                <MarketValue
-                  gameId={game.game_id}
-                  market="total"
-                  prediction={markets.total}
-                  recommended={Boolean(markets.total && recommendedPredictionIds.has(markets.total.prediction_id))}
-                />
-            </Box>
-
+            <Stack divider={<Box sx={{ borderTop: "1px solid var(--gk-border)" }} />} sx={{ display: { xs: "flex", md: "none" }, minWidth: 0 }}>
+              <MobileTeamRow
+                game={game}
+                side="away"
+                team={game.away_team}
+                spread={awayMarkets[0]}
+                moneyline={awayMarkets[1]}
+                recommendedPredictionIds={recommendedPredictionIds}
+              />
+              <MobileTeamRow
+                game={game}
+                side="home"
+                team={game.home_team}
+                spread={homeMarkets[0]}
+                moneyline={homeMarkets[1]}
+                recommendedPredictionIds={recommendedPredictionIds}
+              />
+            </Stack>
             <Box sx={{ display: { xs: "none", md: "contents" } }}>
-              {MARKET_KEYS.map((market, marketIndex) => (
-                <Box key={market} sx={{ minWidth: 0 }}>
+              {(["spread", "moneyline"] as const).map((market, marketIndex) => (
+                <Box key={market} sx={{ minWidth: 0, gridColumn: marketIndex + 3, gridRow: 1 }}>
                   <Stack spacing={0.25}>
                     <MarketValue
                       gameId={game.game_id}
@@ -302,19 +277,41 @@ export function SportsbookGamesBoard({ predictions, recommendedPredictionIds, ma
                       prediction={awayMarkets[marketIndex]}
                       recommended={Boolean(awayMarkets[marketIndex] && recommendedPredictionIds.has(awayMarkets[marketIndex]!.prediction_id))}
                     />
-                    {market === "total" ? (
-                      <Box sx={{ minHeight: 31 }} />
-                    ) : (
-                      <MarketValue
-                        gameId={game.game_id}
-                        market={market}
-                        prediction={homeMarkets[marketIndex]}
-                        recommended={Boolean(homeMarkets[marketIndex] && recommendedPredictionIds.has(homeMarkets[marketIndex]!.prediction_id))}
-                      />
-                    )}
+                    <MarketValue
+                      gameId={game.game_id}
+                      market={market}
+                      prediction={homeMarkets[marketIndex]}
+                      recommended={Boolean(homeMarkets[marketIndex] && recommendedPredictionIds.has(homeMarkets[marketIndex]!.prediction_id))}
+                    />
                   </Stack>
                 </Box>
               ))}
+            </Box>
+            <Box
+              data-testid={`game-${game.game_id}-total-row`}
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "minmax(0, 1fr) auto", md: "minmax(0, 1fr)" },
+                alignItems: "center",
+                gap: 1,
+                gridColumn: { md: 5 },
+                gridRow: { md: 1 },
+                alignSelf: { md: "start" },
+                mt: { xs: 0.75, md: 0 },
+                pt: { xs: 0.75, md: 0 },
+                borderTop: { xs: "1px solid var(--gk-border)", md: 0 },
+                minWidth: 0,
+              }}
+            >
+              <Typography variant="caption" color="text.secondary" fontWeight={850} textTransform="uppercase" sx={{ display: { md: "none" } }}>
+                Game total
+              </Typography>
+              <MarketValue
+                gameId={game.game_id}
+                market="total"
+                prediction={markets.total}
+                recommended={Boolean(markets.total && recommendedPredictionIds.has(markets.total.prediction_id))}
+              />
             </Box>
           </Box>
         );

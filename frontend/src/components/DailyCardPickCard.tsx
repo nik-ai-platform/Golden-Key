@@ -61,21 +61,21 @@ export function DailyCardPickCard({
           borderColor: "var(--gk-gold)",
           borderRadius: "var(--gk-radius-sm)",
           backgroundColor: "var(--gk-surface-raised)",
-          boxShadow: "0 14px 42px rgba(214, 173, 69, 0.10)",
+          boxShadow: "none",
           overflow: "hidden",
         }}
       >
         <TeamAccent identity={teamIdentity} variant="glow" testId="best-bet-team-accent" />
         <Box sx={{ height: 3, backgroundColor: "var(--gk-gold-bright)" }} />
-        <CardContent sx={{ position: "relative", p: { xs: 2, md: 2.5 }, "&:last-child": { pb: { xs: 2, md: 2.5 } } }}>
+        <CardContent sx={{ position: "relative", p: { xs: 1.5, md: 2 }, "&:last-child": { pb: { xs: 1.5, md: 2 } } }}>
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: { xs: "minmax(0, 1fr)", md: "minmax(0, 1.6fr) minmax(300px, 0.75fr)" },
-              gap: { xs: 2, md: 3 },
+              gridTemplateColumns: { xs: "minmax(0, 1fr)", md: "minmax(0, 1fr) minmax(280px, 1fr)" },
+              gap: { xs: 1.25, md: 2 },
             }}
           >
-            <Stack spacing={1.5} justifyContent="space-between" minWidth={0}>
+            <Stack spacing={{ xs: 0.75, md: 1.25 }} minWidth={0}>
               <Box>
                 <Typography
                   variant="overline"
@@ -88,11 +88,11 @@ export function DailyCardPickCard({
                 </Typography>
                 <Typography
                   component="p"
-                  sx={{ mt: 0.5, fontSize: { xs: "1.75rem", sm: "2.35rem" }, fontWeight: 900, lineHeight: 1.05 }}
+                  sx={{ mt: 0.25, fontSize: { xs: "1.5rem", sm: "2.35rem" }, fontWeight: 900, lineHeight: 1.1, overflowWrap: "anywhere" }}
                 >
                   {prediction.display_selection}
                 </Typography>
-                <Typography color="text.secondary" sx={{ mt: 0.75, fontWeight: 650 }}>
+                <Typography color="text.secondary" sx={{ mt: 0.5, fontWeight: 650 }}>
                   {prediction.away_team} @ {prediction.home_team}
                 </Typography>
               </Box>
@@ -111,7 +111,7 @@ export function DailyCardPickCard({
               </Stack>
             </Stack>
 
-            <Stack spacing={1.5} justifyContent="space-between" sx={{ borderLeft: { md: "1px solid var(--gk-border)" }, pl: { md: 3 } }}>
+            <Stack spacing={{ xs: 1, md: 1.5 }} justifyContent="space-between" sx={{ borderLeft: { md: "1px solid var(--gk-border)" }, pl: { md: 2 } }}>
               <PickMetrics
                 npi={prediction.npi_score}
                 confidence={prediction.confidence_score}
@@ -122,10 +122,10 @@ export function DailyCardPickCard({
                 hero
               />
               <Stack direction="row" spacing={1} justifyContent={{ md: "flex-end" }} flexWrap="wrap" useFlexGap>
-                <SavePickButton predictionId={prediction.prediction_id} />
                 <Button component={RouterLink} to={`/games/${prediction.game_id}`} variant="contained" endIcon={<ArrowForwardRoundedIcon />}>
                   View Analysis
                 </Button>
+                <SavePickButton predictionId={prediction.prediction_id} />
               </Stack>
             </Stack>
           </Box>
@@ -149,7 +149,7 @@ export function DailyCardPickCard({
         <Box
           sx={{
             display: { xs: "block", md: "grid" },
-            gridTemplateColumns: { md: "minmax(190px, 1.5fr) minmax(220px, 1.4fr) 90px 110px" },
+            gridTemplateColumns: { md: "minmax(0, 1.5fr) minmax(0, 1.4fr) 90px 110px" },
             alignItems: "center",
           }}
         >
@@ -157,11 +157,11 @@ export function DailyCardPickCard({
             <TeamAccent identity={teamIdentity} variant="dot" testId="market-leader-team-accent" />
             <Box minWidth={0}>
               <Typography variant="overline" color="primary.main" fontWeight={900}>{pick.label}</Typography>
-              <Typography fontWeight={850} noWrap>{prediction.display_selection}</Typography>
+              <Typography fontWeight={850} sx={{ overflowWrap: "anywhere" }}>{prediction.display_selection}</Typography>
             </Box>
           </Box>
           <Box sx={{ px: { xs: 2, md: 1.5 }, py: { xs: 1, md: 1.25 }, minWidth: 0 }}>
-            <Typography variant="body2" fontWeight={700} noWrap>{prediction.away_team} @ {prediction.home_team}</Typography>
+            <Typography variant="body2" fontWeight={700} sx={{ overflowWrap: "anywhere" }}>{prediction.away_team} @ {prediction.home_team}</Typography>
             <Typography variant="caption" color="text.secondary">{formatProductDate(prediction.game_date)}</Typography>
           </Box>
           {[

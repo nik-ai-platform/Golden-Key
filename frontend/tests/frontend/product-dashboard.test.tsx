@@ -4,6 +4,9 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProductDashboardPage } from "../../src/pages/ProductDashboardPage";
+import { SportsbookGamesBoard } from "../../src/components/SportsbookGamesBoard";
+import { getTeamIdentity, hexToRgbChannels } from "../../src/utils/teamIdentity";
+import { styleAtBreakpoint } from "./responsiveStyles";
 import type { DailyCardPick, DailyCardResponse, Prediction, UpcomingPredictionsResponse } from "../../src/types/product";
 
 vi.mock("@tanstack/react-query", () => ({
@@ -241,14 +244,16 @@ describe("daily card dashboard", () => {
     expect(screen.getAllByTestId("sportsbook-game")).toHaveLength(2);
     expect(screen.queryByRole("heading", { name: "Prediction Summary" })).toBeNull();
     expect(screen.getByText("NPI Top 5")).toBeTruthy();
-    expect(screen.getByTestId("npi-pick-label-4").textContent).toBe(
-      "Dallas Cowboys @ Philadelphia Eagles — OVER 47.5",
-    );
+    const totalPick = screen.getByTestId("npi-pick-label-4");
+    expect(within(totalPick).getByText("Dallas Cowboys @ Philadelphia Eagles")).toBeTruthy();
+    expect(within(totalPick).getByText("OVER 47.5")).toBeTruthy();
     expect(screen.getByText("200.0")).toBeTruthy();
     expect(screen.getByText("Avg Confidence")).toBeTruthy();
     expect(screen.getByTestId("best-bet-team-accent")).toBeTruthy();
     expect(screen.getAllByTestId("market-leader-team-accent")).toHaveLength(3);
     expect(screen.getAllByTestId("npi-team-accent")).toHaveLength(5);
+    expect(screen.getByTestId("npi-pick-label-3").textContent).toBe("Akron ML");
+    expect(screen.getByTestId("npi-pick-label-2").textContent).toBe("Alabama -4.5");
   });
 
   it("renders one dense game board row per game with only real market values", () => {
@@ -294,6 +299,10 @@ describe("daily card dashboard", () => {
     expect(totalRows).toHaveLength(1);
     expect(within(totalRows[0]).getByText("Game total")).toBeTruthy();
     expect(within(totalRows[0]).getByText("O 47.5 -110")).toBeTruthy();
+    for (const game of games) {
+      expect(within(game).getAllByTestId(`game-${game.dataset.gameId}-total-row`)).toHaveLength(1);
+      expect(within(game).getAllByTestId(`game-${game.dataset.gameId}-total-value`)).toHaveLength(1);
+    }
   });
 
   it("labels NPI totals with both teams and the game-level selection", () => {
@@ -307,7 +316,7 @@ describe("daily card dashboard", () => {
         home_team: "Tennessee Titans",
         market: "total",
         selection: "OVER",
-        display_selection: "OVER 38.5",
+        display_selection: "New York Jets @ Tennessee Titans — OVER 38.5",
         line_value: 38.5,
       }),
     );
@@ -320,8 +329,8 @@ describe("daily card dashboard", () => {
         away_team: "Tampa Bay Buccaneers",
         home_team: "Cincinnati Bengals",
         market: "total",
-        selection: "UNDER",
-        display_selection: "UNDER 50.5",
+        selection: "UNDER 50.5",
+        display_selection: "Tampa Bay Buccaneers @ Cincinnati Bengals — UNDER 50.5",
         line_value: 50.5,
       }),
     );
@@ -338,12 +347,79 @@ describe("daily card dashboard", () => {
 
     renderDashboard();
 
-    expect(screen.getByTestId("npi-pick-label-20").textContent).toBe(
-      "New York Jets @ Tennessee Titans — OVER 38.5",
+    for (const [id, matchup, selection] of [
+      [20, "New York Jets @ Tennessee Titans", "OVER 38.5"],
+      [21, "Tampa Bay Buccaneers @ Cincinnati Bengals", "UNDER 50.5"],
+    ] as const) {
+      const label = screen.getByTestId(`npi-pick-label-${id}`);
+      expect(Array.from(label.children).map((line) => line.textContent)).toEqual([matchup, selection]);
+      expect(getComputedStyle(label).overflowWrap).toBe("anywhere");
+      expect(getComputedStyle(label.children[0]).color).not.toBe(getComputedStyle(label.children[1]).color);
+      expect(getComputedStyle(label.children[1]).fontWeight).toBe("700");
+      expect(getComputedStyle(label.children[1]).textOverflow).not.toBe("ellipsis");
+    }
+  });
+
+  it("reduces the mobile heading by 15–20% while retaining the desktop hierarchy", () => {
+    renderDashboard();
+    const heading = screen.getByRole("heading", { name: "Today's Intelligence" });
+    const mobileSize = styleAtBreakpoint(heading, 0, "font-size");
+    const desktopSize = styleAtBreakpoint(heading, 600, "font-size");
+    expect(mobileSize).toBe("1.75rem");
+    expect(desktopSize).toBe("2.125rem");
+    const reduction = 1 - Number.parseFloat(mobileSize) / Number.parseFloat(desktopSize);
+    expect(reduction).toBeGreaterThanOrEqual(0.15);
+    expect(reduction).toBeLessThanOrEqual(0.20);
+    const filters = screen.getByRole("group", { name: "Filter daily card by sport" });
+    expect(styleAtBreakpoint(filters, 0, "margin-top")).toBe("8px");
+  });
+
+  it("keeps Best Bet metrics in two columns and analysis primary", () => {
+    renderDashboard();
+    const bestBet = screen.getByTestId("daily-card-best-bet");
+    expect(getComputedStyle(within(bestBet).getByTestId("hero-metrics-grid")).gridTemplateColumns)
+      .toBe("repeat(2, minmax(0, 1fr))");
+    const analysis = within(bestBet).getByRole("link", { name: "View Analysis" });
+    expect(analysis.getAttribute("href")).toBe("/games/1");
+    expect(analysis.classList.contains("MuiButton-contained")).toBe(true);
+    expect(within(bestBet).getByRole("button", { name: "Save pick" })).toBeTruthy();
+    expect(within(bestBet).getByText("61.0%")).toBeTruthy();
+    expect(within(bestBet).getByText("91.0%")).toBeTruthy();
+    expect(within(bestBet).getByText("NPI 188")).toBeTruthy();
+  });
+
+  it.each(["HOME", "AWAY"])("keeps %s spread and moneyline odds associated with that team", (side) => {
+    render(
+      <MemoryRouter>
+        <SportsbookGamesBoard
+          predictions={[
+            { ...gamePredictions[0], selection: side, home_score: 0, away_score: 7 },
+            { ...gamePredictions[1], selection: side },
+            gamePredictions[2],
+          ]}
+          recommendedPredictionIds={new Set([2])}
+        />
+      </MemoryRouter>,
     );
-    expect(screen.getByTestId("npi-pick-label-21").textContent).toBe(
-      "Tampa Bay Buccaneers @ Cincinnati Bengals — UNDER 50.5",
-    );
+    const selected = screen.getByTestId(`game-10-${side.toLowerCase()}-team-row`);
+    const opposite = screen.getByTestId(`game-10-${side === "HOME" ? "away" : "home"}-team-row`);
+    expect(within(selected).getByTestId("game-10-spread-value").textContent).toBe("-3.5  -110");
+    expect(within(selected).getByTestId("game-10-moneyline-value").textContent).toBe("-1000");
+    expect(within(opposite).getByTestId("game-10-spread-value").textContent).toBe("—");
+    expect(within(opposite).getByTestId("game-10-moneyline-value").textContent).toBe("—");
+    expect(screen.getByTestId("game-10-home-score").textContent).toBe("0");
+    expect(screen.getByTestId("game-10-away-score").textContent).toBe("7");
+    expect(screen.getAllByTestId("game-10-total-row")).toHaveLength(1);
+    expect(screen.getAllByTestId("game-10-total-value")).toHaveLength(1);
+    expect(selected.closest("a")).toBeNull();
+    expect(getComputedStyle(selected).gridTemplateColumns).toBe("repeat(2, minmax(0, 1fr))");
+    for (const [sideName, team] of [["home", "Buffalo Bills"], ["away", "Miami Dolphins"]]) {
+      const row = screen.getByTestId(`game-10-${sideName}-team-row`);
+      const indicator = row.querySelector('[aria-hidden="true"]')!;
+      expect(getComputedStyle(indicator).backgroundColor).toBe(
+        `rgb(${hexToRgbChannels(getTeamIdentity("NFL", team).primary)})`,
+      );
+    }
   });
 
   it("keeps a long moneyline in Moneyline Value instead of Best Bet", () => {
