@@ -82,9 +82,8 @@ function MarketValue({
       <Typography
         component="span"
         fontFamily="var(--gk-font-mono)"
-        fontSize="0.78rem"
         fontWeight={recommended ? 900 : 700}
-        sx={{ overflowWrap: "anywhere" }}
+        sx={{ overflowWrap: "anywhere", fontSize: { xs: "0.78rem", md: "0.84rem" } }}
       >
         {marketValue(prediction, market)}
       </Typography>
@@ -94,9 +93,9 @@ function MarketValue({
 
 function TeamRow({ prediction, team, score }: { prediction: Prediction; team: string; score?: number | null }) {
   return (
-    <Stack direction="row" alignItems="center" spacing={1} sx={{ minHeight: 31, minWidth: 0 }}>
+    <Stack direction="row" alignItems="center" spacing={1} sx={{ minHeight: { xs: 28, md: 31 }, minWidth: 0 }}>
       <TeamAccent identity={getTeamIdentity(prediction.sport, team)} variant="bar" />
-      <Typography fontWeight={750} fontSize="0.84rem" sx={{ overflowWrap: "anywhere" }}>{team}</Typography>
+      <Typography fontWeight={750} sx={{ overflowWrap: "anywhere", fontSize: { xs: "0.84rem", md: "0.9rem" } }}>{team}</Typography>
       {score != null ? <Typography fontFamily="var(--gk-font-mono)" fontWeight={700}>{score}</Typography> : null}
     </Stack>
   );
@@ -123,8 +122,8 @@ function MobileTeamRow({
       sx={{
         display: "grid",
         gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-        gap: 0.5,
-        py: 0.75,
+        gap: 0.125,
+        py: 0.375,
         minWidth: 0,
       }}
     >
@@ -214,40 +213,50 @@ export function SportsbookGamesBoard({ predictions, recommendedPredictionIds, ma
               gridTemplateColumns: { md: "64px minmax(140px, 1.6fr) repeat(3, minmax(100px, 0.75fr))" },
               gap: { md: 1.5 },
               px: { xs: 1.25, md: 1.5 },
-              py: { xs: 1.25, md: 1.5 },
-              mb: { xs: 1, md: 0 },
+              py: { xs: 0.75, md: 1.5 },
+              mb: { xs: 1.5, md: 0 },
               border: { xs: "1px solid var(--gk-border-strong)", md: 0 },
               borderRadius: { xs: "var(--gk-radius-sm)", md: 0 },
               backgroundColor: "var(--gk-surface)",
-              borderBottom: "1px solid var(--gk-border)",
+              borderBottom: "1px solid var(--gk-border-strong)",
+              "&:nth-of-type(odd)": { backgroundColor: { md: "action.hover" } },
               transition: "background-color 140ms ease",
               "@media (hover: hover)": { "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.025)" } },
             }}
           >
-            <Typography color="text.secondary" fontFamily="var(--gk-font-mono)" fontSize="0.76rem" fontWeight={800} sx={{ pt: { md: 0.75 }, mb: { xs: 1, md: 0 } }}>
-              {formatProductTime(game.game_date)}
-            </Typography>
-
             <Box
-              component={RouterLink}
-              to={`/games/${game.game_id}`}
-              aria-label={`View analysis for ${game.away_team} at ${game.home_team}`}
-              sx={{
-                mb: { xs: 1.25, md: 0 },
-                color: "inherit",
-                textDecoration: "none",
-                borderRadius: 1,
-                "&:hover .MuiTypography-root": { color: "var(--gk-gold-bright)" },
-                "&:focus-visible": { outline: "2px solid var(--gk-gold)", outlineOffset: 2 },
-              }}
+              data-testid={`game-${game.game_id}-header`}
+              sx={{ display: { xs: "flex", md: "contents" }, alignItems: "center", justifyContent: "space-between", gap: 1 }}
             >
-              <Stack spacing={0.25} sx={{ display: { xs: "none", md: "flex" } }}>
-                <TeamRow prediction={game} team={game.away_team} score={game.away_score} />
-                <TeamRow prediction={game} team={game.home_team} score={game.home_score} />
-              </Stack>
-              <Typography variant="caption" color="primary.main" sx={{ display: { xs: "block", md: "none" } }}>
-                View matchup analysis
+              <Typography color="text.secondary" fontFamily="var(--gk-font-mono)" fontWeight={800} sx={{ pt: { md: 0.75 }, fontSize: { xs: "0.76rem", md: "0.82rem" } }}>
+                {formatProductTime(game.game_date)}
               </Typography>
+
+              <Box
+                component={RouterLink}
+                to={`/games/${game.game_id}`}
+                aria-label={`View analysis for ${game.away_team} at ${game.home_team}`}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  minHeight: 44,
+                  minWidth: 44,
+                  flexShrink: 0,
+                  color: "inherit",
+                  textDecoration: "none",
+                  borderRadius: 1,
+                  "&:hover .MuiTypography-root": { color: "var(--gk-gold-bright)" },
+                  "&:focus-visible": { outline: "2px solid var(--gk-gold)", outlineOffset: 2 },
+                }}
+              >
+                <Stack spacing={0.25} sx={{ display: { xs: "none", md: "flex" } }}>
+                  <TeamRow prediction={game} team={game.away_team} score={game.away_score} />
+                  <TeamRow prediction={game} team={game.home_team} score={game.home_score} />
+                </Stack>
+                <Typography variant="caption" color="primary.main" sx={{ display: { xs: "block", md: "none" }, textDecoration: "underline", textUnderlineOffset: "3px" }}>
+                  View matchup analysis
+                </Typography>
+              </Box>
             </Box>
             <Stack divider={<Box sx={{ borderTop: "1px solid var(--gk-border)" }} />} sx={{ display: { xs: "flex", md: "none" }, minWidth: 0 }}>
               <MobileTeamRow
@@ -297,8 +306,8 @@ export function SportsbookGamesBoard({ predictions, recommendedPredictionIds, ma
                 gridColumn: { md: 5 },
                 gridRow: { md: 1 },
                 alignSelf: { md: "start" },
-                mt: { xs: 0.75, md: 0 },
-                pt: { xs: 0.75, md: 0 },
+                mt: { xs: 0.5, md: 0 },
+                pt: { xs: 0.5, md: 0 },
                 borderTop: { xs: "1px solid var(--gk-border)", md: 0 },
                 minWidth: 0,
               }}

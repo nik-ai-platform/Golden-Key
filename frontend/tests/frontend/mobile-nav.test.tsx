@@ -23,6 +23,8 @@ describe("MobileNav", () => {
     expect(navigationStyle.overflowY).toBe("hidden");
     expect(navigationStyle.justifyContent).toBe("flex-start");
     expect(navigationStyle.scrollbarWidth).toBe("none");
+    expect(navigationStyle.height).toBe("58px");
+    expect(navigationStyle.minHeight).toBe("58px");
     expect(screen.getByTestId("mobile-navigation-shell").dataset.safeArea).toBe("bottom");
 
     const destinations = [
@@ -37,6 +39,8 @@ describe("MobileNav", () => {
       const itemStyle = getComputedStyle(screen.getByRole("button", { name: label }));
       expect(itemStyle.minWidth).toBe("68px");
       expect(itemStyle.flexShrink).toBe("0");
+      expect(itemStyle.minHeight).toBe("58px");
+      expect(Number.parseFloat(itemStyle.minHeight)).toBeGreaterThanOrEqual(44);
     }
     expect(screen.getByRole("button", { name: "Dashboard" }).getAttribute("aria-current")).toBe("page");
 

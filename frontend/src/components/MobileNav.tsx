@@ -50,7 +50,8 @@ export function MobileNav() {
             display: "none",
           },
           scrollbarWidth: "none",
-          minHeight: 66,
+          height: 58,
+          minHeight: 58,
           backgroundColor: "transparent",
         }}
       >
@@ -64,7 +65,7 @@ export function MobileNav() {
             sx={{
               minWidth: 68,
               flexShrink: 0,
-              minHeight: 66,
+              minHeight: 58,
               borderTop: "2px solid transparent",
               "&.Mui-selected": {
                 backgroundColor: "var(--gk-gold-soft)",

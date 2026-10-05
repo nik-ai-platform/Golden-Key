@@ -302,7 +302,39 @@ describe("daily card dashboard", () => {
     for (const game of games) {
       expect(within(game).getAllByTestId(`game-${game.dataset.gameId}-total-row`)).toHaveLength(1);
       expect(within(game).getAllByTestId(`game-${game.dataset.gameId}-total-value`)).toHaveLength(1);
+      const [analysis] = within(game).getAllByRole("link", { name: /View analysis for/ });
+      expect(within(game).getAllByRole("link", { name: /View analysis for/ })).toHaveLength(1);
+      const header = within(game).getByTestId(`game-${game.dataset.gameId}-header`);
+      expect(header.contains(analysis)).toBe(true);
+      expect(header.contains(within(game).getByText(/PM EDT$/))).toBe(true);
+      expect(styleAtBreakpoint(header, 0, "display")).toBe("flex");
+      expect(styleAtBreakpoint(header, 900, "display")).toBe("contents");
+      expect(getComputedStyle(analysis).minHeight).toBe("44px");
+      expect(getComputedStyle(within(analysis).getByText("View matchup analysis")).textDecoration).toBe("underline");
+      expect(styleAtBreakpoint(game, 0, "padding-top")).toBe("6px");
+      expect(styleAtBreakpoint(game, 0, "margin-bottom")).toBe("12px");
+      expect(styleAtBreakpoint(game, 900, "display")).toBe("grid");
+      expect(styleAtBreakpoint(game, 900, "padding-top")).toBe("12px");
+      const teamRow = within(game).getByTestId(`game-${game.dataset.gameId}-home-team-row`);
+      expect(getComputedStyle(teamRow).gap).toBe("1px");
+      expect(getComputedStyle(teamRow).paddingTop).toBe("3px");
+      const total = within(game).getByTestId(`game-${game.dataset.gameId}-total-row`);
+      expect(styleAtBreakpoint(total, 0, "padding-top")).toBe("4px");
+      expect(styleAtBreakpoint(total, 0, "margin-top")).toBe("4px");
     }
+  });
+
+  it("bounds desktop Model Intelligence rows and increases body/data text only at md", () => {
+    renderDashboard();
+    const label = screen.getByTestId("npi-pick-label-4");
+    const row = label.parentElement!;
+    expect(styleAtBreakpoint(row.parentElement!, 900, "max-width")).toBe("640px");
+    expect(styleAtBreakpoint(label.lastElementChild!, 900, "font-size")).toBe("1.0625rem");
+    expect(styleAtBreakpoint(label.firstElementChild!, 900, "font-size")).toBe("0.9375rem");
+    expect(styleAtBreakpoint(row.lastElementChild!, 900, "font-size")).toBe("1.0625rem");
+    const odds = screen.getByTestId("game-10-total-value").firstElementChild!;
+    expect(styleAtBreakpoint(odds, 0, "font-size")).toBe("0.78rem");
+    expect(styleAtBreakpoint(odds, 900, "font-size")).toBe("0.84rem");
   });
 
   it("labels NPI totals with both teams and the game-level selection", () => {

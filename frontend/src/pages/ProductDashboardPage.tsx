@@ -225,10 +225,10 @@ export function ProductDashboardPage() {
                       </Typography>
                       <MetricInfoControl metric="npi" />
                     </Stack>
-                    <Stack divider={<Divider flexItem />} sx={{ mt: 0.5 }}>
+                    <Stack divider={<Divider flexItem />} sx={{ mt: 0.5, maxWidth: { md: 640 } }}>
                       {npiLeaders.map((pick, index) => (
-                        <Stack key={pick.prediction.prediction_id} direction="row" spacing={1.5} alignItems="center" sx={{ py: 0.85 }}>
-                          <Typography color="text.secondary" fontFamily="var(--gk-font-mono)">0{index + 1}</Typography>
+                        <Stack key={pick.prediction.prediction_id} direction="row" spacing={1.5} alignItems="center" sx={{ py: 0.85, px: { md: 1 }, "&:nth-of-type(even)": { backgroundColor: { md: "action.hover" } } }}>
+                          <Typography color="text.secondary" fontFamily="var(--gk-font-mono)" sx={{ fontSize: { md: "1.0625rem" } }}>0{index + 1}</Typography>
                           <TeamAccent
                             identity={getPredictionTeamIdentity(pick.prediction)}
                             variant="bar"
@@ -239,15 +239,15 @@ export function ProductDashboardPage() {
                             sx={{ flexGrow: 1, minWidth: 0, overflowWrap: "anywhere" }}
                           >
                             {pick.prediction.market.toLowerCase() === "total" ? (
-                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25, fontSize: { md: "0.9375rem" } }}>
                                 {pick.prediction.away_team} @ {pick.prediction.home_team}
                               </Typography>
                             ) : null}
-                            <Typography fontFamily="var(--gk-font-mono)" fontWeight={700}>
+                            <Typography fontFamily="var(--gk-font-mono)" fontWeight={700} sx={{ fontSize: { md: "1.0625rem" } }}>
                               {npiPickSelection(pick)}
                             </Typography>
                           </Box>
-                          <Typography color="info.main" fontFamily="var(--gk-font-mono)" fontWeight={800}>
+                          <Typography color="info.main" fontFamily="var(--gk-font-mono)" fontWeight={800} sx={{ fontSize: { md: "1.0625rem" } }}>
                             {pick.prediction.npi_score.toFixed(1)}
                           </Typography>
                         </Stack>
