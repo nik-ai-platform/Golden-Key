@@ -28,11 +28,18 @@ function renderEducation(authenticated = true) {
 describe("customer metric education", () => {
   it("renders the protected route with all required accessible sections", async () => {
     renderEducation();
-    await screen.findByRole("heading", { level: 1, name: "How to read a pick" });
-    for (const name of ["What the numbers mean", "Why NPI depends on the market", "About NPI score ranges", "What “projected edge” compares", "How Risk Level is labeled", "How picks are chosen", "A note on uncertainty"]) {
+    await screen.findByRole("heading", { level: 1, name: "How to Read Your Picks" });
+    for (const name of ["What does Best Pick mean?", "What the numbers mean", "Why NPI depends on the market", "NPI Band", "What “projected edge” compares", "How Risk Level is labeled", "How picks are chosen", "A note on uncertainty"]) {
       expect(screen.getByRole("region", { name })).toBeTruthy();
     }
     const numbers = screen.getByRole("region", { name: "What the numbers mean" });
+    expect(within(numbers).getByRole("heading", { name: "NPI Score" })).toBeTruthy();
+    expect(screen.getByText("01 / Start with the recommended pick")).toBeTruthy();
+    const bestPick = screen.getByRole("region", { name: "What does Best Pick mean?" });
+    expect(bestPick.textContent).toContain("not a promise that it will win");
+    expect(within(bestPick).getByRole("heading", { name: "Why can a Best Pick have Medium risk?" })).toBeTruthy();
+    expect(bestPick.textContent).toContain("from 65 through 79.99");
+    expect(bestPick.textContent).toContain("Best Pick does not remove uncertainty");
     expect(numbers.textContent).toContain("NPI is a model score, not a chance to win");
     expect(numbers.textContent).toContain("Confidence is not win probability");
     expect(numbers.textContent).toContain("not yet presented as fully calibrated probabilities");
@@ -44,7 +51,7 @@ describe("customer metric education", () => {
     expect(npi.textContent).toContain("odds margin (vig)");
     expect(npi.textContent).toContain("scoring baseline for that sport");
     expect(npi.textContent).toContain("do not compare them directly");
-    const bands = screen.getByRole("region", { name: "About NPI score ranges" });
+    const bands = screen.getByRole("region", { name: "NPI Band" });
     expect(bands.textContent).toContain("There are no named NPI strength levels");
     expect(bands.textContent).toContain("not proven labels such as Weak, Strong, or Elite");
     expect(within(bands).queryByRole("heading", { name: /Weak|Strong|Elite/ })).toBeNull();
@@ -78,12 +85,12 @@ describe("customer metric education", () => {
   it("does not expose the education route to signed-out customers", async () => {
     renderEducation(false);
     expect(await screen.findByRole("heading", { name: "Sign in required" })).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "How to read a pick" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "How to Read Your Picks" })).toBeNull();
   });
 
   it("provides desktop and mobile drawer access without a seventh bottom destination", async () => {
     renderEducation();
-    await screen.findByRole("heading", { name: "How to read a pick" });
+    await screen.findByRole("heading", { name: "How to Read Your Picks" });
     const desktopLink = screen.getByRole("link", { name: "How It Works" });
     expect(desktopLink.getAttribute("href")).toBe("/how-it-works");
     expect(desktopLink.getAttribute("aria-current")).toBe("page");

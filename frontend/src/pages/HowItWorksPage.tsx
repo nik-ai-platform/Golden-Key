@@ -167,7 +167,7 @@ export function HowItWorksPage() {
             my: 1,
           }}
         >
-          How to read a pick
+          How to Read Your Picks
         </Typography>
         <Typography color="text.secondary" sx={{ maxWidth: 760, lineHeight: 1.8 }}>
           A pick brings together a game, a market, and a few model signals. Here is what
@@ -215,8 +215,8 @@ export function HowItWorksPage() {
       >
         {[
           {
-            title: "The pick",
-            text: "The selection is the team, OVER, or UNDER the model recommends for one market.",
+            title: "Start with the recommended pick",
+            text: "Read the selection first: the team, OVER, or UNDER recommended for that market. Then check the matchup, market, and current sportsbook price before reading the model numbers.",
           },
           {
             title: "The numbers",
@@ -250,6 +250,28 @@ export function HowItWorksPage() {
       </Box>
 
       <EducationPanel
+        id="best-pick"
+        title="What does Best Pick mean?"
+        intro="Best Pick is a recommendation within the dashboard's eligible picks, not a promise that it will win."
+      >
+        <Typography variant="body2" sx={{ lineHeight: 1.75 }}>
+          Read the reasons shown with the pick to understand why it ranks there. The
+          recommendation, Confidence Rating, Model Probability, and Risk Level answer
+          different questions. Best Pick does not mean the lowest risk, the highest
+          chance to win, or guaranteed profit.
+        </Typography>
+        <Typography component="h3" variant="subtitle1" fontWeight={800} sx={{ mt: 2, mb: 0.75 }}>
+          Why can a Best Pick have Medium risk?
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.75 }}>
+          Best Pick describes the recommendation; Medium risk describes its Confidence
+          Rating, from 65 through 79.99. A pick can be recommended and still carry that
+          risk label. Medium is not a personal bankroll assessment, and Best Pick does
+          not remove uncertainty.
+        </Typography>
+      </EducationPanel>
+
+      <EducationPanel
         id="the-numbers"
         title="What the numbers mean"
         intro="Think of these as different pieces of context, not one combined promise. Read each number for its own market and question."
@@ -262,7 +284,7 @@ export function HowItWorksPage() {
           }}
         >
           <MetricGuide
-            title={predictionMetricEducation.npi.title}
+            title="NPI Score"
             description="NPI is a model score, not a chance to win. Its meaning depends on the market: spread, moneyline, and total scores describe different things."
             note="Compare NPI only within the same market and model context. A higher spread NPI does not always mean more support for the selected side."
           />
@@ -299,7 +321,7 @@ export function HowItWorksPage() {
 
       <EducationPanel
         id="npi-score-ranges"
-        title="About NPI score ranges"
+        title="NPI Band"
         intro={npiBandsExplanation}
       >
         <Box
