@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session, aliased
 
 from app.models.game import Game
@@ -128,10 +129,23 @@ class ParlayOptimizerService:
         cutoff = now - self.MAX_ODDS_AGE
         home_team = aliased(Team)
         away_team = aliased(Team)
+        observation = aliased(Odds)
+        newest = aliased(Odds)
+        newest_id = (
+            select(newest.id)
+            .where(
+                newest.game_id == Prediction.game_id,
+                newest.sportsbook == Prediction.sportsbook,
+                newest.created_at <= now,
+            )
+            .order_by(newest.created_at.desc(), newest.id.desc())
+            .limit(1).correlate(Prediction).scalar_subquery()
+        )
         query = (
-            db.query(Prediction, Game, Odds, home_team, away_team)
+            db.query(Prediction, Game, Odds, home_team, away_team, observation)
             .join(Game, Game.id == Prediction.game_id)
             .join(Odds, Odds.id == Prediction.odds_snapshot_id)
+            .join(observation, observation.id == newest_id)
             .join(home_team, home_team.id == Game.home_team_id)
             .join(away_team, away_team.id == Game.away_team_id)
             .filter(
@@ -144,7 +158,7 @@ class ParlayOptimizerService:
                 Prediction.odds_snapshot_id.is_not(None),
                 Prediction.sportsbook.is_not(None),
                 Prediction.odds_observed_at.is_not(None),
-                Prediction.odds_observed_at >= cutoff,
+                observation.created_at >= cutoff,
                 Prediction.projected_edge.is_not(None),
                 Prediction.american_odds.is_not(None),
                 Odds.game_id == Prediction.game_id,
@@ -158,7 +172,7 @@ class ParlayOptimizerService:
         candidates = []
         active_versions = {}
         rows = query.all()
-        for prediction, game, odds, home, away in rows:
+        for prediction, game, odds, home, away, current_odds in rows:
             if game.sport not in active_versions:
                 try:
                     active_versions[game.sport] = self.model_runtime.resolve(
@@ -199,6 +213,8 @@ class ParlayOptimizerService:
             ):
                 continue
             if not self._matches_frozen_snapshot(prediction, odds):
+                continue
+            if not self._matches_current_inputs(prediction.market, odds, current_odds):
                 continue
             if not is_recommendation_eligible(
                 prediction.market,
@@ -259,6 +275,20 @@ class ParlayOptimizerService:
         return sorted(
             candidates,
             key=lambda item: (-item["parlay_score"], item["prediction_id"]),
+        )
+
+    @classmethod
+    def _matches_current_inputs(cls, market, frozen, current) -> bool:
+        # A newer mismatched observation invalidates availability; do not fall
+        # back to an older matching observation or rewrite frozen provenance.
+        fields = {
+            "spread": ("spread_home", "spread_away", "total"),
+            "moneyline": ("spread_home", "spread_away", "moneyline_home", "moneyline_away", "total"),
+            "total": ("total",),
+        }.get(parse_market(market), ())
+        return bool(fields) and all(
+            cls._same_number(getattr(frozen, name), getattr(current, name))
+            for name in fields
         )
 
     @classmethod

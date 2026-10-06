@@ -567,9 +567,9 @@ def test_sql_canonical_selection_bounds_materialized_generations(db):
     finally:
         event.remove(db, "loaded_as_persistent", track_peak)
     assert intelligence["overall"]["total_bets"] == 3
-    assert sum(row["total_bets"] for row in intelligence["by_model_version"]) == 444
-    assert intelligence["npi_4_spread"]["summary"]["sample_size"] == 400
-    assert max(peak_predictions) <= 403  # two streaming batches plus canonical rows
+    assert sum(row["total_bets"] for row in intelligence["by_model_version"]) == 12
+    assert intelligence["npi_4_spread"]["summary"]["sample_size"] == 4
+    assert max(peak_predictions) <= 15
 
 
 def metadata_variant(token, variant):

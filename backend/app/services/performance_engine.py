@@ -6,6 +6,7 @@ from app.models.prediction_result import (
 from app.models.game import Game
 from app.models.prediction_record import Prediction
 from app.services.performance_scope import regular_season_games
+from app.services.prediction_publication import canonical_prediction_id_query
 
 
 class PerformanceEngine:
@@ -23,6 +24,7 @@ class PerformanceEngine:
             .join(Prediction, Prediction.id == PredictionResult.prediction_id)
             .join(Game, Game.id == Prediction.game_id)
             .filter(regular_season_games())
+            .filter(Prediction.id.in_(canonical_prediction_id_query()))
             .all()
 
         )

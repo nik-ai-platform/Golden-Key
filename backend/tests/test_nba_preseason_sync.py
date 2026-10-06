@@ -88,7 +88,7 @@ def prediction_engine():
     engine = PredictionEngine()
     engine.model_runtime = MagicMock()
     engine.model_runtime.resolve.side_effect = ValueError("No production model configured for sport: NBA")
-    engine.ai_engine = MagicMock()
+    engine.ai_engine = MagicMock(VERSION="test")
     engine.ai_engine.generate_analysis.return_value = {
         "engine_version": "test", "summary": "Test analysis", "explanation": "Test analysis",
     }
@@ -374,7 +374,7 @@ def test_all_performance_sections_exclude_preseason_without_deleting_history(db,
     intelligence.pop("generated_at")
     analytics = PerformanceEngine().calculate_metrics(db)
     assert baseline["total_predictions"] == 3
-    assert analytics["total_predictions"] == 9
+    assert analytics["total_predictions"] == 3
     add_results(db, NBA_PRESEASON)
     preseason_prediction = (
         db.query(Prediction).join(Game, Game.id == Prediction.game_id)

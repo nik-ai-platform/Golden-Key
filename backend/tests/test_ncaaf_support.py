@@ -89,7 +89,7 @@ def _configured_prediction_engine():
     engine.model_runtime.resolve.side_effect = ValueError(
         "No production model configured for sport: NCAAF"
     )
-    engine.ai_engine = MagicMock()
+    engine.ai_engine = MagicMock(VERSION="test")
     engine.ai_engine.generate_analysis.return_value = {
         "engine_version": "test",
         "summary": "NCAAF test analysis",
@@ -338,7 +338,7 @@ def test_snapshot_selection_prefers_newest_batch_before_sportsbook():
     assert selected.sportsbook == "Fanatics"
 
 
-def test_force_does_not_refresh_saved_future_predictions():
+def test_force_refresh_preserves_saved_prediction_and_publishes_new_revision():
     db = _session()
     game = GameOddsImporter(
         db=db,
@@ -388,13 +388,16 @@ def test_force_does_not_refresh_saved_future_predictions():
         force_regenerate=True,
     )
 
-    assert {prediction.id for prediction in returned} == {
+    assert {prediction.id for prediction in returned}.isdisjoint({
         prediction.id for prediction in predictions
-    }
+    })
     assert all(
         prediction.odds_snapshot_id == first_snapshot.id
-        for prediction in returned
+        for prediction in predictions
     )
+    assert all(prediction.odds_snapshot_id != first_snapshot.id for prediction in returned)
+    assert db.query(UserPrediction).one().prediction_id == predictions[0].id
+    assert db.query(Prediction).filter_by(game_id=game.id).count() == 6
 
 
 def test_force_does_not_regenerate_settled_future_predictions():
@@ -806,7 +809,7 @@ def test_one_ncaaf_event_persists_complete_odds_and_three_predictions():
     engine.model_runtime.resolve.side_effect = ValueError(
         "No production model configured for sport: NCAAF"
     )
-    engine.ai_engine = MagicMock()
+    engine.ai_engine = MagicMock(VERSION="test")
     engine.ai_engine.generate_analysis.return_value = {
         "engine_version": "test",
         "summary": "NCAAF test analysis",

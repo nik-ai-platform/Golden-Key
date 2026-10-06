@@ -6,7 +6,9 @@ from app.models.ai_analysis import AIAnalysis
 def create_analysis(
     db: Session,
     prediction_id: int,
-    data: dict
+    data: dict,
+    *,
+    commit: bool = True,
 ):
 
     analysis = AIAnalysis(
@@ -26,8 +28,8 @@ def create_analysis(
 
     db.add(analysis)
 
-    db.commit()
-
-    db.refresh(analysis)
+    if commit:
+        db.commit()
+        db.refresh(analysis)
 
     return analysis

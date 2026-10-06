@@ -29,10 +29,16 @@ reused predictions and are not insertion counts. Score summaries are also
 logged per provider source. Provider request errors log their type, not
 credential-bearing exception URLs.
 
-Prediction generation uses the unchanged same-snapshot reuse contract. A new
-snapshot, even with identical prices, follows normal generation with current
-model/profile inputs and new snapshot provenance, subject to existing saved-pick,
-settled-game, and started-game protections. No price-based deduplication is used.
+Prediction refresh uses immutable revisions, not an identical-price-only reuse
+rule. A complete current publication is reused only when its full input
+fingerprint matches: effective sport/runtime version, all selected odds
+values/sportsbook, resolved NPI factors/weights/explanations, total baseline, and
+simulation settings. A changed input (including same-version profile changes)
+appends three new predictions with the selected snapshot's provenance. Unchanged
+inputs may reuse the original frozen snapshot; new snapshots are still stored.
+Legacy rows marked `unverified:legacy` are preserved and regenerated once if eligible.
+Saved picks remain attached to their original immutable prediction, but do not
+freeze future publications. Started/final/settled games remain frozen.
 Odds snapshots remain append-only with unchanged retention.
 Future preseason games appear in NBA upcoming/daily-card feeds; already-started
 games remain excluded. The provider odds feed only supplies bookmaker-listed
@@ -70,6 +76,98 @@ global history. Replay checks phase on the game it has already loaded rather
 than issuing an extra per-snapshot query.
 
 ## Production metric contract (NPI-5.0)
+
+### Prediction-refresh revision migration
+
+Migration `c8d2f6a109b4` merges both prior heads (`c6f2a8d4e913` and
+`a4c8e2f19b73`) into one final head and replaces the former unique
+`(game_id, model_version, market)` index with
+`(game_id, model_version, market, generation_id)`. It backfills each existing
+prediction with a deterministic UUID-shaped identity derived from
+`md5('legacy-prediction:' || id)` and the explicit `unverified:legacy` fingerprint
+marker. These markers do not claim historically verified model inputs.
+Both fields are NOT NULL, checked, internal metadata. New ORM fixture/manual
+records without known input provenance use `unverified:manual`; the production
+standalone POST writer computes a payload fingerprint and locks the game to
+deduplicate sequential/concurrent identical writes. Changed payloads append
+revisions, unless the game is started, final, or settled.
+Existing prediction
+IDs, prices, results, analyses, factors, saved picks, and publication order are
+not rewritten or deleted. These internal fields are not added to API schemas.
+PostgreSQL upgrade is transactional. Downgrade restores the two parent heads and
+original unique index only if no duplicate non-NULL game/model/market keys exist;
+otherwise it raises before any DDL and retains all revision history. Re-upgrade
+of legacy data produces the same deterministic identities.
+
+Safe deployment order (startup migrations are disabled):
+
+1. Keep upcoming-game-worker stopped and quiesce all other prediction writers.
+2. Stop backend and final-score-worker for the maintenance cutover.
+3. Deploy the new artifact without starting services.
+4. Explicitly run `alembic upgrade head` (or `heads`); verify `alembic current`
+   reports only `c8d2f6a109b4`, both parent branches are present, and revision
+   constraints/backfill and existing IDs/FKs are intact.
+5. Start the updated backend and check readiness, then start final-score-worker.
+6. Start upcoming-game-worker last.
+
+The rollback `0fc80bc` processes must not resume writing against this schema:
+they omit required revision metadata. New ORM readers must not start before
+upgrade because they select the new columns. Treat this as a maintenance
+cutover, not an unrestricted mixed-version rollout. No automatic migration or
+production service restart is performed by the hotfix.
+
+The writer holds the same PostgreSQL game-row lock as settlement and commits
+all three predictions, analyses, factors, and rule-intelligence records together.
+Failures roll back the entire publication. Canonical lookup materializes at most
+three prediction rows, regardless of stored revision count. Explicit forced
+regeneration creates a new revision; reverting inputs never resurrects an older
+superseded publication. Changes to calculation implementation must bump the
+internal fingerprint contract revision so old outputs are not reused.
+
+The `prediction-refresh-v3` contract hashes effective sport/runtime identity,
+sportsbook and all five odds inputs, resolved NPI score and ordered
+factors/weights/scores/explanations, the effective total baseline, simulation
+default run count/deviation, the moneyline model's class-level deviation, and
+analysis version. Factor explanations and order affect published reasoning and
+are intentionally retained. The current NPI home-advantage implementation uses
+its resolved weight, not raw venue or neutral-site metadata; if an implementation
+consumes home context, its resolved factor output participates in the fingerprint.
+No prediction/NPI formula is changed.
+
+The contract excludes venue name/city/state, neutral-site/season/league metadata,
+database IDs, observation/creation/kickoff timestamps, accuracy/sample statistics,
+notes, approvals, reporting fields, and `ModelVersion.changes`. The latter is
+descriptive release text: no current calculation consumes it. Effective runtime
+version and resolved profile factors, rather than the database row, determine
+identity. Numeric normalization is independent of Decimal context, distinguishes
+numbers from strings, and mapping ordering is deterministic.
+
+Default performance and factor queries select canonical predictions before
+aggregation. Historical version comparisons retain the latest appropriate
+publication per game/market/version, not every same-version revision. Current
+prediction endpoints select winners in SQL; `/predictions/stored`, saved picks,
+results, analyses, corrections, and settlement remain explicitly historical or
+exact-ID operations. Settlement retains results for every frozen historical
+prediction, while default reports do not count superseded revisions.
+The regeneration command refreshes material changes without forcing new
+stochastic publications. Re-running the same batch reuses successful identical
+publications, including after a partial failure. Each game holds the same row
+lock and has an independent transaction; a failed game's publication and
+dependent records roll back, while earlier successes remain committed and later
+games continue. Output is a deterministic JSON object with `counts` and ordered
+`results` for `revised`, `reused`, `protected`, `ineligible`, `no_odds`, and `failed`.
+Missing games/non-scheduled games are ineligible; started/final/settled games are
+protected. No complete odds is reported explicitly and, like failure, causes a
+nonzero CLI exit after the complete summary is printed. Error classification and
+fixed safe messages are reported without exposing raw exception text.
+
+Parlays retain original prediction/snapshot provenance. Freshness is established
+from the newest non-future observation for the same game/sportsbook only if its
+relevant inputs match the frozen snapshot exactly: spread uses both lines and
+total; moneyline uses both lines, prices, and total; total uses the posted total.
+A newer mismatched/incomplete observation cannot be bypassed by falling back to
+an older matching observation. The six-hour check uses that verified observation;
+the returned historical snapshot identity/time remains unchanged.
 
 Metric Integrity Phase 1 changes semantics, not NPI weights or score normalization.
 `PredictionEngine` generates `NPI-5.0` records. A configured NPI-4.0 or NPI-4.1 runtime

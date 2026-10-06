@@ -17,6 +17,7 @@ from app.services.prediction_evaluation_service import (
 from app.services.prediction_service import create_prediction
 from app.services.prediction_service import get_predictions
 from app.services.prediction_metric_contract import parse_market, parse_selection, supported_metadata
+from app.services.prediction_publication import canonical_prediction_id_query
 
 
 router = APIRouter(
@@ -42,10 +43,11 @@ def create_prediction_record(
     if not game_repository.get_game_by_id(db, prediction.game_id):
         raise HTTPException(status_code=404, detail="Game not found")
 
-    return create_prediction(
-        db,
-        prediction,
-    )
+    try:
+        return create_prediction(db, prediction)
+    except ValueError as error:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @router.get("/stored", response_model=list[PredictionResponse])
@@ -108,22 +110,16 @@ def list_predictions(
 
     predictions = (
         db.query(Prediction)
-        .filter(Prediction.game_id.in_(game_ids))
+        .filter(Prediction.id.in_(canonical_prediction_id_query(game_ids)))
         .order_by(Prediction.id.desc())
         .all()
         if game_ids
         else []
     )
-    latest_by_game_market = {}
-    for prediction in predictions:
-        latest_by_game_market.setdefault(
-            (prediction.game_id, parse_market(prediction.market)),
-            prediction,
-        )
     games_by_id = {game.id: game for game in games}
     rows = [
         _prediction_payload(games_by_id[prediction.game_id], prediction)
-        for prediction in latest_by_game_market.values()
+        for prediction in predictions
         if prediction.game_id in games_by_id
     ]
 
@@ -180,6 +176,7 @@ def get_prediction(
     predictions = (
         db.query(Prediction)
         .filter(Prediction.game_id == game_id)
+        .filter(Prediction.id.in_(canonical_prediction_id_query([game_id])))
         .order_by(Prediction.id.desc())
         .all()
     )

@@ -824,7 +824,10 @@ class V1ReadService:
         versions: dict[str, _OutcomeCounts] = {}
         spreads = {version: _HistoricalSpreadReport() for version in ("NPI-4.0", "NPI-5.0")}
         # Audit reporting streams bounded batches; counters never retain ORM history.
-        for prediction, result, game in history_query.order_by(PredictionResult.id).yield_per(200):
+        version_history = history_query.filter(
+            Prediction.id.in_(canonical_prediction_id_query(per_model_version=True)),
+        )
+        for prediction, result, game in version_history.order_by(PredictionResult.id).yield_per(200):
             version = historical_text(prediction.model_version) or "Unknown"
             versions.setdefault(version, _OutcomeCounts()).add(result)
             if (

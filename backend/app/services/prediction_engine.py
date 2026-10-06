@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
+from inspect import signature
 import math
+from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
@@ -7,7 +9,6 @@ from app.models.game import Game
 from app.models.odds import Odds
 from app.models.prediction_record import Prediction
 from app.models.prediction_result import PredictionResult
-from app.models.user_prediction import UserPrediction
 from app.schemas.prediction import PredictionShadowCreate
 from app.services.ai_analysis_engine import (
     AIAnalysisEngine
@@ -25,11 +26,11 @@ from app.services.prediction_metric_contract import (
     describe_edge,
     metric_version,
     parse_market,
-    sql_market,
     selected_side_probability,
 )
 from app.services import prediction_service
-from app.services.prediction_publication import canonical_predictions
+from app.services.prediction_publication import canonical_predictions, canonical_prediction_id_query
+from app.services.prediction_revision import input_fingerprint
 from app.services.model_evaluation import (
     save_factor_result
 )
@@ -91,14 +92,24 @@ class PredictionEngine:
         persist: bool = True,
         force_regenerate: bool = False,
     ):
-
-        game = (
-            db.query(Game)
-            .filter(
-                Game.id == game_id
+        try:
+            results = self._analyze_markets(
+                db, game_id, persist=persist, force_regenerate=force_regenerate,
             )
-            .first()
-        )
+            if persist:
+                db.commit()
+            return results
+        except Exception:
+            if persist:
+                db.rollback()
+            raise
+
+    def _analyze_markets(self, db, game_id, *, persist, force_regenerate):
+        query = db.query(Game).filter(Game.id == game_id).populate_existing()
+        # Match settlement's same-game lock, held through the entire publication.
+        if persist:
+            query = query.with_for_update()
+        game = query.first()
 
         if not game:
             raise ValueError(
@@ -114,6 +125,7 @@ class PredictionEngine:
 
         sport = str(sport).upper()
 
+        runtime_model = {}
         try:
             runtime_model = self.model_runtime.resolve(
                 db=db,
@@ -133,8 +145,9 @@ class PredictionEngine:
                 db.query(Prediction)
                 .filter(
                     Prediction.game_id == game_id,
-                    sql_market(Prediction.market).in_(self.MARKETS),
+                    Prediction.id.in_(canonical_prediction_id_query([game_id])),
                 )
+                .populate_existing()
                 .all()
             )
             existing_predictions = [
@@ -143,18 +156,10 @@ class PredictionEngine:
             ]
             if existing_predictions:
                 now = datetime.now(timezone.utc).replace(tzinfo=None)
-                prediction_ids = [
-                    prediction.id for prediction in existing_predictions
-                ]
                 has_result = (
                     db.query(PredictionResult.id)
-                    .filter(PredictionResult.prediction_id.in_(prediction_ids))
-                    .first()
-                    is not None
-                )
-                is_user_protected = (
-                    db.query(UserPrediction.id)
-                    .filter(UserPrediction.prediction_id.in_(prediction_ids))
+                    .join(Prediction, Prediction.id == PredictionResult.prediction_id)
+                    .filter(Prediction.game_id == game_id)
                     .first()
                     is not None
                 )
@@ -162,7 +167,6 @@ class PredictionEngine:
                     game.game_date <= now
                     or game.status == "final"
                     or has_result
-                    or is_user_protected
                 ):
                     return self._ordered_predictions(existing_predictions)
             existing_predictions = canonical_predictions([
@@ -196,17 +200,6 @@ class PredictionEngine:
         if not all(math.isfinite(float(value)) for value in required_odds):
             raise ValueError("Production prediction requires finite odds values")
 
-        if (
-            persist
-            and not force_regenerate
-            and self._prediction_set_has_complete_provenance(existing_predictions)
-            and all(
-                prediction.odds_snapshot_id == odds.id
-                for prediction in existing_predictions
-            )
-        ):
-            return self._ordered_predictions(existing_predictions)
-
         npi_result = self.npi_engine.calculate(
             db=db,
             game=game,
@@ -215,6 +208,19 @@ class PredictionEngine:
             model_version=profile_version,
         )
 
+        fingerprint = (
+            self._input_fingerprint(game, odds, profile_version, runtime_model, npi_result)
+            if persist else None
+        )
+        if (
+            persist
+            and not force_regenerate
+            and self._prediction_set_has_complete_provenance(existing_predictions)
+            and all(row.input_fingerprint == fingerprint for row in existing_predictions)
+        ):
+            return self._ordered_predictions(existing_predictions)
+
+        generation_id = str(uuid4())
         specifications = self._market_specifications(
             sport=sport,
             odds=odds,
@@ -264,11 +270,15 @@ class PredictionEngine:
             created_prediction = prediction_service.create_prediction(
                 db,
                 prediction,
+                commit=False,
+                generation_id=generation_id,
+                input_fingerprint=fingerprint,
             )
             ai_analysis_service.create_analysis(
                 db,
                 created_prediction.id,
                 analysis,
+                commit=False,
             )
             for factor in factors:
                 save_factor_result(
@@ -278,6 +288,7 @@ class PredictionEngine:
                     weight=factor["weight"],
                     factor_score=factor["score"],
                     predicted_side=prediction.selection,
+                    commit=False,
                 )
             results.append(created_prediction)
 
@@ -285,6 +296,38 @@ class PredictionEngine:
             results,
             key=lambda item: self.MARKETS.index(item.market),
         )
+
+    def _input_fingerprint(self, game, odds, profile_version, runtime_model, npi_result):
+        runs_parameter = signature(self.simulation_engine.simulate).parameters.get("runs")
+        payload = {
+            "contract": "prediction-refresh-v3",
+            "sport": str(game.sport).upper(),
+            "odds": {
+                name: getattr(odds, name)
+                for name in (
+                    "sportsbook", "spread_home", "spread_away",
+                    "moneyline_home", "moneyline_away", "total",
+                )
+            },
+            "profile_version": profile_version,
+            "npi": {
+                "npi_score": npi_result["npi_score"],
+                "factors": [
+                    {
+                        name: factor[name] for name in ("name", "weight", "score", "explanation")
+                    } for factor in npi_result["factors"]
+                ],
+            },
+            "total_baseline": self.SPORT_TOTAL_BASELINES.get(str(game.sport).upper(), float(odds.total)),
+            "simulation_effective_runs": (
+                runs_parameter.default if runs_parameter is not None
+                else self.simulation_engine.DEFAULT_RUNS
+            ),
+            "simulation_deviation": self.simulation_engine.MARGIN_STANDARD_DEVIATION,
+            "moneyline_deviation": SimulationEngine.MARGIN_STANDARD_DEVIATION,
+            "analysis_version": self.ai_engine.VERSION,
+        }
+        return input_fingerprint(payload)
 
     def _prediction_set_has_complete_provenance(self, predictions) -> bool:
         if len(predictions) != len(self.MARKETS):

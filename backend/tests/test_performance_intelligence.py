@@ -105,19 +105,6 @@ def _session_with_npi_4_spread_results():
     away = Team(name="Calibration Away", league="NFL", sport="NFL")
     db.add_all([home, away])
     db.flush()
-    game = Game(
-        sport="NFL",
-        league="NFL",
-        game_date=now - timedelta(days=1),
-        home_team_id=home.id,
-        away_team_id=away.id,
-        home_score=24,
-        away_score=20,
-        status="final",
-    )
-    db.add(game)
-    db.flush()
-
     specs = (
         ("spread", "HOME", "NPI-4.0", 160, 85, 12, 62, "WIN", 100, 0),
         ("spread", "AWAY", "NPI-4.0", 140, 75, -15, 35, "LOSS", -100, 0),
@@ -129,6 +116,13 @@ def _session_with_npi_4_spread_results():
         ("spread", "HOME", "NPI-3.0", 130, 65, 10, 60, "WIN", 100, 0),
     )
     for market, selection, version, npi, confidence, edge, probability, outcome, profit, age in specs:
+        game = Game(
+            sport="NFL", league="NFL", game_date=now - timedelta(days=max(1, age)),
+            home_team_id=home.id, away_team_id=away.id,
+            home_score=24, away_score=20, status="final",
+        )
+        db.add(game)
+        db.flush()
         prediction = Prediction(
             game_id=game.id,
             market=market,

@@ -70,14 +70,13 @@ def test_odds_import_updates_existing_sportsbook_row():
 
 
 @pytest.mark.parametrize("version", ["NPI-4.1", "NPI-5.0"])
-def test_prediction_engine_returns_existing_production_prediction(version):
+def test_prediction_engine_returns_existing_frozen_production_prediction(version):
     game = SimpleNamespace(
         id=17,
         sport="NBA",
         game_date=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=1),
-        status="scheduled",
+        status="final",
     )
-    observed_at = datetime.now(timezone.utc)
     existing = [
         SimpleNamespace(
             id=41,
@@ -109,34 +108,17 @@ def test_prediction_engine_returns_existing_production_prediction(version):
     ]
     for prediction in existing:
         prediction.model_version = version
-    if version == "NPI-4.1":
-        game.status = "final"
     game_query = MagicMock()
-    game_query.filter.return_value.first.return_value = game
+    game_query.filter.return_value.populate_existing.return_value.with_for_update.return_value.first.return_value = game
     prediction_query = MagicMock()
-    prediction_query.filter.return_value.all.return_value = existing
+    prediction_query.filter.return_value.populate_existing.return_value.all.return_value = existing
     empty_query = MagicMock()
-    empty_query.filter.return_value.first.return_value = None
-    odds_query = MagicMock()
-    odds_query.filter.return_value.all.return_value = [
-        SimpleNamespace(
-            id=23,
-            sportsbook="Test Sportsbook",
-            created_at=observed_at,
-            spread_home=-4.5,
-            spread_away=4.5,
-            moneyline_home=-180,
-            moneyline_away=155,
-            total=224.5,
-        )
-    ]
+    empty_query.join.return_value.filter.return_value.first.return_value = None
     db = MagicMock()
     db.query.side_effect = [
         game_query,
         prediction_query,
         empty_query,
-        empty_query,
-        odds_query,
     ]
 
     engine = PredictionEngine()
@@ -169,7 +151,7 @@ def test_prediction_engine_uses_default_version_without_production_model():
         total=164.5,
     )
     game_query = MagicMock()
-    game_query.filter.return_value.first.return_value = game
+    game_query.filter.return_value.populate_existing.return_value.first.return_value = game
     odds_query = MagicMock()
     odds_query.filter.return_value.all.return_value = [odds]
     db = MagicMock()

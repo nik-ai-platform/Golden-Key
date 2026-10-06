@@ -138,7 +138,7 @@ def test_scheduler_prediction_generation_is_idempotent_with_provenance():
         "npi_score": 110,
         "factors": [],
     }
-    prediction_engine.ai_engine = MagicMock()
+    prediction_engine.ai_engine = MagicMock(VERSION="test")
     prediction_engine.ai_engine.generate_analysis.return_value = {
         "engine_version": "test",
         "summary": "Scheduler idempotency test",

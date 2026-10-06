@@ -14,6 +14,7 @@ from app.models.prediction_record import Prediction
 from app.models.prediction_result import PredictionResult
 from app.models.team import Team
 from app.services.prediction_engine import PredictionEngine
+from app.services.simulation_engine import SimulationEngine
 from app.services.result_settlement_service import ResultSettlementService
 from app.services.v1_read_service import V1ReadService
 
@@ -69,13 +70,16 @@ def test_prediction_generation_settlement_and_performance_lifecycle():
             "npi_score": 110,
             "factors": [],
         }
-        prediction_engine.simulation_engine = MagicMock()
+        prediction_engine.simulation_engine = MagicMock(
+            DEFAULT_RUNS=SimulationEngine.DEFAULT_RUNS,
+            MARGIN_STANDARD_DEVIATION=SimulationEngine.MARGIN_STANDARD_DEVIATION,
+        )
         prediction_engine.simulation_engine.simulate.return_value = {
             "win_probability": 62,
             "runs": 10000,
             "average_margin": 4.0,
         }
-        prediction_engine.ai_engine = MagicMock()
+        prediction_engine.ai_engine = MagicMock(VERSION="integration-test")
         prediction_engine.ai_engine.generate_analysis.return_value = {
             "engine_version": "integration-test",
             "summary": "Lifecycle integration test",

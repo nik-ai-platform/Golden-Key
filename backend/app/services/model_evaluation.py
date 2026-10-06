@@ -4,6 +4,7 @@ from app.models.npi_factor_result import NPIFactorResult
 from app.models.prediction_record import Prediction
 from app.models.game import Game
 from app.services.performance_scope import regular_season_games
+from app.services.prediction_publication import canonical_prediction_id_query
 
 
 def save_factor_result(
@@ -14,6 +15,8 @@ def save_factor_result(
     factor_score: float,
     predicted_side: str,
     actual_outcome: str | None = None,
+    *,
+    commit: bool = True,
 ):
     row = NPIFactorResult(
         prediction_id=prediction_id,
@@ -24,8 +27,9 @@ def save_factor_result(
         actual_outcome=actual_outcome,
     )
     db.add(row)
-    db.commit()
-    db.refresh(row)
+    if commit:
+        db.commit()
+        db.refresh(row)
     return row
 
 
@@ -44,6 +48,7 @@ class ModelEvaluation:
             .join(Prediction, Prediction.id == NPIFactorResult.prediction_id)
             .join(Game, Game.id == Prediction.game_id)
             .filter(regular_season_games())
+            .filter(Prediction.id.in_(canonical_prediction_id_query()))
             .group_by(
                 NPIFactorResult.factor_name
             )
@@ -77,6 +82,7 @@ class ModelEvaluation:
             .join(Prediction, Prediction.id == NPIFactorResult.prediction_id)
             .join(Game, Game.id == Prediction.game_id)
             .filter(regular_season_games(), NPIFactorResult.actual_outcome.is_not(None))
+            .filter(Prediction.id.in_(canonical_prediction_id_query()))
             .group_by(NPIFactorResult.factor_name)
             .all()
         )

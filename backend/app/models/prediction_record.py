@@ -1,4 +1,6 @@
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String
+from uuid import uuid4
+
+from sqlalchemy import CheckConstraint, Column, DateTime, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.sql import func
 
 from app.database.base import Base
@@ -6,6 +8,19 @@ from app.database.base import Base
 
 class Prediction(Base):
     __tablename__ = "predictions"
+    __table_args__ = (
+        CheckConstraint("length(generation_id) = 36", name="ck_predictions_generation_id"),
+        CheckConstraint(
+            "length(input_fingerprint) = 64 OR input_fingerprint IN "
+            "('unverified:legacy', 'unverified:manual')",
+            name="ck_predictions_input_fingerprint",
+        ),
+        Index(
+            "ix_predictions_game_model_market",
+            "game_id", "model_version", "market", "generation_id",
+            unique=True,
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
 
@@ -24,6 +39,9 @@ class Prediction(Base):
         String,
         nullable=False,
     )
+
+    generation_id = Column(String(36), nullable=False, default=lambda: str(uuid4()))
+    input_fingerprint = Column(String(64), nullable=False, default="unverified:manual")
 
     selection = Column(
         String,

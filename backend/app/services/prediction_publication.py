@@ -34,7 +34,9 @@ def publication_order(prediction: Prediction) -> tuple[int, int, int, int, int]:
     )
 
 
-def canonical_prediction_id_query(game_ids: Iterable[int] | None = None):
+def canonical_prediction_id_query(
+    game_ids: Iterable[int] | None = None, *, per_model_version: bool = False,
+):
     """Rank before availability filters; materialize only winners, never history."""
     precedence = case(
         (Prediction.model_version == "NPI-5.0", 3),
@@ -42,10 +44,13 @@ def canonical_prediction_id_query(game_ids: Iterable[int] | None = None):
         (Prediction.model_version == "NPI-4.0", 1),
         else_=0,
     )
+    partition = (Prediction.game_id, sql_market(Prediction.market))
+    if per_model_version:
+        partition += (Prediction.model_version,)
     query = select(
         Prediction.id.label("prediction_id"),
         func.row_number().over(
-            partition_by=(Prediction.game_id, sql_market(Prediction.market)),
+            partition_by=partition,
             order_by=(
                 case((precedence > 0, 1), else_=0).desc(),
                 case((sql_supported_metadata(Prediction.market, Prediction.selection), 1), else_=0).desc(),
