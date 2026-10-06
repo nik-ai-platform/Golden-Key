@@ -2,6 +2,8 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
+
 from app.services.game_importer import GameImporter
 from app.services.odds_importer import OddsImporter
 from app.services.prediction_engine import PredictionEngine
@@ -67,7 +69,8 @@ def test_odds_import_updates_existing_sportsbook_row():
     db.refresh.assert_called_once_with(existing)
 
 
-def test_prediction_engine_returns_existing_production_prediction():
+@pytest.mark.parametrize("version", ["NPI-4.1", "NPI-5.0"])
+def test_prediction_engine_returns_existing_production_prediction(version):
     game = SimpleNamespace(
         id=17,
         sport="NBA",
@@ -78,7 +81,8 @@ def test_prediction_engine_returns_existing_production_prediction():
     existing = [
         SimpleNamespace(
             id=41,
-            model_version="NPI-4.1",
+            game_id=17,
+            model_version="NPI-5.0",
             market="spread",
             odds_snapshot_id=23,
             american_odds=-110,
@@ -86,7 +90,8 @@ def test_prediction_engine_returns_existing_production_prediction():
         ),
         SimpleNamespace(
             id=42,
-            model_version="NPI-4.1",
+            game_id=17,
+            model_version="NPI-5.0",
             market="moneyline",
             odds_snapshot_id=23,
             american_odds=-180,
@@ -94,13 +99,18 @@ def test_prediction_engine_returns_existing_production_prediction():
         ),
         SimpleNamespace(
             id=43,
-            model_version="NPI-4.1",
+            game_id=17,
+            model_version="NPI-5.0",
             market="total",
             odds_snapshot_id=23,
             american_odds=-110,
             line_value=224.5,
         ),
     ]
+    for prediction in existing:
+        prediction.model_version = version
+    if version == "NPI-4.1":
+        game.status = "final"
     game_query = MagicMock()
     game_query.filter.return_value.first.return_value = game
     prediction_query = MagicMock()
@@ -132,7 +142,7 @@ def test_prediction_engine_returns_existing_production_prediction():
     engine = PredictionEngine()
     engine.model_runtime = MagicMock()
     engine.model_runtime.resolve.return_value = {
-        "model_version": "NPI-4.1",
+        "model_version": version,
     }
     engine.npi_engine = MagicMock()
 
@@ -192,7 +202,7 @@ def test_prediction_engine_uses_default_version_without_production_model():
         persist=False,
     )
 
-    assert result.model_version == "NPI-4.0"
+    assert result.model_version == "NPI-5.0"
     assert result.npi_score == 100
 
 

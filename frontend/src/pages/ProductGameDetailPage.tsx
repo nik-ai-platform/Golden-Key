@@ -42,7 +42,7 @@ function nullableDescending(left: number | null, right: number | null): number {
 
 function rankPredictions(left: Prediction, right: Prediction): number {
   return (
-    right.npi_score - left.npi_score ||
+    nullableDescending(left.npi_score, right.npi_score) ||
     nullableDescending(left.confidence_score, right.confidence_score) ||
     nullableDescending(left.projected_edge, right.projected_edge)
   );

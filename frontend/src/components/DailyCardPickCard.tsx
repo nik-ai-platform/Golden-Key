@@ -100,7 +100,7 @@ export function DailyCardPickCard({
                 <Chip label={prediction.market} size="small" sx={{ textTransform: "capitalize" }} />
                 {odds ? <Chip label={`Odds ${odds}`} size="small" variant="outlined" /> : null}
                 <Stack direction="row" alignItems="center" spacing={0.25}>
-                  <Chip label={`NPI ${Math.round(prediction.npi_score)}`} size="small" variant="outlined" />
+                  <Chip label={`NPI ${prediction.npi_score != null && Number.isFinite(prediction.npi_score) ? Math.round(prediction.npi_score) : "Unavailable"}`} size="small" variant="outlined" />
                   <MetricInfoControl metric="npi" market={prediction.market} />
                 </Stack>
               </Stack>
@@ -166,7 +166,7 @@ export function DailyCardPickCard({
           </Box>
           {[
             { label: "Odds", value: odds ?? "—", color: "text.primary" },
-            { label: "Win prob", value: winProbability, color: "text.primary" },
+            { label: "Model probability", value: winProbability, color: "text.primary" },
           ].map((metric) => (
             <Box key={metric.label} sx={{ display: { xs: "none", md: "block" }, px: 1.5, py: 1.25, borderLeft: "1px solid var(--gk-border)" }}>
               <Typography fontFamily="var(--gk-font-mono)" fontWeight={800} color={metric.color}>

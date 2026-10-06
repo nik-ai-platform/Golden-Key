@@ -57,16 +57,16 @@ export function formatProductTime(value: string | null | undefined): string {
 }
 
 export function formatAmericanOdds(value: number | null): string | null {
-  if (value == null) return null;
+  if (value == null || !Number.isFinite(value) || Math.abs(value) < 100) return null;
   return value > 0 ? `+${value}` : String(value);
 }
 
-export function formatNpi(value: number): string {
-  return `${value.toFixed(1)} / 200`;
+export function formatNpi(value: number | null): string {
+  return value == null || !Number.isFinite(value) ? "Unavailable" : `${value.toFixed(1)} / 200`;
 }
 
 export function formatConfidence(value: number | null): string {
-  return value == null ? "Not rated" : `${value.toFixed(1)}%`;
+  return value == null || !Number.isFinite(value) ? "Not rated" : `${value.toFixed(1)}%`;
 }
 
 export function customerFacingReasoning(value: string | null): string | null {
@@ -76,6 +76,7 @@ export function customerFacingReasoning(value: string | null): string | null {
       /(?:^|\s)Projected market edge:\s*[+-]?\d+(?:\.\d+)?%?\.(?=\s|$)/gi,
       " ",
     )
+    .replace(/Simulation Probability/gi, "Model Probability")
     .replace(/\s+/g, " ")
     .trim();
   return sanitized || null;

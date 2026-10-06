@@ -200,7 +200,7 @@ function SavedPickCard({ pick }: { pick: SavedPick }) {
 
             <Grid size={{ xs: 6, sm: 3, md: 2 }}>
               <Typography variant="caption" color="text.secondary">
-                Confidence
+                Confidence Rating
               </Typography>
               <Typography fontWeight={700}>
                 {formatConfidence(pick.confidence_score)}

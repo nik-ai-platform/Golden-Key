@@ -8,10 +8,10 @@ def moneyline_price_tier(
     market: str | None,
     american_odds: int | float | None,
 ) -> str | None:
-    if (market or "").lower() != "moneyline" or american_odds is None:
+    odds = historical_price(american_odds)
+    if parse_market(market) != "moneyline" or odds is None:
         return None
 
-    odds = float(american_odds)
     if odds < -400:
         return LOW_VALUE_HEAVY_FAVORITE
     if odds < -300:
@@ -25,11 +25,13 @@ def is_recommendation_eligible(
     market: str | None,
     american_odds: int | float | None,
 ) -> bool:
-    if (market or "").lower() != "moneyline":
-        return True
-    if american_odds is None:
+    parsed_market = parse_market(market)
+    if parsed_market != "moneyline":
+        return parsed_market is not None
+    odds = historical_price(american_odds)
+    if odds is None:
         return False
-    return float(american_odds) >= -400
+    return odds >= -400
 
 
 def recommendation_designation(
@@ -39,3 +41,4 @@ def recommendation_designation(
     if moneyline_price_tier(market, american_odds) == LOW_VALUE_HEAVY_FAVORITE:
         return LOW_VALUE_DESIGNATION
     return None
+from app.services.prediction_metric_contract import historical_price, parse_market

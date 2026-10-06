@@ -56,6 +56,14 @@ def _session_with_results():
         ),
     )
     for market, selection, npi, confidence, odds, outcome, profit_loss, created_at in result_specs:
+        if created_at < now - timedelta(days=7):
+            game = Game(
+                sport="NFL", league="NFL", game_date=now - timedelta(days=8),
+                home_team_id=home.id, away_team_id=away.id, status="final",
+                home_score=24, away_score=17,
+            )
+            db.add(game)
+            db.flush()
         prediction = Prediction(
             game_id=game.id,
             market=market,

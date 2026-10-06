@@ -13,10 +13,13 @@ export interface Prediction {
   sportsbook: string | null;
   odds_observed_at: string | null;
   model_version: string;
-  npi_score: number;
+  npi_score: number | null;
   confidence_score: number | null;
   simulation_probability: number | null;
   projected_edge: number | null;
+  selected_side_edge?: number | null;
+  edge_unit?: "percentage_points" | "scoring_points" | "unavailable";
+  edge_benchmark?: string;
   risk_level: string | null;
   reasoning: string | null;
   outcome?: string | null;
@@ -46,7 +49,8 @@ export type DailyCardRole =
 export interface DailyCardPick {
   role: DailyCardRole;
   label: string;
-  ranking_score: number;
+  /** Older cached responses may contain this internal score; new responses omit it. */
+  ranking_score?: number;
   ranking_reasons: string[];
   prediction: Prediction;
 }
@@ -86,7 +90,7 @@ export interface SavedPick {
   display_selection: string;
   line_value: number | null;
   american_odds: number | null;
-  npi_score: number;
+  npi_score: number | null;
   confidence_score: number | null;
   risk_level: string | null;
   outcome: string | null;
@@ -122,7 +126,7 @@ export interface RecentPerformanceResult {
   away_team: string;
   market: string;
   display_selection: string;
-  npi_score: number;
+  npi_score: number | null;
   outcome: "WIN" | "LOSS" | "PUSH";
   home_score: number | null;
   away_score: number | null;
@@ -201,6 +205,7 @@ export interface PerformanceIntelligenceResponse {
   by_side_type: PerformanceIntelligenceBreakdown[];
   by_model_version: PerformanceIntelligenceBreakdown[];
   npi_4_spread: Npi4SpreadPerformance;
+  npi_5_spread?: Npi4SpreadPerformance;
 }
 
 export interface UserProfile {

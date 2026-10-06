@@ -56,12 +56,12 @@ def test_long_moneyline_is_market_value_not_best_bet():
 def test_daily_card_uses_unique_roles_and_positive_spread_value_play():
     service = V1ReadService()
     predictions = [
-        _prediction(1, "spread", npi_score=190),
+        _prediction(1, "spread", npi_score=190, confidence_score=90),
         _prediction(2, "spread", npi_score=180),
         _prediction(3, "moneyline", american_odds=-135, npi_score=176),
         _prediction(4, "total", selection="OVER", line_value=47.5, npi_score=172),
-        _prediction(5, "spread", selection="AWAY", line_value=3.5, npi_score=169),
-        _prediction(6, "total", selection="UNDER", line_value=45.5, npi_score=160),
+        _prediction(5, "spread", selection="AWAY", line_value=3.5, npi_score=169, projected_edge=-7),
+        _prediction(6, "total", selection="UNDER", line_value=45.5, npi_score=160, projected_edge=-7),
     ]
 
     card = service._build_daily_card(predictions)

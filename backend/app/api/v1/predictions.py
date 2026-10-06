@@ -7,7 +7,7 @@ from app.database.session import get_db
 from app.models.prediction_record import Prediction
 from app.models.prediction_snapshot import PredictionSnapshot
 from app.schemas.feature_importance import PredictionExplanation
-from app.schemas.prediction import PredictionCreate, PredictionResponse
+from app.schemas.prediction import HistoricalPredictionFields, PredictionCreate, PredictionResponse
 from app.repositories import game_repository
 from app.services.cache_service import cache_service
 from app.services.feature_importance_service import FeatureImportanceService
@@ -16,6 +16,7 @@ from app.services.prediction_evaluation_service import (
 )
 from app.services.prediction_service import create_prediction
 from app.services.prediction_service import get_predictions
+from app.services.prediction_metric_contract import parse_market, parse_selection, supported_metadata
 
 
 router = APIRouter(
@@ -51,30 +52,35 @@ def create_prediction_record(
 def list_stored_predictions(
     db: Session = Depends(get_db),
 ):
-    return get_predictions(db)
+    return [PredictionResponse.model_validate(row) for row in get_predictions(db)]
 
 
 def _prediction_payload(game, prediction):
-    selection = prediction.selection
-    if prediction.market == "spread" and selection != "PASS":
+    prediction_id = prediction.id
+    prediction = HistoricalPredictionFields.model_validate(prediction)
+    market = parse_market(prediction.market)
+    selection = parse_selection(prediction.selection)
+    if not supported_metadata(market, selection):
+        display_selection = "Selection unavailable"
+    elif market == "spread" and selection in {"HOME", "AWAY"} and prediction.line_value is not None:
         display_selection = f"{selection} {prediction.line_value:+g}"
-    elif prediction.market == "moneyline" and selection != "PASS":
+    elif market == "moneyline" and selection in {"HOME", "AWAY"}:
         team = game.home_team if selection == "HOME" else game.away_team
         display_selection = f"{team.name} ML"
-    elif prediction.market == "total" and selection != "PASS":
+    elif market == "total" and selection in {"OVER", "UNDER"} and prediction.line_value is not None:
         display_selection = f"{selection} {prediction.line_value:g}"
     else:
-        display_selection = selection
+        display_selection = selection or "Selection unavailable"
 
     return {
-        "prediction_id": prediction.id,
+        "prediction_id": prediction_id,
         "game_id": game.id,
         "sport": game.sport,
         "game_date": game.game_date.isoformat(),
         "home_team": game.home_team.name,
         "away_team": game.away_team.name,
         "market": prediction.market,
-        "selection": selection,
+        "selection": prediction.selection,
         "display_selection": display_selection,
         "line_value": prediction.line_value,
         "american_odds": prediction.american_odds,
@@ -111,7 +117,7 @@ def list_predictions(
     latest_by_game_market = {}
     for prediction in predictions:
         latest_by_game_market.setdefault(
-            (prediction.game_id, prediction.market),
+            (prediction.game_id, parse_market(prediction.market)),
             prediction,
         )
     games_by_id = {game.id: game for game in games}
@@ -159,7 +165,7 @@ def get_prediction(
     game_id: int,
     db: Session = Depends(get_db)
 ):
-    cache_key = f"predictions:game:{game_id}:markets:v2"
+    cache_key = f"predictions:game:{game_id}:markets:v3"
     cached = cache_service.get(cache_key)
     if cached is not None:
         return cached
@@ -186,7 +192,7 @@ def get_prediction(
 
     latest_by_market = {}
     for prediction in predictions:
-        latest_by_market.setdefault(prediction.market, prediction)
+        latest_by_market.setdefault(parse_market(prediction.market), prediction)
     payload = [
         _prediction_payload(game, latest_by_market[market])
         for market in ("spread", "moneyline", "total")

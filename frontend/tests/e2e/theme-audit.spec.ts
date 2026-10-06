@@ -203,7 +203,7 @@ async function expectCompactMetrics(
   const supportingMetrics = container.getByTestId("supporting-metrics");
 
   await expect(container).toBeVisible();
-  for (const label of ["NPI", "Confidence", "Model Probability", "Risk"]) {
+  for (const label of ["NPI", "Confidence Rating", "Model Probability", "Risk"]) {
     await expect(container.getByText(label, { exact: true })).toBeVisible();
   }
   expect(
@@ -243,7 +243,7 @@ async function expectDashboardMetrics(page: import("@playwright/test").Page) {
   const primaryMetrics = container.locator(":scope > div").first();
 
   await expect(container).toBeVisible();
-  for (const label of ["Confidence", "Model Probability"]) {
+  for (const label of ["Confidence Rating", "Model Probability"]) {
     await expect(container.getByText(label, { exact: true })).toBeVisible();
   }
   expect(

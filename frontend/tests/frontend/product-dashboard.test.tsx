@@ -248,7 +248,7 @@ describe("daily card dashboard", () => {
     expect(within(totalPick).getByText("Dallas Cowboys @ Philadelphia Eagles")).toBeTruthy();
     expect(within(totalPick).getByText("OVER 47.5")).toBeTruthy();
     expect(screen.getByText("200.0")).toBeTruthy();
-    expect(screen.getByText("Avg Confidence")).toBeTruthy();
+    expect(screen.getByText("Avg Confidence Rating")).toBeTruthy();
     expect(screen.getByTestId("best-bet-team-accent")).toBeTruthy();
     expect(screen.getAllByTestId("market-leader-team-accent")).toHaveLength(3);
     expect(screen.getAllByTestId("npi-team-accent")).toHaveLength(5);

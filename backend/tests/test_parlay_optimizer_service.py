@@ -103,7 +103,9 @@ def _add_candidate(
         model_version="NPI-4.0",
         market=market,
         selection=selection,
-        line_value=None if market == "moneyline" else (-3.5 if market == "spread" else 44.5),
+        line_value=None if market == "moneyline" else (
+            (3.5 if selection == "AWAY" else -3.5) if market == "spread" else 44.5
+        ),
         american_odds=(
             american_odds
             if american_odds is not None
@@ -121,7 +123,7 @@ def _add_candidate(
         npi_score=170 - index,
         simulation_probability=72,
         confidence_score=82,
-        projected_edge=edge,
+        projected_edge=-edge if selection in {"AWAY", "UNDER"} and market != "moneyline" else edge,
         risk_level="LOW" if index % 3 else "HIGH",
         reasoning=f"Qualified because model signals agree for candidate {index}.",
     )
@@ -152,7 +154,7 @@ def test_optimizer_builds_every_supported_parlay_when_inventory_is_sufficient(
     assert result["market_mix"]["moneyline"] <= moneyline_max
     assert result["market_mix"]["spread"] >= spread_min
     assert result["market_mix"]["total"] >= total_min
-    assert all(0 <= leg["parlay_score"] <= 100 for leg in result["legs"])
+    assert all("parlay_score" not in leg and "score_components" not in leg for leg in result["legs"])
     assert all(leg["reasoning"] for leg in result["legs"])
 
 
@@ -553,6 +555,66 @@ def test_optimizer_fails_instead_of_expanding_horizon_for_insufficient_inventory
         match="Not enough qualified predictions to build a 10-leg optimized parlay",
     ):
         ParlayOptimizerService().build_parlay(db, leg_count=10)
+
+
+@pytest.mark.parametrize("version", ["NPI-4.0", "NPI-4.1", "NPI-5.0"])
+def test_optimizer_includes_away_and_under_with_selected_side_metrics(version):
+    db = _session()
+    _, away = _add_candidate(db, 1, "spread", selection="AWAY", edge=15)
+    _, under = _add_candidate(db, 2, "total", selection="UNDER", edge=3)
+    away.model_version = under.model_version = version
+    away.simulation_probability = 65 if version == "NPI-5.0" else 35
+    if version == "NPI-5.0":
+        away.projected_edge = 15
+        under.projected_edge = 3
+    db.commit()
+
+    result = ParlayOptimizerService().build_parlay(db, leg_count=2)
+    legs = {leg["prediction_id"]: leg for leg in result["legs"]}
+    assert legs[away.id]["simulation_probability"] == 65
+    assert legs[away.id]["selection"] == "AWAY"
+    assert legs[away.id]["selected_side_edge"] == 15
+    assert legs[under.id]["selection"] == "UNDER"
+    assert legs[under.id]["selected_side_edge"] == 3
+    assert result["average_projected_edge"] is None
+    assert result["average_projected_edge_deprecated"] is True
+    assert result["average_selected_side_edge_by_market"] == {
+        "spread": {"value": 15, "unit": "percentage_points"},
+        "total": {"value": 3, "unit": "scoring_points"},
+    }
+
+
+@pytest.mark.parametrize(("field", "value"), [
+    ("confidence_score", None), ("simulation_probability", None),
+    ("confidence_score", float("inf")), ("simulation_probability", 101),
+    ("simulation_probability", float("nan")), ("npi_score", float("inf")),
+    ("projected_edge", None), ("line_value", float("inf")),
+    ("selection", ""), ("market", ""), ("american_odds", None),
+    ("odds_snapshot_id", None),
+])
+def test_missing_parlay_metrics_are_excluded(field, value):
+    db = _session()
+    _, prediction = _add_candidate(db, 1, "spread")
+    setattr(prediction, field, value)
+    db.commit()
+    now = datetime.now(UTC).replace(tzinfo=None)
+    candidates = ParlayOptimizerService()._load_candidates(
+        db, sport=None, now=now, horizon_end=now + timedelta(days=7),
+    )
+    assert candidates == []
+
+
+def test_unclassified_parlay_risk_is_a_cached_client_safe_string():
+    db = _session()
+    _, first = _add_candidate(db, 1, "spread")
+    _add_candidate(db, 2, "total")
+    first.risk_level = None
+    db.commit()
+    result = ParlayOptimizerService().build_parlay(db, leg_count=2)
+    assert result["risk_level"] == "unavailable"
+    assert isinstance(result["average_confidence"], float)
+    assert isinstance(result["average_model_probability"], float)
+    assert all(isinstance(leg["simulation_probability"], float) for leg in result["legs"])
 
 
 def test_optimize_route_forwards_requested_legs_and_sport(monkeypatch):

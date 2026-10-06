@@ -115,6 +115,24 @@ describe("Game Analysis", () => {
     vi.mocked(useQuery).mockReturnValue(queryResult({ data: game }));
   });
 
+  it("retains informational historical picks with nullable metrics without crashing", () => {
+    vi.mocked(useQuery).mockReturnValue(queryResult({
+      data: {
+        ...game,
+        predictions: [prediction({
+          npi_score: null, confidence_score: null, simulation_probability: null,
+          projected_edge: null, line_value: null, american_odds: null, risk_level: null,
+          recommendation_eligible: false, display_selection: "Seattle Seahawks",
+        })],
+      },
+    }));
+    renderPage();
+    expect(screen.getAllByText("Unavailable").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/NaN|Infinity|null|undefined/)).toBeNull();
+    expect(screen.queryByText(/American odds/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Save Pick 1" })).toBeTruthy();
+  });
+
   it("renders the complete settled three-market decision view", () => {
     renderPage();
 
@@ -153,8 +171,12 @@ describe("Game Analysis", () => {
     expect(within(totalEducation).queryByText("+3.5 pts")).toBeNull();
     expect(within(totalEducation).queryByText(/projected total/i)).toBeNull();
     expect(screen.getAllByTestId("pick-metrics")).toHaveLength(3);
-    expect(screen.getAllByText("Confidence")).toHaveLength(3);
+    expect(screen.getAllByText("Confidence Rating")).toHaveLength(6);
     expect(screen.getAllByText("Model Probability")).toHaveLength(6);
+    expect(spreadEducation.textContent).toContain("selected team covering the spread");
+    expect(moneylineEducation.textContent).toContain("selected team winning");
+    expect(totalEducation.textContent).toContain("selected OVER/UNDER outcome");
+    expect(totalEducation.textContent).toContain("heuristic, not a simulation");
     expect(screen.getAllByText("Low")).toHaveLength(4);
     expect(screen.queryByText("LOW")).toBeNull();
     expect(screen.getAllByText("Bear A Hand Sports Best Pick")).toHaveLength(1);

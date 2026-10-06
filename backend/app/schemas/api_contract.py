@@ -16,10 +16,13 @@ class TodayPredictionItem(BaseModel):
     sportsbook: str | None = None
     odds_observed_at: str | None = None
     model_version: str
-    npi_score: float
+    npi_score: float | None = None
     confidence_score: float | None = None
-    simulation_probability: float | None = None
+    simulation_probability: float | None = Field(default=None, ge=0, le=100, allow_inf_nan=False)
     projected_edge: float | None = None
+    selected_side_edge: float | None = None
+    edge_unit: str | None = None
+    edge_benchmark: str | None = None
     risk_level: str | None = None
     reasoning: str | None = None
     outcome: str | None = None
@@ -46,7 +49,6 @@ class UpcomingPredictionsResponse(BaseModel):
 class DailyCardPick(BaseModel):
     role: str
     label: str
-    ranking_score: float
     ranking_reasons: list[str]
     prediction: TodayPredictionItem
 
@@ -86,7 +88,7 @@ class SavedPickItem(BaseModel):
     display_selection: str
     line_value: float | None = None
     american_odds: int | None = None
-    npi_score: float
+    npi_score: float | None = None
     confidence_score: float | None = None
     risk_level: str | None = None
     outcome: str | None = None
@@ -122,7 +124,7 @@ class RecentResultItem(BaseModel):
     away_team: str
     market: str
     display_selection: str
-    npi_score: float
+    npi_score: float | None = None
     outcome: str
     home_score: float | None = None
     away_score: float | None = None

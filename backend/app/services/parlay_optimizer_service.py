@@ -10,6 +10,24 @@ from app.models.prediction_record import Prediction
 from app.models.team import Team
 from app.services.model_runtime_service import ModelRuntimeService
 from app.services.prediction_engine import PredictionEngine
+from app.services.prediction_metric_contract import (
+    SUPPORTED_MODEL_VERSIONS,
+    actionable_prediction,
+    describe_edge,
+    edge_ranking_strength,
+    finite_metric,
+    metric_version,
+    metric_reasoning,
+    normalized_text,
+    parse_market,
+    parse_selection,
+    sql_market,
+    sql_selection,
+    supported_metadata,
+    qualifies_edge,
+    selected_side_probability,
+)
+from app.services.prediction_publication import canonical_prediction_id_query
 from app.services.recommendation_eligibility import (
     LOWER_PRIORITY,
     is_recommendation_eligible,
@@ -25,7 +43,6 @@ class ParlayOptimizerService:
     SUPPORTED_LEG_COUNTS = {2, 4, 6, 8, 10}
     MAX_GAME_HORIZON_DAYS = 7
     MAX_ODDS_AGE = timedelta(hours=6)
-    MIN_PROJECTED_EDGE = 1.0
     BEAM_WIDTH = 500
     FIXED_STANDARD_PRICE = -110
     model_runtime = ModelRuntimeService()
@@ -77,10 +94,25 @@ class ParlayOptimizerService:
             "generated_at": now,
             "horizon_days": self.MAX_GAME_HORIZON_DAYS,
             "sport": sport.upper() if sport else None,
-            "legs": legs,
+            "legs": [
+                {key: value for key, value in leg.items() if key not in {"parlay_score", "score_components"}}
+                for leg in legs
+            ],
             "average_npi": self._average(legs, "npi_score"),
             "average_confidence": self._average(legs, "confidence_score"),
-            "average_projected_edge": self._average(legs, "projected_edge"),
+            "average_model_probability": self._average(legs, "simulation_probability"),
+            "average_projected_edge": None,
+            "average_projected_edge_deprecated": True,
+            "average_selected_side_edge_by_market": {
+                market: {
+                    "value": self._average(
+                        [leg for leg in legs if leg["market"] == market],
+                        "selected_side_edge",
+                    ),
+                    "unit": next(leg["edge_unit"] for leg in legs if leg["market"] == market),
+                }
+                for market in market_mix if market_mix[market]
+            },
             "combined_american_odds": self._combined_american_odds(legs),
             "risk_level": self._parlay_risk(legs),
             "market_mix": market_mix,
@@ -103,17 +135,17 @@ class ParlayOptimizerService:
             .join(home_team, home_team.id == Game.home_team_id)
             .join(away_team, away_team.id == Game.away_team_id)
             .filter(
+                Prediction.id.in_(canonical_prediction_id_query()),
                 Game.game_date >= now,
                 Game.game_date <= horizon_end,
                 Game.status == "scheduled",
-                Prediction.market.in_(("spread", "moneyline", "total")),
-                Prediction.selection != "PASS",
+                sql_market(Prediction.market).is_not(None),
+                sql_selection(Prediction.selection) != "PASS",
                 Prediction.odds_snapshot_id.is_not(None),
                 Prediction.sportsbook.is_not(None),
                 Prediction.odds_observed_at.is_not(None),
                 Prediction.odds_observed_at >= cutoff,
                 Prediction.projected_edge.is_not(None),
-                Prediction.projected_edge >= self.MIN_PROJECTED_EDGE,
                 Prediction.american_odds.is_not(None),
                 Odds.game_id == Prediction.game_id,
                 Odds.sportsbook == Prediction.sportsbook,
@@ -125,7 +157,8 @@ class ParlayOptimizerService:
 
         candidates = []
         active_versions = {}
-        for prediction, game, odds, home, away in query.all():
+        rows = query.all()
+        for prediction, game, odds, home, away in rows:
             if game.sport not in active_versions:
                 try:
                     active_versions[game.sport] = self.model_runtime.resolve(
@@ -136,7 +169,34 @@ class ParlayOptimizerService:
                     if "No production model configured for sport:" not in str(error):
                         raise
                     active_versions[game.sport] = PredictionEngine.MODEL_VERSION
-            if prediction.model_version != active_versions[game.sport]:
+            configured_version = active_versions[game.sport]
+            compatible_versions = (
+                SUPPORTED_MODEL_VERSIONS
+                if metric_version(configured_version) is not None
+                else {configured_version}
+            )
+            if prediction.model_version not in compatible_versions:
+                continue
+            if not actionable_prediction(prediction):
+                continue
+            edge = describe_edge(
+                prediction.projected_edge, market=prediction.market,
+                selection=prediction.selection, model_version=prediction.model_version,
+            )
+            if not qualifies_edge(edge.selected_side_value, prediction.market):
+                continue
+            probability = selected_side_probability(
+                prediction.simulation_probability, market=prediction.market,
+                selection=prediction.selection, model_version=prediction.model_version,
+            )
+            confidence = finite_metric(prediction.confidence_score)
+            npi = finite_metric(prediction.npi_score)
+            price = finite_metric(prediction.american_odds)
+            if (
+                probability is None or confidence is None or not 0 <= confidence <= 95
+                or npi is None or price is None or price == 0
+                or not normalized_text(prediction.sportsbook)
+            ):
                 continue
             if not self._matches_frozen_snapshot(prediction, odds):
                 continue
@@ -155,9 +215,11 @@ class ParlayOptimizerService:
                 continue
             if odds.game_id != prediction.game_id:
                 continue
-            if prediction.market == "moneyline" and prediction.american_odds is None:
+            market = parse_market(prediction.market)
+            selection = parse_selection(prediction.selection)
+            if market == "moneyline" and prediction.american_odds is None:
                 continue
-            if prediction.market in {"spread", "total"} and prediction.line_value is None:
+            if market in {"spread", "total"} and prediction.line_value is None:
                 continue
             score, components = self._score(prediction, now)
             candidates.append(
@@ -168,8 +230,9 @@ class ParlayOptimizerService:
                     "game_date": game.game_date.isoformat(),
                     "home_team": home.name,
                     "away_team": away.name,
-                    "market": prediction.market,
-                    "selection": prediction.selection,
+                    "market": market,
+                    "model_version": prediction.model_version,
+                    "selection": selection,
                     "display_selection": self._display_selection(
                         prediction,
                         home.name,
@@ -177,18 +240,17 @@ class ParlayOptimizerService:
                     ),
                     "line_value": prediction.line_value,
                     "american_odds": prediction.american_odds,
-                    "npi_score": round(float(prediction.npi_score), 2),
-                    "confidence_score": round(
-                        float(prediction.confidence_score or 0), 2
-                    ),
-                    "simulation_probability": round(
-                        float(prediction.simulation_probability or 0), 2
-                    ),
+                    "npi_score": round(npi, 2),
+                    "confidence_score": round(confidence, 2),
+                    "simulation_probability": round(probability, 2),
                     "projected_edge": round(float(prediction.projected_edge), 2),
-                    "risk_level": (prediction.risk_level or "MEDIUM").upper(),
+                    "selected_side_edge": edge.selected_side_value,
+                    "edge_unit": edge.unit,
+                    "edge_benchmark": edge.benchmark,
+                    "risk_level": normalized_text(prediction.risk_level, upper=True) or "UNAVAILABLE",
                     "parlay_score": score,
                     "score_components": components,
-                    "reasoning": prediction.reasoning,
+                    "reasoning": metric_reasoning(prediction.reasoning, probability),
                     "odds_snapshot_id": prediction.odds_snapshot_id,
                     "sportsbook": prediction.sportsbook,
                     "odds_observed_at": prediction.odds_observed_at.isoformat(),
@@ -205,8 +267,8 @@ class ParlayOptimizerService:
         prediction: Prediction,
         odds: Odds,
     ) -> bool:
-        market = prediction.market.lower()
-        selection = prediction.selection.upper()
+        market = parse_market(prediction.market)
+        selection = parse_selection(prediction.selection)
 
         if market == "spread":
             if selection == "HOME":
@@ -241,11 +303,20 @@ class ParlayOptimizerService:
 
     @staticmethod
     def _same_number(left, right) -> bool:
+        left, right = finite_metric(left), finite_metric(right)
         if left is None or right is None:
             return False
-        return float(left) == float(right)
+        return left == right
 
     def _score(self, prediction: Prediction, now: datetime) -> tuple[float, dict]:
+        probability = selected_side_probability(
+            prediction.simulation_probability, market=prediction.market,
+            selection=prediction.selection, model_version=prediction.model_version,
+        )
+        edge = describe_edge(
+            prediction.projected_edge, market=prediction.market,
+            selection=prediction.selection, model_version=prediction.model_version,
+        )
         age = max(
             0.0,
             (now - prediction.odds_observed_at).total_seconds(),
@@ -256,16 +327,18 @@ class ParlayOptimizerService:
             "MEDIUM": 6.0,
             "MODERATE": 6.0,
             "HIGH": 2.0,
-        }.get((prediction.risk_level or "MEDIUM").upper(), 5.0)
+        }.get((prediction.risk_level or "").upper(), 0.0)
         components = {
             "npi_strength": self._scaled(prediction.npi_score, 200, 25),
             "confidence": self._scaled(prediction.confidence_score, 100, 25),
             "simulation_probability": self._scaled(
-                prediction.simulation_probability,
+                probability,
                 100,
                 15,
             ),
-            "projected_edge": self._scaled(prediction.projected_edge, 10, 15),
+            "edge_ranking_strength": self._scaled(
+                edge_ranking_strength(edge.selected_side_value, prediction.market), 2, 15,
+            ),
             "odds_freshness": round(max(0.0, 10 * (1 - age / max_age)), 2),
             "risk_adjustment": risk_points,
             "moneyline_price_adjustment": (
@@ -398,15 +471,20 @@ class ParlayOptimizerService:
         return round(max(0.0, min(float(value or 0) / maximum, 1.0)) * points, 2)
 
     @staticmethod
-    def _average(legs: list[dict], field: str) -> float:
-        return round(sum(float(item[field]) for item in legs) / len(legs), 2)
+    def _average(legs: list[dict], field: str) -> float | None:
+        values = [float(item[field]) for item in legs if item[field] is not None]
+        return round(sum(values) / len(values), 2) if values else None
 
     @staticmethod
     def _display_selection(prediction: Prediction, home: str, away: str) -> str:
-        if prediction.market == "total":
-            return f"{away} at {home} {prediction.selection} {prediction.line_value:g}"
-        team = home if prediction.selection == "HOME" else away
-        if prediction.market == "moneyline":
+        market = parse_market(prediction.market)
+        selection = parse_selection(prediction.selection)
+        if not supported_metadata(market, selection) or selection == "PASS":
+            return "Selection unavailable" if selection != "PASS" else "PASS"
+        if market == "total":
+            return f"{away} at {home} {selection} {prediction.line_value:g}"
+        team = home if selection == "HOME" else away
+        if market == "moneyline":
             return f"{team} ML {prediction.american_odds:+d}"
         return f"{team} {prediction.line_value:+g}"
 
@@ -422,6 +500,8 @@ class ParlayOptimizerService:
 
     @staticmethod
     def _parlay_risk(legs: list[dict]) -> str:
+        if any(item["risk_level"] not in {"HIGH", "LOW", "MEDIUM", "MODERATE"} for item in legs):
+            return "unavailable"
         high = sum(item["risk_level"] == "HIGH" for item in legs)
         low = sum(item["risk_level"] == "LOW" for item in legs)
         if high >= 2:

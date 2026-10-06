@@ -5,7 +5,7 @@ import { formatConfidence, formatNpi } from "../utils/productFormat";
 import { MetricInfoControl } from "./MetricInfoControl";
 
 interface PickMetricsProps {
-  npi: number;
+  npi: number | null;
   confidence: number | null;
   simulationProbability: number | null;
   projectedEdge: number | null;
@@ -55,7 +55,7 @@ function MetricLabel({
   metric: PredictionMetric;
   market?: string;
 }) {
-  const canWrapAtWordBoundary = label === "Model Probability";
+  const canWrapAtWordBoundary = label === "Model Probability" || label === "Confidence Rating";
 
   return (
     <Stack
@@ -89,11 +89,11 @@ export function PickMetrics({
 }: PickMetricsProps) {
   const risk = riskLabel(riskLevel);
   const keyMetrics = [
-    { label: "NPI", value: Number.isFinite(npi) ? Math.round(npi).toString() : "—", metric: "npi" as const },
-    { label: "Confidence", value: formatPercentage(confidence), metric: "confidence" as const },
+    { label: "NPI", value: npi != null && Number.isFinite(npi) ? Math.round(npi).toString() : "—", metric: "npi" as const },
+    { label: "Confidence Rating", value: formatPercentage(confidence), metric: "confidence" as const },
   ];
   const metrics = [
-    { label: "Confidence", value: formatPercentage(confidence), metric: "confidence" as const },
+    { label: "Confidence Rating", value: formatPercentage(confidence), metric: "confidence" as const },
     { label: "Model Probability", value: formatPercentage(simulationProbability), metric: "modelProbability" as const },
   ];
 
@@ -115,7 +115,7 @@ export function PickMetrics({
         >
           {[
             { label: "Model Probability", value: formatPercentage(simulationProbability), metric: "modelProbability" as const },
-            { label: "Confidence", value: formatPercentage(confidence), metric: "confidence" as const },
+            { label: "Confidence Rating", value: formatPercentage(confidence), metric: "confidence" as const },
           ].map((metric) => (
             <Box
               key={metric.label}
@@ -144,7 +144,7 @@ export function PickMetrics({
           <LinearProgress
             variant="determinate"
             value={confidenceValue}
-            aria-label="Confidence"
+            aria-label="Confidence Rating"
             sx={{
               mt: 0.75,
               height: 5,

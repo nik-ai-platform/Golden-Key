@@ -73,7 +73,8 @@ describe("compact pick metrics", () => {
     const confidence = screen.getByTestId("metric-label-confidence");
     const modelProbability = screen.getByTestId("metric-label-modelProbability");
 
-    expect(getComputedStyle(confidence).whiteSpace).toBe("nowrap");
+    expect(getComputedStyle(confidence).whiteSpace).toBe("normal");
+    expect(confidence.textContent).toBe("Confidence Rating");
     expect(getComputedStyle(modelProbability).whiteSpace).toBe("normal");
     expect(modelProbability.textContent).toBe("Model Probability");
 
@@ -102,4 +103,18 @@ describe("compact pick metrics", () => {
     expect(screen.getByText("High")).toBeTruthy();
     expect(screen.queryByText("HIGH")).toBeNull();
   });
+
+  it.each([null, Number.NaN, Number.POSITIVE_INFINITY])(
+    "renders unavailable NPI and supporting metrics safely for %s",
+    (unavailable) => {
+      renderMetrics({
+        npi: unavailable, confidence: unavailable, simulationProbability: unavailable,
+        projectedEdge: unavailable, riskLevel: "unavailable",
+      });
+      expect(screen.getAllByText("Unavailable")).toHaveLength(2);
+      expect(screen.getAllByText("—")).toHaveLength(2);
+      expect(screen.queryByText(/NaN|Infinity|null|undefined/)).toBeNull();
+      expect(screen.getByTestId("metric-label-modelProbability").textContent).toBe("Model Probability");
+    },
+  );
 });

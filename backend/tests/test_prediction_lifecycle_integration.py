@@ -52,9 +52,9 @@ def test_prediction_generation_settlement_and_performance_lifecycle():
             sportsbook="Integration Sportsbook",
             spread_home=-7.5,
             spread_away=7.5,
-            moneyline_home=-280,
-            moneyline_away=230,
-            total=52.5,
+            moneyline_home=-150,
+            moneyline_away=130,
+            total=48.5,
         )
         db.add(odds)
         db.commit()

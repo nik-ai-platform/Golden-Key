@@ -10,6 +10,7 @@ from app.models.ncaaf_rule_intelligence import NcaafRuleIntelligence
 from app.models.odds import Odds
 from app.models.prediction_record import Prediction
 from app.models.prediction_result import PredictionResult
+from app.services.prediction_metric_contract import metric_version, parse_market, parse_selection
 
 
 def record_rule_intelligence_for_prediction(
@@ -17,9 +18,9 @@ def record_rule_intelligence_for_prediction(
     prediction: Prediction,
     odds_snapshot: Odds | None,
 ) -> NcaafRuleIntelligence | None:
-    if (prediction.market or "").lower() != "spread":
+    if parse_market(prediction.market) != "spread":
         return None
-    if prediction.model_version != "NPI-4.0":
+    if metric_version(prediction.model_version) is None:
         return None
     if odds_snapshot is None:
         return None
@@ -47,7 +48,7 @@ def record_rule_intelligence_for_prediction(
     if rule is None:
         return None
 
-    npi_selection = (prediction.selection or "").upper()
+    npi_selection = parse_selection(prediction.selection)
     if npi_selection not in {"HOME", "AWAY", "PASS"}:
         raise ValueError(f"Unsupported NPI selection: {prediction.selection}")
     comparison = (

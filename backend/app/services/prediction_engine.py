@@ -3,9 +3,7 @@ import math
 
 from sqlalchemy.orm import Session
 
-from app.models.ai_analysis import AIAnalysis
 from app.models.game import Game
-from app.models.npi_factor_result import NPIFactorResult
 from app.models.odds import Odds
 from app.models.prediction_record import Prediction
 from app.models.prediction_result import PredictionResult
@@ -19,7 +17,19 @@ from app.services.npi_engine import NPIEngine
 from app.services.model_runtime_service import ModelRuntimeService
 from app.services.odds_service import NoCompleteOddsSnapshotError
 from app.services.simulation_engine import SimulationEngine
+from app.services.prediction_metric_contract import (
+    MODEL_VERSION as CORRECTED_MODEL_VERSION,
+    LEGACY_MODEL_VERSION,
+    bounded_probability,
+    corrected_generation_version,
+    describe_edge,
+    metric_version,
+    parse_market,
+    sql_market,
+    selected_side_probability,
+)
 from app.services import prediction_service
+from app.services.prediction_publication import canonical_predictions
 from app.services.model_evaluation import (
     save_factor_result
 )
@@ -32,7 +42,7 @@ class PredictionEngine:
     simulation_engine = SimulationEngine()
     ai_engine = AIAnalysisEngine()
 
-    MODEL_VERSION = "NPI-4.0"
+    MODEL_VERSION = CORRECTED_MODEL_VERSION
     MARKETS = ("spread", "moneyline", "total")
     PREFERRED_SPORTSBOOKS = (
         "draftkings",
@@ -70,7 +80,7 @@ class PredictionEngine:
         return next(
             prediction
             for prediction in predictions
-            if prediction.market == "spread"
+            if parse_market(prediction.market) == "spread"
         )
 
     def analyze_markets(
@@ -109,11 +119,13 @@ class PredictionEngine:
                 db=db,
                 sport=sport,
             )
-            model_version = runtime_model["model_version"]
+            profile_version = runtime_model["model_version"]
         except ValueError as error:
             if "No production model configured for sport:" not in str(error):
                 raise
-            model_version = self.MODEL_VERSION
+            profile_version = LEGACY_MODEL_VERSION
+
+        model_version = corrected_generation_version(profile_version)
 
         existing_predictions = []
         if persist:
@@ -121,11 +133,14 @@ class PredictionEngine:
                 db.query(Prediction)
                 .filter(
                     Prediction.game_id == game_id,
-                    Prediction.model_version == model_version,
-                    Prediction.market.in_(self.MARKETS),
+                    sql_market(Prediction.market).in_(self.MARKETS),
                 )
                 .all()
             )
+            existing_predictions = [
+                prediction for prediction in existing_predictions
+                if metric_version(prediction.model_version) is not None
+            ]
             if existing_predictions:
                 now = datetime.now(timezone.utc).replace(tzinfo=None)
                 prediction_ids = [
@@ -150,6 +165,10 @@ class PredictionEngine:
                     or is_user_protected
                 ):
                     return self._ordered_predictions(existing_predictions)
+            existing_predictions = canonical_predictions([
+                prediction for prediction in existing_predictions
+                if prediction.model_version == model_version
+            ])
 
         odds_rows = (
             db.query(Odds)
@@ -174,6 +193,8 @@ class PredictionEngine:
             raise ValueError(
                 "Complete spread, moneyline, and total odds are required"
             )
+        if not all(math.isfinite(float(value)) for value in required_odds):
+            raise ValueError("Production prediction requires finite odds values")
 
         if (
             persist
@@ -186,24 +207,12 @@ class PredictionEngine:
         ):
             return self._ordered_predictions(existing_predictions)
 
-        if persist and existing_predictions:
-            prediction_ids = [prediction.id for prediction in existing_predictions]
-            db.query(AIAnalysis).filter(
-                AIAnalysis.prediction_id.in_(prediction_ids)
-            ).delete(synchronize_session=False)
-            db.query(NPIFactorResult).filter(
-                NPIFactorResult.prediction_id.in_(prediction_ids)
-            ).delete(synchronize_session=False)
-            for prediction in existing_predictions:
-                db.delete(prediction)
-            db.flush()
-
         npi_result = self.npi_engine.calculate(
             db=db,
             game=game,
             odds=odds,
             sport=sport,
-            model_version=model_version,
+            model_version=profile_version,
         )
 
         specifications = self._market_specifications(
@@ -280,13 +289,13 @@ class PredictionEngine:
     def _prediction_set_has_complete_provenance(self, predictions) -> bool:
         if len(predictions) != len(self.MARKETS):
             return False
-        if {prediction.market for prediction in predictions} != set(self.MARKETS):
+        if {parse_market(prediction.market) for prediction in predictions} != set(self.MARKETS):
             return False
 
         for prediction in predictions:
             if prediction.odds_snapshot_id is None or prediction.american_odds is None:
                 return False
-            if prediction.market in {"spread", "total"} and prediction.line_value is None:
+            if parse_market(prediction.market) in {"spread", "total"} and prediction.line_value is None:
                 return False
         return True
 
@@ -330,8 +339,8 @@ class PredictionEngine:
 
     def _ordered_predictions(self, predictions):
         return sorted(
-            predictions,
-            key=lambda item: self.MARKETS.index(item.market),
+            canonical_predictions(predictions),
+            key=lambda item: self.MARKETS.index(parse_market(item.market)),
         )
 
     def _market_specifications(self, sport, odds, spread_npi):
@@ -340,11 +349,24 @@ class PredictionEngine:
             npi_score=spread_score,
             spread=odds.spread_home,
         )
+        home_probability = bounded_probability(spread_simulation["win_probability"])
+        if home_probability is None:
+            raise ValueError("Spread simulation did not produce a finite probability")
         spread_edge = self.calculate_edge(
-            spread_simulation["win_probability"],
+            home_probability,
             odds,
         )
         spread_selection = self.determine_pick(None, odds, spread_edge)
+        spread_probability = selected_side_probability(
+            home_probability, market="spread", selection=spread_selection,
+            model_version=LEGACY_MODEL_VERSION,
+        )
+        selected_edge = spread_edge if spread_selection == "PASS" else describe_edge(
+            spread_edge, market="spread", selection=spread_selection,
+            model_version=LEGACY_MODEL_VERSION,
+        ).selected_side_value
+        if selected_edge is None:
+            raise ValueError("Spread model did not produce an available selected-side edge")
 
         moneyline = self._moneyline_specification(
             odds=odds,
@@ -358,7 +380,9 @@ class PredictionEngine:
         spread_confidence = self.calculate_confidence(
             spread_score,
             spread_edge,
-            spread_simulation,
+            {**spread_simulation, "win_probability": (
+                spread_probability if spread_probability is not None else home_probability
+            )},
         )
         return [
             {
@@ -371,14 +395,12 @@ class PredictionEngine:
                 ),
                 "american_odds": -110,
                 "npi_score": spread_score,
-                "win_probability": spread_simulation["win_probability"],
-                "simulation_probability": spread_simulation[
-                    "win_probability"
-                ],
+                "win_probability": spread_probability,
+                "simulation_probability": spread_probability,
                 "simulation_runs": spread_simulation["runs"],
                 "simulation_margin": spread_simulation["average_margin"],
                 "confidence_score": spread_confidence,
-                "projected_edge": spread_edge,
+                "projected_edge": selected_edge,
                 "risk_level": self.calculate_risk(
                     spread_confidence,
                     spread_edge,
@@ -409,6 +431,9 @@ class PredictionEngine:
             if candidate_side == "HOME"
             else 100 - home_probability
         )
+        selected_probability = bounded_probability(selected_probability)
+        if selected_probability is None:
+            raise ValueError("Moneyline model did not produce a finite probability")
         selected_market_probability = (
             fair_home
             if candidate_side == "HOME"
@@ -446,8 +471,8 @@ class PredictionEngine:
             "line_value": None,
             "american_odds": selected_price,
             "npi_score": npi_score,
-            "win_probability": round(selected_probability, 2),
-            "simulation_probability": round(selected_probability, 2),
+            "win_probability": round(selected_probability, 2) if selection != "PASS" else None,
+            "simulation_probability": round(selected_probability, 2) if selection != "PASS" else None,
             "simulation_runs": simulation["runs"],
             "simulation_margin": simulation["average_margin"],
             "confidence_score": confidence,
@@ -500,7 +525,9 @@ class PredictionEngine:
             selection = "PASS"
         else:
             selection = "OVER" if total_edge > 0 else "UNDER"
-        probability = min(75.0, 50.0 + abs(total_edge) * 3)
+        probability = bounded_probability(min(75.0, 50.0 + abs(total_edge) * 3))
+        if probability is None or not math.isfinite(total_edge):
+            raise ValueError("Total model did not produce finite metrics")
         npi_score = self._bounded_npi(100 + abs(total_edge) * 5)
         simulation = {
             "win_probability": round(probability, 2),
@@ -512,18 +539,24 @@ class PredictionEngine:
             total_edge,
             simulation,
         )
+        selected_edge = total_edge if selection == "PASS" else describe_edge(
+            total_edge, market="total", selection=selection,
+            model_version=LEGACY_MODEL_VERSION,
+        ).selected_side_value
+        if selected_edge is None:
+            raise ValueError("Total model did not produce an available selected-side edge")
         return {
             "market": "total",
             "selection": selection,
             "line_value": posted_total,
             "american_odds": -110,
             "npi_score": npi_score,
-            "win_probability": round(probability, 2),
-            "simulation_probability": round(probability, 2),
+            "win_probability": round(probability, 2) if selection != "PASS" else None,
+            "simulation_probability": round(probability, 2) if selection != "PASS" else None,
             "simulation_runs": 0,
             "simulation_margin": round(total_edge, 2),
             "confidence_score": confidence,
-            "projected_edge": round(total_edge, 2),
+            "projected_edge": round(selected_edge, 2),
             "risk_level": self.calculate_risk(confidence, total_edge),
             "factors": [
                 {

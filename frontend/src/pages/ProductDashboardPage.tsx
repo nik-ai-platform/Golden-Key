@@ -117,7 +117,7 @@ export function ProductDashboardPage() {
   ) ?? [];
   const npiLeaders = [...uniquePicks]
     .filter((pick) => Number.isFinite(pick.prediction.npi_score))
-    .sort((left, right) => right.prediction.npi_score - left.prediction.npi_score)
+    .sort((left, right) => (right.prediction.npi_score ?? Number.NEGATIVE_INFINITY) - (left.prediction.npi_score ?? Number.NEGATIVE_INFINITY))
     .slice(0, 5);
   const averageConfidence = finiteAverage(uniquePicks.map((pick) => pick.prediction.confidence_score));
   return (
@@ -194,7 +194,7 @@ export function ProductDashboardPage() {
                   { label: "Team / Pick" },
                   { label: "Matchup" },
                   { label: "Odds" },
-                  { label: "Model Prob", metric: "modelProbability" as const },
+                  { label: "Model Probability", metric: "modelProbability" as const },
                 ].map(({ label, metric }) => (
                   <Stack key={label} direction="row" alignItems="center" spacing={0.25}>
                     <Typography variant="caption" color="text.secondary" fontWeight={850} textTransform="uppercase">
@@ -248,7 +248,7 @@ export function ProductDashboardPage() {
                             </Typography>
                           </Box>
                           <Typography color="info.main" fontFamily="var(--gk-font-mono)" fontWeight={800} sx={{ fontSize: { md: "1.0625rem" } }}>
-                            {pick.prediction.npi_score.toFixed(1)}
+                            {pick.prediction.npi_score?.toFixed(1) ?? "Unavailable"}
                           </Typography>
                         </Stack>
                       ))}
@@ -257,7 +257,7 @@ export function ProductDashboardPage() {
                     <Stack direction="row" justifyContent="space-between" alignItems="baseline">
                       <Stack direction="row" alignItems="center" spacing={0.25}>
                         <Typography variant="caption" color="text.secondary" fontFamily="var(--gk-font-mono)" textTransform="uppercase">
-                          Avg Confidence
+                          Avg Confidence Rating
                         </Typography>
                         <MetricInfoControl metric="confidence" />
                       </Stack>

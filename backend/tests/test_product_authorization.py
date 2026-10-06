@@ -54,6 +54,9 @@ def test_authenticated_product_reads_preserve_response_contracts(monkeypatch):
         "confidence_score": 82.5,
         "simulation_probability": 79.2,
         "projected_edge": 6.4,
+        "selected_side_edge": 6.4,
+        "edge_unit": "percentage_points",
+        "edge_benchmark": "vig_free_implied_probability",
         "risk_level": "LOW",
         "reasoning": None,
         "outcome": None,
@@ -82,7 +85,6 @@ def test_authenticated_product_reads_preserve_response_contracts(monkeypatch):
         "best_bet": {
             "role": "BEST_BET",
             "label": "Best Bet",
-            "ranking_score": 82.5,
             "ranking_reasons": ["82.5% confidence"],
             "prediction": prediction,
         },

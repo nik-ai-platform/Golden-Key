@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from sqlalchemy.orm import Session
 
 from app.models.game import Game
@@ -8,6 +10,15 @@ from app.models.prediction_result import PredictionResult
 from app.services.ncaaf_rule_intelligence_service import (
     settle_rule_intelligence_for_prediction,
 )
+from app.services.prediction_metric_contract import (
+    MARKET_SELECTIONS, finite_metric, historical_price, parse_market, parse_selection,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class UngradeablePrediction(ValueError):
+    """Expected missing/invalid frozen historical betting data."""
 
 
 class ResultSettlementService:
@@ -21,7 +32,11 @@ class ResultSettlementService:
         db: Session,
         game_id: int,
     ) -> dict:
-        game = db.query(Game).filter(Game.id == game_id).first()
+        # PostgreSQL serializes same-game writers before any result existence check.
+        game = (
+            db.query(Game).filter(Game.id == game_id)
+            .populate_existing().with_for_update().first()
+        )
         if not game:
             raise ValueError(f"Game {game_id} not found")
         if game.home_score is None or game.away_score is None:
@@ -30,20 +45,18 @@ class ResultSettlementService:
         predictions = (
             db.query(Prediction)
             .filter(Prediction.game_id == game_id)
+            .order_by(Prediction.id)
+            .populate_existing()
             .all()
         )
-        if not predictions:
-            return {
-                "game_id": game_id,
-                "settled": 0,
-                "results": [],
-            }
 
         results = []
+        skipped = []
         for prediction in predictions:
             existing = (
                 db.query(PredictionResult)
                 .filter(PredictionResult.prediction_id == prediction.id)
+                .populate_existing()
                 .first()
             )
             if existing:
@@ -61,11 +74,12 @@ class ResultSettlementService:
                 )
                 continue
 
-            graded = self.grade_prediction(
-                db=db,
-                game=game,
-                prediction=prediction,
-            )
+            try:
+                graded = self.grade_prediction(db=db, game=game, prediction=prediction)
+            except UngradeablePrediction as error:
+                logger.warning("Skipping ungradeable prediction %s: %s", prediction.id, error)
+                skipped.append({"prediction_id": prediction.id, "reason": str(error)})
+                continue
             prediction_result = PredictionResult(
                 prediction_id=prediction.id,
                 actual_result=graded["actual_result"],
@@ -83,7 +97,7 @@ class ResultSettlementService:
             results.append(
                 {
                     "prediction_id": prediction.id,
-                    "market": prediction.market,
+                    "market": parse_market(prediction.market),
                     "result": graded["outcome"],
                     "outcome": graded["outcome"],
                     "profit_loss": graded["profit_loss"],
@@ -98,6 +112,7 @@ class ResultSettlementService:
                 for item in results
             ),
             "results": results,
+            "skipped": skipped,
         }
 
     def regrade_prediction(
@@ -108,11 +123,15 @@ class ResultSettlementService:
         prediction = db.get(Prediction, prediction_id)
         if prediction is None:
             raise ValueError(f"Prediction {prediction_id} not found")
-        game = db.get(Game, prediction.game_id)
+        game = (
+            db.query(Game).filter(Game.id == prediction.game_id)
+            .populate_existing().with_for_update().first()
+        )
         if game is None:
             raise ValueError(f"Game {prediction.game_id} not found")
         if game.home_score is None or game.away_score is None:
             raise ValueError(f"Game {game.id} has no final score")
+        db.refresh(prediction)
 
         graded = self.grade_prediction(
             db=db,
@@ -122,6 +141,7 @@ class ResultSettlementService:
         result = (
             db.query(PredictionResult)
             .filter(PredictionResult.prediction_id == prediction.id)
+            .populate_existing()
             .one_or_none()
         )
         if result is None:
@@ -148,19 +168,29 @@ class ResultSettlementService:
         game: Game,
         prediction: Prediction,
     ) -> dict:
-        market = (prediction.market or "").lower()
-        if (prediction.selection or "").upper() == "PASS":
+        market = parse_market(prediction.market)
+        selection = parse_selection(prediction.selection)
+        if market is not None and selection == "PASS":
             return {
                 "predicted_result": "PASS",
                 "actual_result": "NO_BET",
                 "outcome": "PUSH",
                 "profit_loss": 0.0,
             }
-        if market in {"spread", "ats"}:
+        if selection not in MARKET_SELECTIONS.get(market, set()):
+            raise UngradeablePrediction(
+                f"Prediction {prediction.id} has unsupported market/selection metadata"
+            )
+        if market != "moneyline" and finite_metric(prediction.line_value) is None:
+            raise UngradeablePrediction(
+                f"Prediction {prediction.id} has no finite {market} line snapshot"
+            )
+        self._snapshot_price(prediction)
+        if market == "spread":
             return self._grade_spread(game, prediction)
-        if market in {"moneyline", "ml"}:
+        if market == "moneyline":
             return self._grade_moneyline(game, prediction)
-        if market in {"total", "totals", "over_under"}:
+        if market == "total":
             return self._grade_total(game, prediction)
         raise ValueError(f"Unsupported market: {prediction.market}")
 
@@ -171,7 +201,7 @@ class ResultSettlementService:
     ) -> dict:
         home_score = float(game.home_score)
         away_score = float(game.away_score)
-        selection = (prediction.selection or "").upper()
+        selection = parse_selection(prediction.selection)
 
         if home_score == away_score:
             if not self._game_allows_tie(game):
@@ -211,7 +241,7 @@ class ResultSettlementService:
         game: Game,
         prediction: Prediction,
     ) -> dict:
-        selection = (prediction.selection or "").upper()
+        selection = parse_selection(prediction.selection)
         spread = getattr(prediction, "line_value", None)
         if spread is None:
             raise ValueError(
@@ -258,7 +288,7 @@ class ResultSettlementService:
             )
         total_line = float(line_value)
         final_total = float(game.home_score) + float(game.away_score)
-        selection = (prediction.selection or "").upper()
+        selection = parse_selection(prediction.selection)
         if selection == "OVER":
             outcome = (
                 "WIN"
@@ -295,11 +325,12 @@ class ResultSettlementService:
         prediction: Prediction,
     ) -> int:
         american_odds = getattr(prediction, "american_odds", None)
-        if american_odds is None:
-            raise ValueError(
-                f"Prediction {prediction.id} has no American odds snapshot"
+        price = historical_price(american_odds)
+        if price is None:
+            raise UngradeablePrediction(
+                f"Prediction {prediction.id} has no valid American odds snapshot"
             )
-        return int(american_odds)
+        return price
 
     def _game_allows_tie(self, game: Game) -> bool:
         sport = str(getattr(game, "sport", "") or "").upper()

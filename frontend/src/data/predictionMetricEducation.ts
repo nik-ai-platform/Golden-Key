@@ -20,7 +20,7 @@ export const predictionMetricEducation: Record<PredictionMetric, PredictionMetri
     title: "Confidence Rating",
     ariaLabel: "Learn about Confidence Rating",
     short: "A 0–95 composite rating combining NPI, edge magnitude, and Model Probability. It is not win probability.",
-    detailed: "Confidence measures combined model conviction using NPI, the magnitude of Projected Edge, and Model Probability. Bear A Hand Sports caps the rating at 95. The separately displayed Model Probability is the outcome-likelihood estimate.",
+    detailed: "Confidence Rating combines NPI, edge magnitude, and the model probability input, capped at 95. NPI-5.0 uses selected-side probability. Historical Confidence and Risk remain the values produced by their original model version; reads do not recalculate them. Confidence is not win probability.",
     disclaimer: "Confidence describes model conviction, not certainty of winning.",
   },
   modelProbability: {
@@ -48,11 +48,11 @@ export function npiMarketNote(market?: string): string {
 export function modelProbabilityMarketNote(market?: string): string | null {
   switch (market?.toLowerCase()) {
     case "spread":
-      return "This spread probability is derived from Bear A Hand Sports' margin simulations.";
+      return "Model Probability estimates the selected team covering the spread, using Bear A Hand Sports' margin simulations.";
     case "moneyline":
-      return "This moneyline probability is derived from Bear A Hand Sports' spread-based probability model.";
+      return "Model Probability estimates the selected team winning, using Bear A Hand Sports' spread-based probability model.";
     case "total":
-      return "This total probability is derived from the projected-total difference.";
+      return "Model Probability estimates the selected OVER/UNDER outcome according to the projected-total model heuristic, not a simulation.";
     default:
       return null;
   }

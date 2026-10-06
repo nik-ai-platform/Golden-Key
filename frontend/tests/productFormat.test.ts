@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   formatProductDate,
+  formatAmericanOdds,
+  formatConfidence,
+  formatNpi,
   formatProductTime,
   parseProductDate,
   productDateKey,
@@ -15,6 +18,24 @@ describe("sports datetime formatting", () => {
     "2026-09-12T15:30:00-04:00",
   ])("formats %s as the same EDT kickoff", (timestamp) => {
     expect(formatProductDate(timestamp)).toBe("Sat, Sep 12 • 3:30 PM EDT");
+  });
+
+  describe("unavailable historical numeric metrics", () => {
+    it.each([null, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+      "formats %s without exposing invalid numeric text",
+      (value) => {
+        expect(formatNpi(value)).toBe("Unavailable");
+        expect(formatConfidence(value)).toBe("Not rated");
+        expect(formatAmericanOdds(value)).toBeNull();
+      },
+    );
+    it("preserves valid historical metrics and rejects a zero betting price", () => {
+      expect(formatNpi(154.5)).toBe("154.5 / 200");
+      expect(formatConfidence(83)).toBe("83.0%");
+      expect(formatAmericanOdds(-110)).toBe("-110");
+      expect(formatAmericanOdds(120)).toBe("+120");
+      expect(formatAmericanOdds(0)).toBeNull();
+    });
   });
 
   it("uses Eastern Standard Time in winter", () => {

@@ -13,11 +13,15 @@ export type ParlayLeg = {
   line_value: number | null;
   american_odds: number;
   npi_score: number;
+  model_version?: string;
   confidence_score: number;
   simulation_probability: number;
   projected_edge: number;
+  selected_side_edge?: number | null;
+  edge_unit?: string;
   risk_level: string;
-  parlay_score: number;
+  /** Older cached responses may contain this internal score; new responses omit it. */
+  parlay_score?: number;
   reasoning: string | null;
   sportsbook: string;
   odds_observed_at: string;
@@ -31,7 +35,11 @@ export type OptimizedParlay = {
   legs: ParlayLeg[];
   average_npi: number;
   average_confidence: number;
-  average_projected_edge: number;
+  average_model_probability?: number;
+  /** Deprecated: unlike edge units must not be averaged. */
+  average_projected_edge: number | null;
+  average_projected_edge_deprecated?: boolean;
+  average_selected_side_edge_by_market?: Record<string, { value: number | null; unit: string }>;
   combined_american_odds: number;
   risk_level: string;
   market_mix: {

@@ -114,10 +114,9 @@ class AIAnalysisEngine:
             f"{data.get('npi_score')}/200"
         )
 
-        explanation.append(
-            f"Simulation Probability: "
-            f"{data.get('simulation_probability')}%"
-        )
+        probability = data.get("simulation_probability")
+        display_probability = "unavailable" if probability is None else f"{probability:g}%"
+        explanation.append(f"Model Probability: {display_probability}")
 
         if strengths:
 

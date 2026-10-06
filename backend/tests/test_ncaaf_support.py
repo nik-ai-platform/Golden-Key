@@ -159,7 +159,7 @@ def test_ncaaf_import_is_idempotent_by_provider_game_id():
     assert games[0].sport == "NCAAF"
 
 
-def test_incomplete_future_prediction_set_is_replaced_from_exact_snapshot():
+def test_incomplete_legacy_set_is_preserved_and_corrected_version_is_generated():
     db = _session()
     live_data = MagicMock()
     live_data.fetch_games.return_value = [_event()]
@@ -186,7 +186,10 @@ def test_incomplete_future_prediction_set_is_replaced_from_exact_snapshot():
     regenerated = engine.analyze_markets(db=db, game_id=game.id, persist=True)
     stored = db.query(Prediction).filter(Prediction.game_id == game.id).all()
 
-    assert len(regenerated) == len(stored) == 3
+    assert len(regenerated) == 3
+    assert len(stored) == 6
+    assert all(prediction.model_version == "NPI-5.0" for prediction in regenerated)
+    assert all(prediction.odds_snapshot_id is None for prediction in existing)
     assert {prediction.market for prediction in stored} == {
         "spread",
         "moneyline",
@@ -194,9 +197,9 @@ def test_incomplete_future_prediction_set_is_replaced_from_exact_snapshot():
     }
     assert all(
         prediction.odds_snapshot_id == selected_snapshot.id
-        for prediction in stored
+        for prediction in regenerated
     )
-    by_market = {prediction.market: prediction for prediction in stored}
+    by_market = {prediction.market: prediction for prediction in regenerated}
     expected_spread = (
         selected_snapshot.spread_away
         if by_market["spread"].selection == "AWAY"
@@ -214,7 +217,7 @@ def test_incomplete_future_prediction_set_is_replaced_from_exact_snapshot():
     regenerated_ids = {prediction.id for prediction in regenerated}
     repeated = engine.analyze_markets(db=db, game_id=game.id, persist=True)
     assert {prediction.id for prediction in repeated} == regenerated_ids
-    assert db.query(Prediction).filter(Prediction.game_id == game.id).count() == 3
+    assert db.query(Prediction).filter(Prediction.game_id == game.id).count() == 6
 
 
 def test_force_regenerates_same_snapshot_with_corrected_moneyline():
@@ -740,7 +743,8 @@ def test_moneyline_requires_positive_expected_value():
     )
 
     assert moneyline["selection"] == "PASS"
-    assert moneyline["win_probability"] == pytest.approx(97.49, abs=0.01)
+    assert moneyline["win_probability"] is None
+    assert moneyline["simulation_probability"] is None
     assert moneyline["american_odds"] == -4000
     assert moneyline["projected_edge"] == pytest.approx(3.18, abs=0.01)
 
@@ -783,6 +787,7 @@ def test_one_ncaaf_event_persists_complete_odds_and_three_predictions():
         db=db,
         live_data_service=live_data,
     ).import_games("NCAAF")[0]
+    game.game_date = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=1)
     db.add(
         Odds(
             game_id=game.id,
@@ -899,7 +904,7 @@ def test_one_ncaaf_event_persists_complete_odds_and_three_predictions():
         include_passes=True,
     )
     assert feed["sport"] == "NCAAF"
-    assert feed["slate_date"] == "2026-09-10"
+    assert feed["slate_date"] == game.game_date.date().isoformat()
     assert feed["count"] == 3
     assert {item["market"] for item in feed["predictions"]} == {
         "spread",
@@ -915,7 +920,7 @@ def test_one_ncaaf_event_persists_complete_odds_and_three_predictions():
     assert unfiltered_feed["slate_date"] == feed["slate_date"]
     assert unfiltered_feed["count"] == 3
     assert daily_card["slate_date"] == feed["slate_date"]
-    assert daily_card["count"] == 3
+    assert daily_card["count"] == sum(prediction.selection != "PASS" for prediction in repeated)
 
     stored_game.status = "final"
     db.commit()

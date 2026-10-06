@@ -124,7 +124,7 @@ def test_missing_prediction_snapshot_is_rejected():
             prediction=_prediction("spread", "HOME", None),
         )
     except ValueError as error:
-        assert str(error) == "Prediction 502 has no spread line snapshot"
+        assert str(error) == "Prediction 502 has no finite spread line snapshot"
     else:
         raise AssertionError("Missing spread snapshot was accepted")
 
@@ -170,12 +170,12 @@ def test_settle_game_persists_and_reports_all_three_markets(monkeypatch):
         prediction.id = prediction_id
 
     game_query = MagicMock()
-    game_query.filter.return_value.first.return_value = game
+    game_query.filter.return_value.populate_existing.return_value.with_for_update.return_value.first.return_value = game
     prediction_query = MagicMock()
-    prediction_query.filter.return_value.all.return_value = predictions
+    prediction_query.filter.return_value.order_by.return_value.populate_existing.return_value.all.return_value = predictions
     result_queries = [MagicMock() for _ in predictions]
     for result_query in result_queries:
-        result_query.filter.return_value.first.return_value = None
+        result_query.filter.return_value.populate_existing.return_value.first.return_value = None
 
     db = MagicMock()
     db.query.side_effect = [game_query, prediction_query, *result_queries]
@@ -218,11 +218,11 @@ def test_existing_result_is_not_settled_twice(monkeypatch):
     existing = SimpleNamespace(outcome="WIN")
 
     game_query = MagicMock()
-    game_query.filter.return_value.first.return_value = game
+    game_query.filter.return_value.populate_existing.return_value.with_for_update.return_value.first.return_value = game
     prediction_query = MagicMock()
-    prediction_query.filter.return_value.all.return_value = [prediction]
+    prediction_query.filter.return_value.order_by.return_value.populate_existing.return_value.all.return_value = [prediction]
     result_query = MagicMock()
-    result_query.filter.return_value.first.return_value = existing
+    result_query.filter.return_value.populate_existing.return_value.first.return_value = existing
     db = MagicMock()
     db.query.side_effect = [
         game_query,
@@ -238,6 +238,7 @@ def test_existing_result_is_not_settled_twice(monkeypatch):
     assert result == {
         "game_id": 123,
         "settled": 0,
+        "skipped": [],
         "results": [
             {
                 "prediction_id": 502,

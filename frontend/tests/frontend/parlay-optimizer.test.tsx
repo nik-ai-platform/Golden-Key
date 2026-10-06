@@ -121,7 +121,9 @@ describe("Parlay Optimizer", () => {
     expect(screen.queryByText("Edge")).toBeNull();
     expect(screen.queryByText("Average Edge")).toBeNull();
     expect(screen.getAllByText("NPI")).toHaveLength(4);
-    expect(screen.getAllByText("Confidence")).toHaveLength(4);
+    expect(screen.getAllByText("Confidence Rating")).toHaveLength(4);
+    expect(screen.getAllByText("Model Probability")).toHaveLength(4);
+    expect(screen.queryByText("Parlay Score")).toBeNull();
     expect(screen.getByText("Combined Odds")).toBeTruthy();
     expect(screen.getByText("+4200")).toBeTruthy();
     expect(screen.getByText("Risk")).toBeTruthy();
@@ -170,5 +172,21 @@ describe("Parlay Optimizer", () => {
     expect(
       await screen.findByText("No qualified parlay is available for that leg count right now."),
     ).toBeTruthy();
+  });
+
+  it("renders unavailable risk and a deprecated null edge without fabricating metrics", async () => {
+    vi.mocked(optimizeParlay).mockResolvedValueOnce({
+      ...result,
+      risk_level: "unavailable",
+      average_projected_edge: null,
+      average_projected_edge_deprecated: true,
+      average_model_probability: 76,
+    });
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Build Best Parlay" }));
+    expect(await screen.findByText("Unavailable")).toBeTruthy();
+    expect(screen.queryByText("Average Edge")).toBeNull();
+    expect(screen.queryByText(/parlay probability/i)).toBeNull();
+    expect(screen.getByText("83.0%")).toBeTruthy();
   });
 });

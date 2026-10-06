@@ -21,7 +21,7 @@ import {
   type OptimizedParlay,
   type ParlayLeg,
 } from "../services/parlayOptimizerApi";
-import { customerFacingReasoning, formatProductDate } from "../utils/productFormat";
+import { customerFacingReasoning, formatConfidence, formatProductDate } from "../utils/productFormat";
 
 const legCounts = [2, 4, 6, 8, 10] as const;
 
@@ -61,8 +61,8 @@ function LegCard({ leg, index }: { leg: ParlayLeg; index: number }) {
         <Grid container spacing={1.5} sx={{ mt: 1.5 }}>
           {[
             ["NPI", leg.npi_score],
-            ["Confidence", `${leg.confidence_score}%`],
-            ["Parlay Score", leg.parlay_score],
+            ["Confidence Rating", formatConfidence(leg.confidence_score)],
+            ["Model Probability", formatConfidence(leg.simulation_probability)],
           ].map(([label, value]) => (
             <Grid key={label} size={{ xs: 6, sm: 4 }}>
               <Typography variant="caption" color="text.secondary">{label}</Typography>
@@ -87,9 +87,9 @@ function LegCard({ leg, index }: { leg: ParlayLeg; index: number }) {
 function ParlayProfile({ parlay }: { parlay: OptimizedParlay }) {
   const metrics = [
     ["Average NPI", parlay.average_npi],
-    ["Average Confidence", `${parlay.average_confidence}%`],
+    ["Average Confidence Rating", formatConfidence(parlay.average_confidence)],
     ["Combined Odds", formatAmericanOdds(parlay.combined_american_odds)],
-    ["Risk", titleCase(parlay.risk_level)],
+    ["Risk", parlay.risk_level ? titleCase(parlay.risk_level) : "Not rated"],
   ];
 
   return (

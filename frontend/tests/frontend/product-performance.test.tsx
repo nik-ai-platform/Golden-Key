@@ -155,6 +155,25 @@ describe("Performance Intelligence", () => {
     expect(within(section).getByText("Measures probability accuracy. Lower is better.")).toBeTruthy();
   });
 
+  it("keeps corrected and historical spread reports separate", async () => {
+    vi.mocked(getPerformanceIntelligence).mockResolvedValue({
+      ...performance,
+      npi_5_spread: {
+        ...performance.npi_4_spread,
+        summary: { ...performance.npi_4_spread.summary, sample_size: 6 },
+        brier_score: 0.1225,
+      },
+    });
+    renderPage();
+    await screen.findByRole("region", { name: "NPI 5.0 Spread Performance" });
+    expect(spreadSummaryValue("Sample Size")).toBe("6");
+    expect(spreadSummaryValue("Brier Score")).toBe("0.1225");
+    fireEvent.click(screen.getByRole("button", { name: "NPI 4.0" }));
+    expect(screen.getByRole("region", { name: "NPI 4.0 Spread Performance" })).toBeTruthy();
+    expect(spreadSummaryValue("Sample Size")).toBe("12");
+    expect(spreadSummaryValue("Brier Score")).toBe("0.2143");
+  });
+
   it("renders NPI, confidence, and probability calibration tables", async () => {
     renderPage();
     const section = await screen.findByRole("region", { name: "NPI 4.0 Spread Performance" });
