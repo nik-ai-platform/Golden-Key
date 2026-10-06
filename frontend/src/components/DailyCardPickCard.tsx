@@ -47,7 +47,9 @@ export function DailyCardPickCard({
   const testIdPrefix = isRow ? "daily-game" : "daily-card";
   const rankingReasons = pick.ranking_reasons.filter(
     (reason) => !reason.toLowerCase().includes("projected edge"),
-  );
+  ).map((reason) => reason
+    .replace(/(\d+(?:\.\d+)?)%\s*confidence(?: rating)?/gi, "$1 Confidence Rating")
+    .replace(/(NPI\s+\d+(?:\.\d+)?)\s*\/\s*200/gi, "$1"));
 
   if (isHero) {
     return (

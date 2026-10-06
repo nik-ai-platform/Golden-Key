@@ -34,7 +34,7 @@ describe("product navigation", () => {
     const desktopNavigation = screen.getByRole("list");
     expect(
       within(desktopNavigation).getAllByRole("link").map((link) => link.textContent),
-    ).toEqual(["Dashboard", "Games", "Saved Picks", "Parlay Optimizer", "Performance", "Profile"]);
+    ).toEqual(["Dashboard", "Games", "Saved Picks", "Parlay Optimizer", "Performance", "Profile", "How It Works"]);
     expect(
       within(desktopNavigation)
         .getByRole("link", { name: "Games" })

@@ -1,7 +1,7 @@
 import { Box, Chip, Divider, LinearProgress, Stack, Typography } from "@mui/material";
 
 import type { PredictionMetric } from "../data/predictionMetricEducation";
-import { formatConfidence, formatNpi } from "../utils/productFormat";
+import { formatConfidence, formatModelProbability, formatNpi } from "../utils/productFormat";
 import { MetricInfoControl } from "./MetricInfoControl";
 
 interface PickMetricsProps {
@@ -16,9 +16,12 @@ interface PickMetricsProps {
 }
 
 function formatPercentage(value: number | null): string {
-  return value == null || !Number.isFinite(value) ? "—" : formatConfidence(value);
+  return value == null || !Number.isFinite(value) ? "—" : formatModelProbability(value);
 }
 
+function formatRating(value: number | null): string {
+  return value == null || !Number.isFinite(value) ? "—" : formatConfidence(value);
+}
 function riskLabel(value: string | null): string | null {
   if (!value) return null;
   const normalized = value.toLowerCase();
@@ -90,10 +93,10 @@ export function PickMetrics({
   const risk = riskLabel(riskLevel);
   const keyMetrics = [
     { label: "NPI", value: npi != null && Number.isFinite(npi) ? Math.round(npi).toString() : "—", metric: "npi" as const },
-    { label: "Confidence Rating", value: formatPercentage(confidence), metric: "confidence" as const },
+    { label: "Confidence Rating", value: formatRating(confidence), metric: "confidence" as const },
   ];
   const metrics = [
-    { label: "Confidence Rating", value: formatPercentage(confidence), metric: "confidence" as const },
+    { label: "Confidence Rating", value: formatRating(confidence), metric: "confidence" as const },
     { label: "Model Probability", value: formatPercentage(simulationProbability), metric: "modelProbability" as const },
   ];
 
@@ -115,7 +118,7 @@ export function PickMetrics({
         >
           {[
             { label: "Model Probability", value: formatPercentage(simulationProbability), metric: "modelProbability" as const },
-            { label: "Confidence Rating", value: formatPercentage(confidence), metric: "confidence" as const },
+            { label: "Confidence Rating", value: formatRating(confidence), metric: "confidence" as const },
           ].map((metric) => (
             <Box
               key={metric.label}
@@ -235,12 +238,7 @@ export function PickMetrics({
           </Box>
         ))}
         <Box sx={{ minWidth: 0 }}>
-          <Typography
-            data-testid="metric-label-risk"
-            sx={{ ...labelSx, whiteSpace: "nowrap" }}
-          >
-            Risk
-          </Typography>
+          <MetricLabel label="Risk Level" metric="risk" market={market} />
           {risk ? (
             <Chip
               label={risk}

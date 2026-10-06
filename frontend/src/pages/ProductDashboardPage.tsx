@@ -221,7 +221,7 @@ export function ProductDashboardPage() {
                     <SectionHeading id="model-intelligence-heading">Model Intelligence</SectionHeading>
                     <Stack direction="row" alignItems="center" spacing={0.25}>
                       <Typography variant="overline" color="info.main" fontWeight={900}>
-                        NPI Top {npiLeaders.length}
+                        Model Top Picks
                       </Typography>
                       <MetricInfoControl metric="npi" />
                     </Stack>
@@ -262,7 +262,7 @@ export function ProductDashboardPage() {
                         <MetricInfoControl metric="confidence" />
                       </Stack>
                       <Typography color="primary.main" fontFamily="var(--gk-font-mono)" fontWeight={900}>
-                        {averageConfidence == null ? "—" : `${averageConfidence.toFixed(1)}%`}
+                        {averageConfidence == null ? "—" : averageConfidence.toFixed(1)}
                       </Typography>
                     </Stack>
                   </CardContent>

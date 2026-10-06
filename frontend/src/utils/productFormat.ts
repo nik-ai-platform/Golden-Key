@@ -62,10 +62,14 @@ export function formatAmericanOdds(value: number | null): string | null {
 }
 
 export function formatNpi(value: number | null): string {
-  return value == null || !Number.isFinite(value) ? "Unavailable" : `${value.toFixed(1)} / 200`;
+  return value == null || !Number.isFinite(value) ? "Unavailable" : value.toFixed(1);
 }
 
 export function formatConfidence(value: number | null): string {
+  return value == null || !Number.isFinite(value) ? "Not rated" : value.toFixed(1);
+}
+
+export function formatModelProbability(value: number | null): string {
   return value == null || !Number.isFinite(value) ? "Not rated" : `${value.toFixed(1)}%`;
 }
 

@@ -1,10 +1,13 @@
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import { IconButton, Popover, Stack, Typography } from "@mui/material";
+import { IconButton, Link, Popover, Stack, Typography } from "@mui/material";
 import { useId, useState, type MouseEvent } from "react";
+import { Link as RouterLink } from "react-router-dom";
 
 import {
   modelProbabilityMarketNote,
+  npiMarketNote,
   predictionMetricEducation,
+  projectedEdgeEducation,
   type PredictionMetric,
 } from "../data/predictionMetricEducation";
 
@@ -19,7 +22,9 @@ export function MetricInfoControl({ metric, market }: MetricInfoControlProps) {
   const education = predictionMetricEducation[metric];
   const marketNote = metric === "modelProbability"
     ? modelProbabilityMarketNote(market)
-    : null;
+    : metric === "npi" && market ? npiMarketNote(market)
+      : metric === "projectedEdge" ? projectedEdgeEducation.find((item) => item.market === market?.toLowerCase())?.description
+      : null;
   const open = Boolean(anchorElement);
 
   function openPopover(event: MouseEvent<HTMLElement>) {
@@ -52,6 +57,8 @@ export function MetricInfoControl({ metric, market }: MetricInfoControlProps) {
         transformOrigin={{ vertical: "top", horizontal: "left" }}
         slotProps={{
           paper: {
+            role: "dialog",
+            "aria-label": education.title,
             sx: {
               width: { xs: "calc(100vw - 32px)", sm: 340 },
               maxWidth: "calc(100vw - 32px)",
@@ -76,6 +83,9 @@ export function MetricInfoControl({ metric, market }: MetricInfoControlProps) {
           <Typography variant="caption" color="text.secondary">
             {education.disclaimer}
           </Typography>
+          <Link component={RouterLink} to="/how-it-works" onClick={closePopover} sx={{ fontSize: "0.875rem", py: 0.5 }}>
+            Learn how all metrics work
+          </Link>
         </Stack>
       </Popover>
     </>

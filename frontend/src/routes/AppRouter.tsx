@@ -18,6 +18,7 @@ const ProductPerformancePage = lazy(() => import("../pages/ProductPerformancePag
 const ProductSavedPicksPage = lazy(() => import("../pages/ProductSavedPicksPage").then((module) => ({ default: module.ProductSavedPicksPage })));
 const ProductProfilePage = lazy(() => import("../pages/ProductProfilePage").then((module) => ({ default: module.ProductProfilePage })));
 const ParlayOptimizerPage = lazy(() => import("../pages/ParlayOptimizerPage").then((module) => ({ default: module.ParlayOptimizerPage })));
+const HowItWorksPage = lazy(() => import("../pages/HowItWorksPage").then((module) => ({ default: module.HowItWorksPage })));
 
 function RouteLoader() {
   return (
@@ -47,6 +48,7 @@ export function AppRouter() {
             <Route path="/performance" element={<ProductPerformancePage />} />
             <Route path="/saved-picks" element={<ProductSavedPicksPage />} />
             <Route path="/parlays" element={<ParlayOptimizerPage />} />
+            <Route path="/how-it-works" element={<HowItWorksPage />} />
           </Route>
         </Route>
         <Route path="*" element={<NotFoundPage />} />

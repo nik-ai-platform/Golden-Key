@@ -21,7 +21,7 @@ import {
   type OptimizedParlay,
   type ParlayLeg,
 } from "../services/parlayOptimizerApi";
-import { customerFacingReasoning, formatConfidence, formatProductDate } from "../utils/productFormat";
+import { customerFacingReasoning, formatConfidence, formatModelProbability, formatProductDate } from "../utils/productFormat";
 
 const legCounts = [2, 4, 6, 8, 10] as const;
 
@@ -62,7 +62,7 @@ function LegCard({ leg, index }: { leg: ParlayLeg; index: number }) {
           {[
             ["NPI", leg.npi_score],
             ["Confidence Rating", formatConfidence(leg.confidence_score)],
-            ["Model Probability", formatConfidence(leg.simulation_probability)],
+            ["Model Probability", formatModelProbability(leg.simulation_probability)],
           ].map(([label, value]) => (
             <Grid key={label} size={{ xs: 6, sm: 4 }}>
               <Typography variant="caption" color="text.secondary">{label}</Typography>

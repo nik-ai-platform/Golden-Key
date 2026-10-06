@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ThemeProvider } from "@mui/material";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
 import { PickMetrics } from "../../src/components/PickMetrics";
@@ -10,7 +11,7 @@ function renderMetrics(
   mode: "light" | "dark" = "light",
 ) {
   return render(
-    <ThemeProvider theme={createAppTheme(mode)}>
+    <MemoryRouter><ThemeProvider theme={createAppTheme(mode)}>
       <PickMetrics
         npi={180}
         confidence={82.4}
@@ -20,7 +21,7 @@ function renderMetrics(
         market="spread"
         {...overrides}
       />
-    </ThemeProvider>,
+    </ThemeProvider></MemoryRouter>,
   );
 }
 
@@ -29,8 +30,8 @@ describe("compact pick metrics", () => {
     renderMetrics();
     const metrics = screen.getByTestId("pick-metrics");
 
-    expect(within(metrics).getByText("180.0 / 200")).toBeTruthy();
-    expect(within(metrics).getByText("82.4%")).toBeTruthy();
+    expect(within(metrics).getByText("180.0")).toBeTruthy();
+    expect(within(metrics).getByText("82.4")).toBeTruthy();
     expect(within(metrics).getByText("64.2%")).toBeTruthy();
     expect(within(metrics).getByText("Low")).toBeTruthy();
     expect(within(metrics).queryByText("LOW")).toBeNull();
@@ -40,9 +41,10 @@ describe("compact pick metrics", () => {
   });
 
   it.each([
-    ["Learn about NPI", "Bear A Hand Sports' 0–200 model-support score."],
+    ["Learn about NPI", "Nik Power Index is a market-specific model score"],
     ["Learn about Confidence Rating", "It is not win probability."],
     ["Learn about Model Probability", "distinct from Confidence"],
+    ["Learn about Risk Level", "Derived from Confidence Rating"],
   ])("opens the %s information control", async (accessibleName, definition) => {
     renderMetrics();
 
@@ -56,7 +58,7 @@ describe("compact pick metrics", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Learn about NPI" }));
 
-    const definition = await screen.findByText(/Bear A Hand Sports' 0–200 model-support score/i);
+    const definition = await screen.findByText(/Nik Power Index is a market-specific model score/i);
     const paper = definition.closest(".MuiPopover-paper");
 
     expect(paper).toBeTruthy();

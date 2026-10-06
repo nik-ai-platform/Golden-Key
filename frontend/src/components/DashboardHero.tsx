@@ -31,7 +31,7 @@ export function DashboardHero({ predictionCount }: { predictionCount: number }) 
             Today&apos;s edge
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 1.25, maxWidth: 660, lineHeight: 1.7 }}>
-            Production-model opportunities ranked by confidence, NPI strength, and simulated edge.
+            Production-model opportunities informed by NPI, Confidence Rating, Model Probability, and market-specific edge.
           </Typography>
         </Box>
         <Stack alignItems={{ xs: "flex-start", md: "flex-end" }} spacing={0.75} sx={{ flexShrink: 0 }}>

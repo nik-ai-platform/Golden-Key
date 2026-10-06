@@ -20,6 +20,7 @@ import { useState } from "react";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
+import { npiReportingNote } from "../data/predictionMetricEducation";
 import { getPerformanceIntelligence } from "../services/productApi";
 import type { PerformanceIntelligenceBreakdown } from "../types/product";
 import type {
@@ -330,11 +331,11 @@ export function ProductPerformancePage() {
 
           <SpreadPerformanceTable
             title="NPI Performance"
-            description="Shows whether stronger NPI scores have historically produced better spread results."
+            description="Settled spread results by numeric NPI reporting range, not calibrated strength level."
             rows={spreadPerformance.npi_bands}
           />
           <SpreadPerformanceTable
-            title="Confidence Performance"
+            title="Confidence Rating Performance"
             description="Shows settled results by model-conviction level."
             rows={spreadPerformance.confidence_bands}
           />
@@ -393,14 +394,17 @@ export function ProductPerformancePage() {
 
           <Stack component="section" aria-labelledby="model-strength" spacing={2} sx={{ minWidth: 0, width: "100%" }}>
             <Typography id="model-strength" variant="h5" fontWeight={700}>
-              Model Strength
+              Metric Reporting Ranges
             </Typography>
             <Grid container spacing={3} sx={{ minWidth: 0, width: "100%" }}>
               <Grid size={{ xs: 12 }} sx={{ minWidth: 0 }}>
-                <BreakdownTable title="NPI Bands" rows={query.data.by_npi_band} />
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  {npiReportingNote}
+                </Typography>
+                <BreakdownTable title="NPI Reporting Ranges" rows={query.data.by_npi_band} />
               </Grid>
               <Grid size={{ xs: 12 }} sx={{ minWidth: 0 }}>
-                <BreakdownTable title="Confidence Bands" rows={query.data.by_confidence_band} />
+                <BreakdownTable title="Confidence Rating Ranges" rows={query.data.by_confidence_band} />
               </Grid>
               <Grid size={{ xs: 12 }} sx={{ minWidth: 0 }}>
                 <BreakdownTable title="Odds Bands" rows={query.data.by_odds_band} />

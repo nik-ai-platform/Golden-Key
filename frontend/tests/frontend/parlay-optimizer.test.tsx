@@ -187,6 +187,6 @@ describe("Parlay Optimizer", () => {
     expect(await screen.findByText("Unavailable")).toBeTruthy();
     expect(screen.queryByText("Average Edge")).toBeNull();
     expect(screen.queryByText(/parlay probability/i)).toBeNull();
-    expect(screen.getByText("83.0%")).toBeTruthy();
+    expect(screen.getByText("83.0")).toBeTruthy();
   });
 });

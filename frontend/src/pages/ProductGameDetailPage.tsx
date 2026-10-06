@@ -22,12 +22,14 @@ import {
   modelProbabilityMarketNote,
   npiMarketNote,
   predictionMetricEducation,
+  type PredictionMetric,
 } from "../data/predictionMetricEducation";
 import { getGameDetail } from "../services/productApi";
 import type { Prediction } from "../types/product";
 import {
   formatAmericanOdds,
   formatConfidence,
+  formatModelProbability,
   formatNpi,
   formatProductDate,
   customerFacingReasoning,
@@ -72,7 +74,7 @@ function UnderstandingMetric({
   label: string;
   value: string;
   explanation: string;
-  metric: "npi" | "confidence" | "modelProbability";
+  metric: PredictionMetric;
   market: string;
 }) {
   return (
@@ -202,11 +204,20 @@ function MarketCard({
               />
               <UnderstandingMetric
                 label="Model Probability"
-                value={formatConfidence(prediction.simulation_probability)}
+                value={formatModelProbability(prediction.simulation_probability)}
                 explanation={modelProbabilityMarketNote(prediction.market) ?? predictionMetricEducation.modelProbability.detailed}
                 metric="modelProbability"
                 market={prediction.market}
               />
+              <Box sx={{ minWidth: 0 }}>
+                <Stack direction="row" alignItems="center" spacing={0.25}>
+                  <Typography variant="overline" color="text.secondary" fontWeight={800}>Projected Edge</Typography>
+                  <MetricInfoControl metric="projectedEdge" market={prediction.market} />
+                </Stack>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, lineHeight: 1.6 }}>
+                  {predictionMetricEducation.projectedEdge.short}
+                </Typography>
+              </Box>
             </Box>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={{ xs: 0.5, sm: 2 }} sx={{ mt: 2 }}>
               <Typography variant="body2"><strong>Risk assessment:</strong> {displayRisk(prediction.risk_level)}</Typography>

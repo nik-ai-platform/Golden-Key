@@ -203,7 +203,7 @@ async function expectCompactMetrics(
   const supportingMetrics = container.getByTestId("supporting-metrics");
 
   await expect(container).toBeVisible();
-  for (const label of ["NPI", "Confidence Rating", "Model Probability", "Risk"]) {
+  for (const label of ["NPI", "Confidence Rating", "Model Probability", "Risk Level"]) {
     await expect(container.getByText(label, { exact: true })).toBeVisible();
   }
   expect(

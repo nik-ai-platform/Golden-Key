@@ -57,6 +57,19 @@ This sequence gets a usable app quickly and validates API contracts incrementall
 - Axios client in `api/client.ts` injects `Authorization` header
 - Protected pages are routed through `components/ProtectedRoute.tsx`
 
+## Customer Metric Education
+
+- The protected `/how-it-works` route explains NPI, Model Probability, Confidence
+  Rating, Projected Edge, Risk Level, publication, and responsible interpretation.
+- Desktop navigation and the mobile navigation drawer include How It Works.
+  The fixed mobile bottom navigation retains its six existing destinations.
+- `src/data/predictionMetricEducation.ts` is the shared customer-copy source for
+  the page and metric help dialogs. Every metric help dialog links to the page.
+- NPI is market-specific; numeric Performance ranges are reporting buckets, not
+  calibrated strength bands. No percentiles or predictive strength tiers are
+  published. Confidence Rating displays without a percent suffix, while Model
+  Probability retains one. Stored values and calculations are unchanged.
+
 ## Local Development
 
 From this folder:

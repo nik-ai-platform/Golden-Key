@@ -4,6 +4,7 @@ import {
   formatProductDate,
   formatAmericanOdds,
   formatConfidence,
+  formatModelProbability,
   formatNpi,
   formatProductTime,
   parseProductDate,
@@ -30,8 +31,9 @@ describe("sports datetime formatting", () => {
       },
     );
     it("preserves valid historical metrics and rejects a zero betting price", () => {
-      expect(formatNpi(154.5)).toBe("154.5 / 200");
-      expect(formatConfidence(83)).toBe("83.0%");
+      expect(formatNpi(154.5)).toBe("154.5");
+      expect(formatConfidence(83)).toBe("83.0");
+      expect(formatModelProbability(83)).toBe("83.0%");
       expect(formatAmericanOdds(-110)).toBe("-110");
       expect(formatAmericanOdds(120)).toBe("+120");
       expect(formatAmericanOdds(0)).toBeNull();

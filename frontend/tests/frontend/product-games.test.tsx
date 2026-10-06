@@ -170,8 +170,8 @@ describe("Games decision screen", () => {
     expect(screen.queryByText("HOME")).toBeNull();
     expect(screen.queryByText("AWAY")).toBeNull();
     expect(within(nflCard).getByText("Odds +125")).toBeTruthy();
-    expect(within(nflCard).getByText("180.0 / 200")).toBeTruthy();
-    expect(within(nflCard).getAllByText("83.0%")).toHaveLength(3);
+    expect(within(nflCard).getByText("180.0")).toBeTruthy();
+    expect(within(nflCard).getAllByText("83.0")).toHaveLength(3);
     expect(within(nflCard).getAllByText("Bear A Hand Sports Best Pick")).toHaveLength(1);
     expect(within(nbaCard).getAllByText("Bear A Hand Sports Best Pick")).toHaveLength(1);
     expect(within(nbaCard).getByText("High Probability — Low Betting Value")).toBeTruthy();

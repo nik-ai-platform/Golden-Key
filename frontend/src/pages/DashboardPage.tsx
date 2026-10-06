@@ -166,7 +166,7 @@ export function DashboardPage() {
           <MetricCard title="Total Predictions" value={formatNumber(dashboardQuery.data.total_predictions)} />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <MetricCard title="Avg Confidence" value={formatPercent(confidenceQuery.data.average_confidence)} />
+          <MetricCard title="Avg Confidence Rating" value={confidenceQuery.data.average_confidence.toFixed(1)} />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <MetricCard title="System Health" value={dashboardQuery.data.system_health.toUpperCase()} />
@@ -442,7 +442,7 @@ export function DashboardPage() {
                     {typeof explanationQuery.data?.prediction === "string" ? explanationQuery.data.prediction : "Boston -5"}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Confidence: {typeof explanationQuery.data?.confidence === "number" ? explanationQuery.data.confidence : 82}%
+                    Confidence Rating: {typeof explanationQuery.data?.confidence === "number" ? explanationQuery.data.confidence : 82}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Top factors: {Array.isArray(explanationQuery.data?.top_factors) ? explanationQuery.data.top_factors.join(", ") : "Rest Advantage, Home Court"}

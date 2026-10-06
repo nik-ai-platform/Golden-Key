@@ -282,7 +282,7 @@ function MetricCard({
         <Stack spacing={1}>
           <Typography>Accuracy: {formatPercent(accuracy)}</Typography>
           <Typography>Calibration Error: {formatPercent(calibration)}</Typography>
-          <Typography>Average Confidence: {formatPercent(averageConfidence)}</Typography>
+          <Typography>Average Confidence Rating: {averageConfidence.toFixed(1)}</Typography>
           <Typography>Predictions: {formatNumber(predictions)}</Typography>
         </Stack>
       </CardContent>

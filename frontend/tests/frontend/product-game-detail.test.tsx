@@ -161,11 +161,11 @@ describe("Game Analysis", () => {
     const moneylineEducation = screen.getByRole("region", { name: "Understanding this moneyline pick" });
     const totalEducation = screen.getByRole("region", { name: "Understanding this total pick" });
     expect(screen.getAllByText("Understanding This Pick")).toHaveLength(3);
-    expect(within(spreadEducation).getByText("175.0 / 200")).toBeTruthy();
-    expect(within(spreadEducation).getByText("83.0%")).toBeTruthy();
+    expect(within(spreadEducation).getByText("175.0")).toBeTruthy();
+    expect(within(spreadEducation).getByText("83.0")).toBeTruthy();
     expect(within(spreadEducation).getByText("61.0%")).toBeTruthy();
     expect(spreadEducation.textContent).toContain("Risk assessment: Low");
-    expect(within(spreadEducation).queryByText(/^Projected Edge$/i)).toBeNull();
+    expect(within(spreadEducation).getByText(/^Projected Edge$/i)).toBeTruthy();
     expect(within(spreadEducation).queryByText("+8.5 pp")).toBeNull();
     expect(within(moneylineEducation).queryByText("+5.0 pp")).toBeNull();
     expect(within(totalEducation).queryByText("+3.5 pts")).toBeNull();

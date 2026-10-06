@@ -120,7 +120,7 @@ describe("Performance Intelligence", () => {
   it("renders every backend breakdown in compact tables", async () => {
     renderPage();
     const market = await screen.findByRole("region", { name: "Market Performance" });
-    const modelStrength = screen.getByRole("region", { name: "Model Strength" });
+    const modelStrength = screen.getByRole("region", { name: "Metric Reporting Ranges" });
     const sport = screen.getByRole("region", { name: "Sport Performance" });
     const betProfile = screen.getByRole("region", { name: "Bet Profile" });
     const modelVersion = screen.getByRole("region", { name: "Model Version" });
@@ -128,7 +128,8 @@ describe("Performance Intelligence", () => {
     expect(within(market).getByText("Spread")).toBeTruthy();
     expect(within(market).getByText("Moneyline")).toBeTruthy();
     expect(within(market).getByText("Total")).toBeTruthy();
-    expect(within(modelStrength).getByText("NPI Bands")).toBeTruthy();
+    expect(within(modelStrength).getByText("NPI Reporting Ranges")).toBeTruthy();
+    expect(within(modelStrength).getByText(/not calibrated strength levels/)).toBeTruthy();
     expect(within(modelStrength).getByText("150-174")).toBeTruthy();
     expect(within(modelStrength).getByText("80-89")).toBeTruthy();
     expect(within(modelStrength).getByText("+200 to +499")).toBeTruthy();
@@ -179,7 +180,7 @@ describe("Performance Intelligence", () => {
     const section = await screen.findByRole("region", { name: "NPI 4.0 Spread Performance" });
 
     expect(within(section).getByRole("table", { name: "NPI Performance table" })).toBeTruthy();
-    expect(within(section).getByRole("table", { name: "Confidence Performance table" })).toBeTruthy();
+    expect(within(section).getByRole("table", { name: "Confidence Rating Performance table" })).toBeTruthy();
     expect(within(section).queryByRole("table", { name: "Projected Edge Performance table" })).toBeNull();
     expect(within(section).getByRole("table", { name: "Model Probability Calibration table" })).toBeTruthy();
     expect(within(section).getByText("0-99")).toBeTruthy();

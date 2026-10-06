@@ -243,7 +243,7 @@ describe("daily card dashboard", () => {
     expect(within(screen.getByTestId("daily-card-top-total")).getByText("OVER 47.5")).toBeTruthy();
     expect(screen.getAllByTestId("sportsbook-game")).toHaveLength(2);
     expect(screen.queryByRole("heading", { name: "Prediction Summary" })).toBeNull();
-    expect(screen.getByText("NPI Top 5")).toBeTruthy();
+    expect(screen.getByText("Model Top Picks")).toBeTruthy();
     const totalPick = screen.getByTestId("npi-pick-label-4");
     expect(within(totalPick).getByText("Dallas Cowboys @ Philadelphia Eagles")).toBeTruthy();
     expect(within(totalPick).getByText("OVER 47.5")).toBeTruthy();
@@ -416,7 +416,7 @@ describe("daily card dashboard", () => {
     expect(analysis.classList.contains("MuiButton-contained")).toBe(true);
     expect(within(bestBet).getByRole("button", { name: "Save pick" })).toBeTruthy();
     expect(within(bestBet).getByText("61.0%")).toBeTruthy();
-    expect(within(bestBet).getByText("91.0%")).toBeTruthy();
+    expect(within(bestBet).getByText("91.0")).toBeTruthy();
     expect(within(bestBet).getByText("NPI 188")).toBeTruthy();
   });
 
@@ -484,8 +484,8 @@ describe("daily card dashboard", () => {
   it("shows ranking reasons and requeries when sport changes", () => {
     renderDashboard();
     const bestBet = screen.getByTestId("daily-card-best-bet");
-    expect(within(bestBet).getByText("NPI 188.0 / 200")).toBeTruthy();
-    expect(within(bestBet).getByText("91.0% confidence")).toBeTruthy();
+    expect(within(bestBet).getByText("NPI 188.0")).toBeTruthy();
+    expect(within(bestBet).getByText("91.0 Confidence Rating")).toBeTruthy();
     expect(within(bestBet).queryByText(/projected edge/i)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "NFL" }));
     expect(vi.mocked(useQuery).mock.calls.some(([options]) =>
