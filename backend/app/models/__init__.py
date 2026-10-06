@@ -56,3 +56,6 @@ from app.models.game_result_observation import GameResultObservation
 from app.models.team_power_rating import TeamPowerRatingRecord
 from app.models.prediction_power_snapshot import PredictionPowerSnapshot
 from app.models.ncaaf_rule_intelligence import NcaafRuleIntelligence
+from app.models.worker_instance import WorkerInstance
+from app.models.worker_cycle import WorkerCycle
+from app.models.worker_cycle_source import WorkerCycleSource

@@ -2,6 +2,9 @@
 
 Backend services and API layer for the nik-ai-platform.
 
+See [Production Observability](../docs/PRODUCTION_OBSERVABILITY.md) for the
+isolated Phase 1A.1 telemetry storage foundation.
+
 ## Structure
 
 - `api/` - API endpoints and handlers

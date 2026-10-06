@@ -67,7 +67,8 @@ def alembic_config(connection=None):
 
 def test_single_head_preserves_both_prior_branches():
     script = ScriptDirectory.from_config(alembic_config())
-    assert script.get_heads() == ["c8d2f6a109b4"]
+    assert script.get_heads() == ["e7b4c2d9a610"]
+    assert script.get_revision("e7b4c2d9a610").down_revision == "c8d2f6a109b4"
     revision = script.get_revision("c8d2f6a109b4")
     assert set(revision.down_revision) == {"c6f2a8d4e913", "a4c8e2f19b73"}
     ancestors = {row.revision for row in script.walk_revisions()}
@@ -625,7 +626,7 @@ def test_actual_postgres_graph_upgrade_backfill_foreign_keys_and_downgrade(db, s
     db.commit()
     command.upgrade(alembic_config(db.connection()), "heads")
     db.commit()
-    assert db.execute(text("SELECT version_num FROM alembic_version")).scalars().all() == ["c8d2f6a109b4"]
+    assert db.execute(text("SELECT version_num FROM alembic_version")).scalars().all() == ["e7b4c2d9a610"]
     if starting_point == "common_ancestor":
         assert {
             "ncaaf_rule_intelligence", "provider_subscriptions",
@@ -671,5 +672,5 @@ def test_actual_postgres_graph_upgrade_backfill_foreign_keys_and_downgrade(db, s
     with pytest.raises(RuntimeError, match="without losing history"):
         command.downgrade(alembic_config(db.connection()), "c6f2a8d4e913")
     db.rollback()
-    assert db.execute(text("SELECT version_num FROM alembic_version")).scalar() == "c8d2f6a109b4"
+    assert db.execute(text("SELECT version_num FROM alembic_version")).scalar() == "e7b4c2d9a610"
     assert db.query(Prediction).count() == len(originals) + 3

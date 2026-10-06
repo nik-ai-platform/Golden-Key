@@ -49,6 +49,13 @@ class BaseAppSettings(BaseSettings):
     DB_POOL_TIMEOUT_SECONDS: int = 30
     DB_POOL_RECYCLE_SECONDS: int = 1800
     DB_POOL_PRE_PING: bool = True
+    OPERATIONS_TELEMETRY_ENABLED: bool = False
+    OPERATIONS_CYCLE_RETENTION_DAYS: int = Field(default=30, ge=1, le=365)
+    OPERATIONS_STARTUP_GRACE_SECONDS: int = Field(default=120, ge=15, le=3600)
+    OPERATIONS_TELEMETRY_STATEMENT_TIMEOUT_MS: int = Field(default=500, ge=50, le=5000)
+    OPERATIONS_TELEMETRY_LOCK_TIMEOUT_MS: int = Field(default=100, ge=10, le=1000)
+    OPERATIONS_TELEMETRY_POOL_TIMEOUT_SECONDS: float = Field(default=0.2, ge=0.01, le=2.0, allow_inf_nan=False)
+    OPERATIONS_TELEMETRY_CONNECT_TIMEOUT_SECONDS: int = Field(default=2, ge=1, le=10)
     API_URL: str = "http://backend:8000"
     REQUEST_TIMEOUT_SECONDS: float = 20.0
     MAX_REQUEST_BYTES: int = 1_048_576
