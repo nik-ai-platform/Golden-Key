@@ -12,75 +12,75 @@ export const predictionMetricEducation: Record<PredictionMetric, PredictionMetri
   npi: {
     title: "Nik Power Index (NPI)",
     ariaLabel: "Learn about NPI",
-    short: "Nik Power Index is a market-specific model score, not probability. Interpret each score within its market and model configuration.",
-    detailed: "NPI means Nik Power Index. It summarizes the model inputs used for that market, not the chance of winning. Spread, moneyline, and total NPI have different meanings. Scores should not be directly compared across different market types or model configurations. Higher spread NPI does not always mean stronger support for the selected pick.",
+    short: "NPI is a model score for one market. It is not the chance that a pick will win.",
+    detailed: "NPI (Nik Power Index) summarizes model inputs for a market. It is a score, not a chance to win. Spread, moneyline, and total scores describe different things, so do not compare them directly or compare different model configurations. A higher spread NPI does not always mean more support for the selected side.",
     disclaimer: "NPI supports decision-making and does not guarantee an outcome.",
   },
   confidence: {
     title: "Confidence Rating",
     ariaLabel: "Learn about Confidence Rating",
-    short: "A 0–95 composite rating built from NPI, projected-edge magnitude, and the model probability input. It is not win probability.",
-    detailed: "Confidence Rating is a 0–95 composite rating built from NPI, projected-edge magnitude, and the model probability input. It is not win probability and should not be read as “percent chance to win.” Historical Confidence and Risk remain the values produced by their original model version.",
+    short: "A 0–95 rating based on NPI, projected-edge size, and the model-probability input. It is not win probability.",
+    detailed: "Confidence Rating is a 0–95 score based on NPI, the size of the projected edge, and the model-probability input. It describes model conviction. It is not win probability and should not be read as “percent chance to win.” Historical Confidence and Risk remain the values produced by their original model version.",
     disclaimer: "Confidence describes model conviction, not certainty of winning.",
   },
   modelProbability: {
     title: "Model Probability",
     ariaLabel: "Learn about Model Probability",
-    short: "The model's estimated likelihood of the displayed selection—team, OVER, or UNDER. It is distinct from Confidence Rating and is not a guarantee.",
-    detailed: "Model Probability estimates the likelihood of the displayed selection—team, OVER, or UNDER—according to the model. It is not a guarantee and has not yet been presented as a fully calibrated probability. Spreads use margin simulations, moneylines use a spread-based estimate, and totals use a projected-total heuristic rather than a simulation.",
+    short: "The model's estimated likelihood of the displayed selection—a team, OVER, or UNDER. It is different from Confidence Rating.",
+    detailed: "Model Probability is the model's estimate for the displayed selection—a team, OVER, or UNDER. It is not a guarantee or a fully calibrated probability. Spreads use margin simulations, moneylines use a spread-based estimate, and totals use a projected-total estimate rather than a simulation.",
     disclaimer: "Model Probability is an estimate, not a guaranteed outcome.",
   },
   projectedEdge: {
     title: "Projected Edge",
     ariaLabel: "Learn about Projected Edge",
-    short: "A model-to-benchmark difference: percentage points for spreads and moneylines, scoring points for totals. It is not a universal expected-profit figure.",
-    detailed: "Projected Edge compares the model with a market-specific benchmark. Spread and moneyline edges use percentage points; total edges use scoring points. Projected edge is not a universal expected-profit figure.",
+    short: "A comparison between the model and a reference for that market—not a promise of profit.",
+    detailed: "Projected Edge compares the model with a reference point for that market. Spread and moneyline edges are measured in percentage points; total edges are measured in scoring points. It is not a universal expected-profit figure.",
     disclaimer: "An edge estimate does not guarantee value at a changed sportsbook price.",
   },
   risk: {
     title: "Risk Level",
     ariaLabel: "Learn about Risk Level",
-    short: "Derived from Confidence Rating: Low at 80 or higher, Medium at 65 through 79.99, and High below 65. It is not an independent bankroll-risk or volatility model.",
+    short: "Based on Confidence Rating: Low at 80 or higher, Medium from 65 to 79.99, and High below 65. It is not a measure of personal bankroll risk.",
     detailed: "Risk Level is currently derived from Confidence Rating. It is not an independent bankroll-risk or volatility model, and it does not measure how much you can afford to wager.",
     disclaimer: "Users remain responsible for wagering decisions.",
   },
 };
 
 export const npiMarketEducation = [
-  { market: "spread", title: "Spread NPI", description: "A weighted line, scoring-environment, and fixed-rule score. It is home-oriented in its underlying construction, while the displayed Model Probability is adjusted to the selected side." },
-  { market: "moneyline", title: "Moneyline NPI", description: "A score based on the difference between the model’s win estimate and the sportsbook market’s vig-adjusted implied probability." },
-  { market: "total", title: "Total NPI", description: "A score based on how far the posted game total is from the model’s sport-specific scoring baseline." },
+  { market: "spread", title: "Spread NPI", description: "Combines the spread line, scoring context, and fixed model rules. Its underlying score is home-oriented; Model Probability is adjusted for the selected side." },
+  { market: "moneyline", title: "Moneyline NPI", description: "Compares the model’s win estimate with the sportsbook’s implied probability after accounting for the odds margin (vig)." },
+  { market: "total", title: "Total NPI", description: "Measures how far the posted game total is from the model’s scoring baseline for that sport." },
 ] as const;
 
 export const projectedEdgeEducation = [
-  { market: "spread", title: "Spread", description: "Percentage-point difference from a 50% cover benchmark." },
-  { market: "moneyline", title: "Moneyline", description: "Percentage-point difference from the sportsbook’s vig-free implied probability." },
-  { market: "total", title: "Total", description: "Scoring-point difference between the model projection and posted total." },
+  { market: "spread", title: "Spread", description: "The percentage-point difference from a 50% chance to cover reference." },
+  { market: "moneyline", title: "Moneyline", description: "The percentage-point difference from the sportsbook’s implied probability with the odds margin (vig) removed." },
+  { market: "total", title: "Total", description: "The scoring-point difference between the model’s projection and the posted game total." },
 ] as const;
 
 export const npiReportingNote = "Numeric NPI reporting ranges are not calibrated strength levels. Scores from different markets or model configurations should not be directly compared.";
-export const npiBandsExplanation = "Bear A Hand Sports does not currently publish named NPI strength bands. Earlier numeric ranges are reporting buckets, not proven levels such as Weak, Strong, or Elite. Strength bands will only be introduced after sufficient settled predictions support stable sport-, market-, and model-specific comparisons.";
-export const npiBandsNotice = "Strength bands are under evaluation as Bear A Hand Sports collects settled predictions across each sport and market.";
+export const npiBandsExplanation = "There are no named NPI strength levels. Numeric ranges are reporting groups, not proven labels such as Weak, Strong, or Elite. A score range should not be treated as a level of pick strength.";
+export const npiBandsNotice = "Any future strength levels will need enough completed results to show that they are stable for each sport, market, and model.";
 export const riskThresholds = [
   { title: "Low", description: "Confidence Rating 80 or higher." },
   { title: "Medium", description: "Confidence Rating 65 through 79.99." },
   { title: "High", description: "Confidence Rating below 65." },
 ] as const;
 export const dashboardSequence = [
-  "Read the current game and market snapshot.",
-  "Calculate market-specific model metrics.",
-  "Exclude unavailable or incomplete recommendations.",
-  "Rank eligible selections within the model.",
-  "Publish the current supported prediction for each game and market.",
-  "Settle completed predictions for Performance reporting.",
+  "The system checks the latest game and market information.",
+  "It calculates the model’s signals separately for each market.",
+  "Picks without the required information are left out.",
+  "Eligible picks are ranked within their model.",
+  "The supported pick for each game and market appears on the dashboard.",
+  "After a game is complete, the result is recorded for Performance reporting.",
 ] as const;
 export const responsibleInterpretation = [
-  "Metrics are analytical estimates, not guarantees.",
-  "Sports outcomes contain uncertainty.",
-  "Past Performance does not guarantee future results.",
-  "Compare picks within the same market context.",
-  "Check current sportsbook prices because lines and odds change.",
-  "Users remain responsible for wagering decisions.",
+  "Model numbers are estimates, not guarantees.",
+  "Sports outcomes are uncertain.",
+  "Past results do not guarantee future results.",
+  "Compare picks only in the same market context.",
+  "Check current sportsbook prices; lines and odds can change.",
+  "You are responsible for your own wagering decisions.",
 ] as const;
 
 export function npiMarketNote(market?: string): string {

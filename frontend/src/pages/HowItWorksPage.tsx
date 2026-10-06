@@ -1,80 +1,423 @@
-import { Box, Stack, Typography } from "@mui/material";
+import ArrowDownwardRoundedIcon from "@mui/icons-material/ArrowDownwardRounded";
+import { Box, Link, Stack, Typography } from "@mui/material";
 import type { ReactNode } from "react";
 
 import {
-  dashboardSequence, npiBandsExplanation, npiBandsNotice, npiMarketEducation,
-  predictionMetricEducation, projectedEdgeEducation, responsibleInterpretation, riskThresholds,
+  dashboardSequence,
+  npiBandsExplanation,
+  npiBandsNotice,
+  npiMarketEducation,
+  predictionMetricEducation,
+  projectedEdgeEducation,
+  responsibleInterpretation,
+  riskThresholds,
 } from "../data/predictionMetricEducation";
 
-function EducationPanel({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+const pageLinks = [
+  { label: "The numbers", href: "#the-numbers" },
+  { label: "How picks are chosen", href: "#how-picks-are-chosen" },
+  { label: "A note on risk", href: "#responsible-use" },
+];
+
+function EducationPanel({
+  id,
+  title,
+  intro,
+  children,
+}: {
+  id: string;
+  title: string;
+  intro?: string;
+  children: ReactNode;
+}) {
   return (
-    <Box component="section" aria-labelledby={id} sx={{
-      minWidth: 0, p: { xs: 2, sm: 3 }, border: "1px solid var(--gk-border-strong)",
-      borderRadius: 1, backgroundColor: "background.paper",
-    }}>
-      <Typography id={id} component="h2" variant="h5" className="gk-editorial" sx={{ mb: 1.5 }}>
+    <Box
+      component="section"
+      aria-labelledby={`${id}-title`}
+      id={id}
+      sx={{
+        minWidth: 0,
+        p: { xs: 2, sm: 3 },
+        border: "1px solid var(--gk-border-strong)",
+        borderRadius: 1,
+        backgroundColor: "background.paper",
+        scrollMarginTop: 3,
+      }}
+    >
+      <Typography
+        id={`${id}-title`}
+        component="h2"
+        variant="h5"
+        className="gk-editorial"
+        sx={{ mb: intro ? 0.75 : 1.5 }}
+      >
         {title}
       </Typography>
+      {intro ? (
+        <Typography color="text.secondary" sx={{ maxWidth: 760, lineHeight: 1.75, mb: 2 }}>
+          {intro}
+        </Typography>
+      ) : null}
       {children}
     </Box>
   );
 }
 
-function ExplanationCards({ items }: { items: readonly { title: string; description: string }[] }) {
+function ExplanationCards({
+  items,
+}: {
+  items: readonly { title: string; description: string }[];
+}) {
   return (
-    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", md: "repeat(3, minmax(0, 1fr))" }, gap: 1.5, mt: 2 }}>
+    <Box
+      sx={{
+        display: "grid",
+        gridTemplateColumns: {
+          xs: "minmax(0, 1fr)",
+          md: "repeat(3, minmax(0, 1fr))",
+        },
+        gap: 1.5,
+        mt: 2,
+      }}
+    >
       {items.map((item) => (
-        <Box key={item.title} sx={{ minWidth: 0, p: 2, border: "1px solid var(--gk-border)", borderTop: "2px solid var(--gk-gold)", backgroundColor: "var(--gk-surface-soft)" }}>
-          <Typography component="h3" variant="subtitle2" fontFamily="var(--gk-font-mono)" sx={{ mb: 1 }}>{item.title}</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.75 }}>{item.description}</Typography>
+        <Box
+          key={item.title}
+          sx={{
+            minWidth: 0,
+            p: 2,
+            border: "1px solid var(--gk-border)",
+            borderTop: "2px solid var(--gk-gold)",
+            backgroundColor: "var(--gk-surface-soft)",
+          }}
+        >
+          <Typography
+            component="h3"
+            variant="subtitle2"
+            fontFamily="var(--gk-font-mono)"
+            sx={{ mb: 1 }}
+          >
+            {item.title}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.75 }}>
+            {item.description}
+          </Typography>
         </Box>
       ))}
     </Box>
   );
 }
 
+function MetricGuide({
+  title,
+  description,
+  note,
+}: {
+  title: string;
+  description: string;
+  note: string;
+}) {
+  return (
+    <Box
+      sx={{
+        minWidth: 0,
+        p: { xs: 1.75, sm: 2.25 },
+        border: "1px solid var(--gk-border)",
+        backgroundColor: "var(--gk-surface-soft)",
+      }}
+    >
+      <Typography component="h3" variant="subtitle1" fontWeight={800} sx={{ mb: 0.75 }}>
+        {title}
+      </Typography>
+      <Typography variant="body2" sx={{ lineHeight: 1.75 }}>
+        {description}
+      </Typography>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ display: "block", mt: 1, lineHeight: 1.6 }}
+      >
+        {note}
+      </Typography>
+    </Box>
+  );
+}
+
 export function HowItWorksPage() {
   return (
-    <Stack spacing={2.5} sx={{ maxWidth: 1120, mx: "auto", minWidth: 0 }}>
-      <Box component="header" sx={{ py: { xs: 1, sm: 2 } }}>
-        <Typography variant="overline" color="primary.main">Bear A Hand Sports / Metric Education</Typography>
-        <Typography component="h1" className="gk-editorial" sx={{ fontSize: { xs: "2rem", sm: "2.75rem", md: "3.25rem" }, lineHeight: 1.1, my: 1 }}>
-          How the Intelligence Works
+    <Stack spacing={{ xs: 1.5, sm: 2.5 }} sx={{ maxWidth: 1120, mx: "auto", minWidth: 0 }}>
+      <Box
+        component="header"
+        sx={{
+          py: { xs: 1.5, sm: 3 },
+          px: { xs: 0, sm: 1 },
+          borderBottom: "1px solid var(--gk-border-strong)",
+        }}
+      >
+        <Typography variant="overline" color="primary.main">
+          Bear A Hand Sports / A simple guide
         </Typography>
-        <Typography color="text.secondary" sx={{ maxWidth: 800, lineHeight: 1.8 }}>
-          Bear A Hand Sports separates model scoring, estimated probability, model-to-market edge, and confidence so users can understand what each number represents. These metrics are analytical estimates—not guarantees.
+        <Typography
+          component="h1"
+          className="gk-editorial"
+          sx={{
+            maxWidth: 780,
+            fontSize: { xs: "2.25rem", sm: "3.25rem", md: "4rem" },
+            lineHeight: 1.05,
+            my: 1,
+          }}
+        >
+          How to read a pick
         </Typography>
+        <Typography color="text.secondary" sx={{ maxWidth: 760, lineHeight: 1.8 }}>
+          A pick brings together a game, a market, and a few model signals. Here is what
+          those signals mean, how a pick makes it to the dashboard, and what they cannot
+          tell you.
+        </Typography>
+        <Box
+          component="nav"
+          aria-label="On this page"
+          sx={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 1,
+            mt: 2.5,
+          }}
+        >
+          {pageLinks.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              underline="none"
+              sx={{
+                px: 1.25,
+                py: 0.75,
+                border: "1px solid var(--gk-border-strong)",
+                color: "text.primary",
+                fontSize: "0.875rem",
+                fontWeight: 700,
+                "&:hover": { borderColor: "primary.main", color: "primary.main" },
+                "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 2 },
+              }}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </Box>
       </Box>
-      <EducationPanel id="education-npi" title="Nik Power Index (NPI)">
-        <Typography sx={{ lineHeight: 1.8 }}>{predictionMetricEducation.npi.detailed}</Typography>
-        <ExplanationCards items={npiMarketEducation} />
-      </EducationPanel>
-      <EducationPanel id="education-bands" title="NPI bands">
-        <Typography sx={{ lineHeight: 1.8 }}>{npiBandsExplanation}</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2, pl: 2, borderLeft: "2px solid var(--gk-gold)" }}>{npiBandsNotice}</Typography>
-      </EducationPanel>
-      <EducationPanel id="education-probability" title="Model Probability">
-        <Typography sx={{ lineHeight: 1.8 }}>{predictionMetricEducation.modelProbability.detailed}</Typography>
-      </EducationPanel>
-      <EducationPanel id="education-confidence" title="Confidence Rating">
-        <Typography sx={{ lineHeight: 1.8 }}>{predictionMetricEducation.confidence.detailed}</Typography>
-      </EducationPanel>
-      <EducationPanel id="education-edge" title="Projected Edge">
-        <Typography sx={{ lineHeight: 1.8 }}>{predictionMetricEducation.projectedEdge.detailed}</Typography>
-        <ExplanationCards items={projectedEdgeEducation} />
-      </EducationPanel>
-      <EducationPanel id="education-risk" title="Risk Level">
-        <Typography sx={{ lineHeight: 1.8 }}>{predictionMetricEducation.risk.detailed}</Typography>
-        <ExplanationCards items={riskThresholds} />
-      </EducationPanel>
-      <EducationPanel id="education-sequence" title="How a pick reaches the dashboard">
-        <Box component="ol" sx={{ m: 0, pl: 3, "& li": { pl: 1, py: 0.75, "&::marker": { color: "primary.main", fontFamily: "var(--gk-font-mono)" } } }}>
-          {dashboardSequence.map((step) => <Typography component="li" key={step}>{step}</Typography>)}
+
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" },
+          gap: 1.25,
+        }}
+      >
+        {[
+          {
+            title: "The pick",
+            text: "The selection is the team, OVER, or UNDER the model recommends for one market.",
+          },
+          {
+            title: "The numbers",
+            text: "Each number answers a different question. Confidence is not the chance to win.",
+          },
+          {
+            title: "The outcome",
+            text: "These are estimates, not promises. Games are uncertain, and prices can change.",
+          },
+        ].map((item, index) => (
+          <Box
+            key={item.title}
+            sx={{
+              p: 2,
+              borderTop: "2px solid var(--gk-gold)",
+              backgroundColor: "var(--gk-surface-soft)",
+            }}
+          >
+            <Typography
+              variant="overline"
+              color="text.secondary"
+              sx={{ fontFamily: "var(--gk-font-mono)" }}
+            >
+              0{index + 1} / {item.title}
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 0.5, lineHeight: 1.7 }}>
+              {item.text}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
+
+      <EducationPanel
+        id="the-numbers"
+        title="What the numbers mean"
+        intro="Think of these as different pieces of context, not one combined promise. Read each number for its own market and question."
+      >
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" },
+            gap: 1.25,
+          }}
+        >
+          <MetricGuide
+            title={predictionMetricEducation.npi.title}
+            description="NPI is a model score, not a chance to win. Its meaning depends on the market: spread, moneyline, and total scores describe different things."
+            note="Compare NPI only within the same market and model context. A higher spread NPI does not always mean more support for the selected side."
+          />
+          <MetricGuide
+            title={predictionMetricEducation.modelProbability.title}
+            description="This is the model's estimated likelihood of the displayed selection: a team, OVER, or UNDER."
+            note="The methods differ by market, and these estimates are not yet presented as fully calibrated probabilities. They are not guarantees."
+          />
+          <MetricGuide
+            title={predictionMetricEducation.confidence.title}
+            description="Confidence Rating is a 0–95 score that combines NPI, the size of the projected edge, and the model-probability input."
+            note="Confidence is not win probability or a percent chance to win. It describes model conviction."
+          />
+          <MetricGuide
+            title={predictionMetricEducation.projectedEdge.title}
+            description="Projected Edge compares the model with a market-specific reference point."
+            note="Spread and moneyline edges are percentage-point differences; total edge is a scoring-point difference. It is not a universal expected-profit figure."
+          />
+          <MetricGuide
+            title={predictionMetricEducation.risk.title}
+            description="Risk Level currently comes from Confidence Rating. It is not a separate measure of volatility or personal bankroll risk."
+            note="Low: 80 or higher. Medium: 65 through 79.99. High: below 65. These labels do not say how much to wager."
+          />
         </Box>
       </EducationPanel>
-      <EducationPanel id="education-responsible" title="Responsible interpretation">
-        <Box component="ul" sx={{ m: 0, pl: 3, "& li": { py: 0.5, "&::marker": { color: "info.main" } } }}>
-          {responsibleInterpretation.map((item) => <Typography component="li" key={item}>{item}</Typography>)}
+
+      <EducationPanel
+        id="npi-markets"
+        title="Why NPI depends on the market"
+        intro={predictionMetricEducation.npi.detailed}
+      >
+        <ExplanationCards items={npiMarketEducation} />
+      </EducationPanel>
+
+      <EducationPanel
+        id="npi-score-ranges"
+        title="About NPI score ranges"
+        intro={npiBandsExplanation}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 1,
+            p: 1.5,
+            borderLeft: "2px solid var(--gk-gold)",
+            backgroundColor: "var(--gk-surface-soft)",
+          }}
+        >
+          <ArrowDownwardRoundedIcon color="primary" sx={{ mt: 0.25, fontSize: 18 }} />
+          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
+            {npiBandsNotice}
+          </Typography>
+        </Box>
+      </EducationPanel>
+
+      <EducationPanel
+        id="edge-by-market"
+        title="What “projected edge” compares"
+        intro={predictionMetricEducation.projectedEdge.detailed}
+      >
+        <ExplanationCards items={projectedEdgeEducation} />
+      </EducationPanel>
+
+      <EducationPanel
+        id="risk-levels"
+        title="How Risk Level is labeled"
+        intro={predictionMetricEducation.risk.detailed}
+      >
+        <ExplanationCards items={riskThresholds} />
+      </EducationPanel>
+
+      <EducationPanel
+        id="how-picks-are-chosen"
+        title="How picks are chosen"
+        intro="Every published pick follows the same broad path:"
+      >
+        <Box
+          component="ol"
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
+            gap: 1,
+            m: 0,
+            p: 0,
+            listStyle: "none",
+            counterReset: "steps",
+          }}
+        >
+          {dashboardSequence.map((step, index) => (
+            <Box
+              component="li"
+              key={step}
+              sx={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 1.25,
+                minWidth: 0,
+                p: 1.5,
+                border: "1px solid var(--gk-border)",
+                backgroundColor: "var(--gk-surface-soft)",
+              }}
+            >
+              <Typography
+                component="span"
+                aria-hidden="true"
+                sx={{
+                  flex: "0 0 auto",
+                  color: "primary.main",
+                  fontFamily: "var(--gk-font-mono)",
+                  fontWeight: 700,
+                }}
+              >
+                {String(index + 1).padStart(2, "0")}
+              </Typography>
+              <Typography component="span" variant="body2" sx={{ lineHeight: 1.7 }}>
+                {step}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      </EducationPanel>
+
+      <EducationPanel
+        id="responsible-use"
+        title="A note on uncertainty"
+        intro="Sports are unpredictable. Use the information to understand a model's view—not as a promise of what will happen."
+      >
+        <Box
+          component="ul"
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
+            gap: 1,
+            m: 0,
+            p: 0,
+            listStyle: "none",
+          }}
+        >
+          {responsibleInterpretation.map((item) => (
+            <Box
+              component="li"
+              key={item}
+              sx={{
+                minWidth: 0,
+                p: 1.5,
+                borderLeft: "2px solid var(--gk-analytics)",
+                backgroundColor: "var(--gk-surface-soft)",
+              }}
+            >
+              <Typography variant="body2" sx={{ lineHeight: 1.7 }}>
+                {item}
+              </Typography>
+            </Box>
+          ))}
         </Box>
       </EducationPanel>
     </Stack>

@@ -28,54 +28,62 @@ function renderEducation(authenticated = true) {
 describe("customer metric education", () => {
   it("renders the protected route with all required accessible sections", async () => {
     renderEducation();
-    await screen.findByRole("heading", { level: 1, name: "How the Intelligence Works" });
-    for (const name of ["Nik Power Index (NPI)", "NPI bands", "Model Probability", "Confidence Rating", "Projected Edge", "Risk Level", "How a pick reaches the dashboard", "Responsible interpretation"]) {
+    await screen.findByRole("heading", { level: 1, name: "How to read a pick" });
+    for (const name of ["What the numbers mean", "Why NPI depends on the market", "About NPI score ranges", "What “projected edge” compares", "How Risk Level is labeled", "How picks are chosen", "A note on uncertainty"]) {
       expect(screen.getByRole("region", { name })).toBeTruthy();
     }
-    const npi = screen.getByRole("region", { name: "Nik Power Index (NPI)" });
+    const numbers = screen.getByRole("region", { name: "What the numbers mean" });
+    expect(numbers.textContent).toContain("NPI is a model score, not a chance to win");
+    expect(numbers.textContent).toContain("Confidence is not win probability");
+    expect(numbers.textContent).toContain("not yet presented as fully calibrated probabilities");
+    const npi = screen.getByRole("region", { name: "Why NPI depends on the market" });
     for (const name of ["Spread NPI", "Moneyline NPI", "Total NPI"]) {
       expect(within(npi).getByRole("heading", { name })).toBeTruthy();
     }
     expect(npi.textContent).toContain("home-oriented");
-    expect(npi.textContent).toContain("vig-adjusted implied probability");
-    expect(npi.textContent).toContain("sport-specific scoring baseline");
-    expect(npi.textContent).toContain("should not be directly compared");
-    const bands = screen.getByRole("region", { name: "NPI bands" });
-    expect(bands.textContent).toContain("does not currently publish named NPI strength bands");
-    expect(bands.textContent).toContain("not proven levels such as Weak, Strong, or Elite");
+    expect(npi.textContent).toContain("odds margin (vig)");
+    expect(npi.textContent).toContain("scoring baseline for that sport");
+    expect(npi.textContent).toContain("do not compare them directly");
+    const bands = screen.getByRole("region", { name: "About NPI score ranges" });
+    expect(bands.textContent).toContain("There are no named NPI strength levels");
+    expect(bands.textContent).toContain("not proven labels such as Weak, Strong, or Elite");
     expect(within(bands).queryByRole("heading", { name: /Weak|Strong|Elite/ })).toBeNull();
-    expect(bands.textContent).toContain("collects settled predictions across each sport and market");
-    expect(screen.getByRole("region", { name: "Confidence Rating" }).textContent).toContain("not win probability");
-    expect(screen.getByRole("region", { name: "Confidence Rating" }).textContent).toContain("percent chance to win");
-    expect(screen.getByRole("region", { name: "Model Probability" }).textContent).toContain("has not yet been presented as a fully calibrated probability");
-    const edge = screen.getByRole("region", { name: "Projected Edge" });
-    for (const text of ["50% cover benchmark", "vig-free implied probability", "Scoring-point difference", "not a universal expected-profit figure"]) {
+    expect(bands.textContent).toContain("enough completed results");
+    expect(screen.getByRole("region", { name: "What the numbers mean" }).textContent).toContain("percent chance to win");
+    expect(screen.getByRole("region", { name: "What the numbers mean" }).textContent).toContain("not yet presented as fully calibrated probabilities");
+    const edge = screen.getByRole("region", { name: "What “projected edge” compares" });
+    for (const text of ["50% chance to cover reference", "implied probability with the odds margin (vig) removed", "scoring-point difference", "not a universal expected-profit figure"]) {
       expect(edge.textContent).toContain(text);
     }
-    const risk = screen.getByRole("region", { name: "Risk Level" });
-    for (const text of ["80 or higher", "65 through 79.99", "below 65", "not an independent bankroll-risk or volatility model"]) {
+    const risk = screen.getByRole("region", { name: "How Risk Level is labeled" });
+    for (const text of ["80 or higher", "65 through 79.99", "below 65"]) {
       expect(risk.textContent).toContain(text);
     }
-    const sequence = screen.getByRole("region", { name: "How a pick reaches the dashboard" });
+    expect(screen.getByRole("region", { name: "What the numbers mean" }).textContent).toContain("not a separate measure of volatility or personal bankroll risk");
+    const sequence = screen.getByRole("region", { name: "How picks are chosen" });
     expect(within(sequence).getByRole("list").tagName).toBe("OL");
     expect(within(sequence).getAllByRole("listitem")).toHaveLength(6);
-    const responsible = screen.getByRole("region", { name: "Responsible interpretation" });
+    expect(within(sequence).getByText(/latest game and market information/)).toBeTruthy();
+    const responsible = screen.getByRole("region", { name: "A note on uncertainty" });
     expect(within(responsible).getAllByRole("listitem")).toHaveLength(6);
-    for (const text of ["not guarantees", "uncertainty", "does not guarantee future results", "same market context", "lines and odds change", "responsible for wagering decisions"]) {
+    for (const text of ["not guarantees", "uncertain", "Past results do not guarantee future results", "same market context", "lines and odds can change", "responsible for your own wagering decisions"]) {
       expect(responsible.textContent).toContain(text);
     }
+    const pageNav = screen.getByRole("navigation", { name: "On this page" });
+    expect(within(pageNav).getByRole("link", { name: "The numbers" }).getAttribute("href")).toBe("#the-numbers");
+    expect(within(pageNav).getByRole("link", { name: "How picks are chosen" }).getAttribute("href")).toBe("#how-picks-are-chosen");
     expect(screen.getByRole("main").textContent).not.toMatch(/NPI TOP \d|Confidence %|score out of 200|higher means stronger/i);
   });
 
   it("does not expose the education route to signed-out customers", async () => {
     renderEducation(false);
     expect(await screen.findByRole("heading", { name: "Sign in required" })).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "How the Intelligence Works" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "How to read a pick" })).toBeNull();
   });
 
   it("provides desktop and mobile drawer access without a seventh bottom destination", async () => {
     renderEducation();
-    await screen.findByRole("heading", { name: "How the Intelligence Works" });
+    await screen.findByRole("heading", { name: "How to read a pick" });
     const desktopLink = screen.getByRole("link", { name: "How It Works" });
     expect(desktopLink.getAttribute("href")).toBe("/how-it-works");
     expect(desktopLink.getAttribute("aria-current")).toBe("page");

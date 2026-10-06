@@ -15,10 +15,10 @@ for (const width of [320, 390, 600, 900, 1440]) {
   test(`education is readable and navigable at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/how-it-works");
-    await expect(page.getByRole("heading", { level: 1, name: "How the Intelligence Works" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "How to read a pick" })).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
-    for (const name of ["Nik Power Index (NPI)", "NPI bands", "Model Probability", "Confidence Rating", "Projected Edge", "Risk Level", "How a pick reaches the dashboard", "Responsible interpretation"]) {
+    for (const name of ["What the numbers mean", "Why NPI depends on the market", "About NPI score ranges", "What “projected edge” compares", "How Risk Level is labeled", "How picks are chosen", "A note on uncertainty"]) {
       const section = page.getByRole("region", { name });
       await section.scrollIntoViewIfNeeded();
       await expect(section).toBeVisible();
@@ -26,7 +26,9 @@ for (const width of [320, 390, 600, 900, 1440]) {
       expect(bounds.x).toBeGreaterThanOrEqual(0);
       expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
     }
-    await expect(page.getByRole("region", { name: "NPI bands" })).toContainText("does not currently publish named NPI strength bands");
+    await expect(page.getByRole("region", { name: "About NPI score ranges" })).toContainText("There are no named NPI strength levels");
+    await expect(page.getByRole("region", { name: "What the numbers mean" })).toContainText("Confidence is not win probability");
+    await expect(page.getByRole("navigation", { name: "On this page" }).getByRole("link", { name: "How picks are chosen" })).toHaveAttribute("href", "#how-picks-are-chosen");
     if (width < 600) {
       const nav = page.getByTestId("mobile-navigation-shell");
       await expect(nav.getByRole("button")).toHaveCount(6);

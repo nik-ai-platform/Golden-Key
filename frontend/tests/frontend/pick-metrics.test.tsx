@@ -41,10 +41,10 @@ describe("compact pick metrics", () => {
   });
 
   it.each([
-    ["Learn about NPI", "Nik Power Index is a market-specific model score"],
+    ["Learn about NPI", "NPI is a model score for one market"],
     ["Learn about Confidence Rating", "It is not win probability."],
-    ["Learn about Model Probability", "distinct from Confidence"],
-    ["Learn about Risk Level", "Derived from Confidence Rating"],
+    ["Learn about Model Probability", "different from Confidence Rating"],
+    ["Learn about Risk Level", "Based on Confidence Rating"],
   ])("opens the %s information control", async (accessibleName, definition) => {
     renderMetrics();
 
@@ -58,7 +58,7 @@ describe("compact pick metrics", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Learn about NPI" }));
 
-    const definition = await screen.findByText(/Nik Power Index is a market-specific model score/i);
+    const definition = await screen.findByText(/NPI is a model score for one market/i);
     const paper = definition.closest(".MuiPopover-paper");
 
     expect(paper).toBeTruthy();
