@@ -1,6 +1,8 @@
 from sqlalchemy.orm import Session
 
 from app.models.prediction_snapshot import PredictionSnapshot
+from app.models.game import Game
+from app.services.performance_scope import regular_season_games
 from app.schemas.feature_importance import FeatureContribution
 from app.schemas.feature_importance import PredictionExplanation
 
@@ -133,7 +135,12 @@ class FeatureImportanceService:
         }
 
     def historical_importance(self, db: Session):
-        snapshots = db.query(PredictionSnapshot).all()
+        snapshots = (
+            db.query(PredictionSnapshot)
+            .join(Game, Game.id == PredictionSnapshot.game_id)
+            .filter(regular_season_games())
+            .all()
+        )
         if not snapshots:
             return []
 

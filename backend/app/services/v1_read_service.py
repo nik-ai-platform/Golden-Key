@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, aliased
 from app.models.game import Game
 from app.models.prediction_record import Prediction
 from app.models.prediction_result import PredictionResult
+from app.services.performance_scope import regular_season_games
 from app.models.team import Team
 from app.models.user_prediction import UserPrediction
 from app.services.prediction_metric_contract import (
@@ -605,6 +606,7 @@ class V1ReadService:
             .join(home_team, home_team.id == Game.home_team_id)
             .join(away_team, away_team.id == Game.away_team_id)
             .filter(PredictionResult.outcome.in_(("WIN", "LOSS", "PUSH")))
+            .filter(regular_season_games())
             .filter(Prediction.id.in_(canonical_prediction_id_query()))
             .filter(sql_supported_metadata(Prediction.market, Prediction.selection))
             .filter(sql_selection(Prediction.selection).is_not(None), sql_selection(Prediction.selection) != "PASS")
@@ -705,6 +707,7 @@ class V1ReadService:
             )
             .filter(PredictionResult.created_at >= cutoff)
             .filter(PredictionResult.outcome.in_(["WIN", "LOSS", "PUSH"]))
+            .filter(regular_season_games())
         )
         customer_rows = history_query.filter(
             Prediction.id.in_(canonical_prediction_id_query()),

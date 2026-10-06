@@ -40,6 +40,15 @@ def test_models_list_route_returns_registry_rows():
         def order_by(self, *_args, **_kwargs):
             return self
 
+        def select_from(self, *_args):
+            return self
+
+        def join(self, *_args):
+            return self
+
+        def group_by(self, *_args):
+            return self
+
         def all(self):
             return rows
 
@@ -50,8 +59,8 @@ def test_models_list_route_returns_registry_rows():
             return rows[0]
 
     class _FakeDB:
-        def query(self, _model):
-            return _Query(_model)
+        def query(self, *columns):
+            return _Query(columns)
 
     fake_db = _FakeDB()
 

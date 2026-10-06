@@ -6,6 +6,7 @@ from app.models.feature_snapshot import FeatureSnapshot
 from app.models.game import Game
 from app.models.nik_score import NikScore
 from app.models.prediction_outcome import PredictionOutcome
+from app.services.performance_scope import regular_season_games
 
 
 class TrainingDatasetService:
@@ -28,6 +29,8 @@ class TrainingDatasetService:
 
         outcomes = (
             db.query(PredictionOutcome)
+            .join(Game, Game.id == PredictionOutcome.game_id)
+            .filter(regular_season_games())
             .filter(PredictionOutcome.created_at >= start_date)
             .filter(PredictionOutcome.created_at <= end_date)
             .order_by(PredictionOutcome.created_at.asc(), PredictionOutcome.id.asc())

@@ -1,3 +1,15 @@
+from dataclasses import dataclass
+
+
+NBA_PRESEASON = "NBA_PRESEASON"
+
+
+@dataclass(frozen=True)
+class CompetitionSource:
+    provider_key: str
+    league: str
+
+
 class SportMappingService:
 
     INTERNAL_TO_PROVIDER = {
@@ -17,3 +29,12 @@ class SportMappingService:
             raise ValueError(f"Unsupported sport: {sport}")
 
         return key
+
+    def competition_sources(self, sport: str) -> tuple[CompetitionSource, ...]:
+        normalized = sport.strip().upper()
+        if normalized == "NBA":
+            return (
+                CompetitionSource(self.provider_key("NBA"), "NBA"),
+                CompetitionSource("basketball_nba_preseason", NBA_PRESEASON),
+            )
+        return (CompetitionSource(self.provider_key(sport), normalized),)

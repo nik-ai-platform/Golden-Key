@@ -60,7 +60,9 @@ def run_once() -> dict[str, dict[str, int | str]]:
 
     for sport in _configured_sports():
         db = None
+        importer = None
         imported_count = 0
+        import_errors = 0
         predictions_generated = 0
         predictions_skipped_no_odds = 0
         prediction_errors = 0
@@ -71,8 +73,14 @@ def run_once() -> dict[str, dict[str, int | str]]:
             games = importer.import_games(sport)
             imported_count = len(games)
             engine = PredictionEngine()
+            sources_by_game = {
+                game_id: source
+                for source in importer.source_imports
+                for game_id in source.game_ids
+            }
 
             for game in games:
+                source = sources_by_game.get(game.id)
                 try:
                     predictions = engine.analyze_markets(
                         db=db,
@@ -80,8 +88,12 @@ def run_once() -> dict[str, dict[str, int | str]]:
                         persist=True,
                     )
                     predictions_generated += len(predictions)
+                    if source is not None:
+                        source.predictions += len(predictions)
                 except NoCompleteOddsSnapshotError:
                     predictions_skipped_no_odds += 1
+                    if source is not None:
+                        source.predictions_skipped_no_odds += 1
                     logger.info(
                         (
                             "Prediction skipped: no complete odds snapshot "
@@ -93,6 +105,8 @@ def run_once() -> dict[str, dict[str, int | str]]:
                 except Exception:
                     db.rollback()
                     prediction_errors += 1
+                    if source is not None:
+                        source.errors += 1
                     logger.exception(
                         "Prediction generation failed sport=%s game_id=%s",
                         sport,
@@ -100,6 +114,7 @@ def run_once() -> dict[str, dict[str, int | str]]:
                     )
 
         except Exception:
+            import_errors += 1
             if db is not None:
                 db.rollback()
 
@@ -109,6 +124,19 @@ def run_once() -> dict[str, dict[str, int | str]]:
             )
 
         finally:
+            if importer is not None:
+                for source in importer.source_imports:
+                    logger.info(
+                        "Upcoming competition sync sport=%s provider_source=%s league=%s "
+                        "fetched=%s processed=%s created=%s refreshed=%s usable_odds=%s "
+                        "skipped_no_odds=%s predictions=%s predictions_skipped_no_odds=%s "
+                        "errors=%s game_date_min=%s game_date_max=%s",
+                        sport, source.provider_source, source.league,
+                        source.fetched, source.processed, source.created, source.refreshed,
+                        source.usable_odds, source.skipped_no_odds, source.predictions,
+                        source.predictions_skipped_no_odds, source.errors,
+                        source.game_date_min, source.game_date_max,
+                    )
             if db is not None:
                 db.close()
 
@@ -128,12 +156,13 @@ def run_once() -> dict[str, dict[str, int | str]]:
 
         logger.info(
             (
-                "Upcoming game sync sport=%s imported=%s "
+                "Upcoming game sync sport=%s imported=%s import_errors=%s "
                 "predictions_generated=%s predictions_skipped_no_odds=%s "
                 "prediction_errors=%s"
             ),
             sport,
             imported_count,
+            import_errors,
             predictions_generated,
             predictions_skipped_no_odds,
             prediction_errors,

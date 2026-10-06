@@ -10,6 +10,9 @@ class _FakeQuery:
     def filter(self, *_args, **_kwargs):
         return self
 
+    def join(self, *_args, **_kwargs):
+        return self
+
     def order_by(self, *_args, **_kwargs):
         return self
 

@@ -125,6 +125,12 @@ def test_historical_importance_produces_stable_aggregation():
     ]
 
     class _Query:
+        def join(self, *_args):
+            return self
+
+        def filter(self, *_args):
+            return self
+
         def all(self):
             return snapshots
 

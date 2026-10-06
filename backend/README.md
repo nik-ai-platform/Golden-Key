@@ -11,6 +11,64 @@ Backend services and API layer for the nik-ai-platform.
 - `tests/` - Test suite
 - `config/` - Configuration files
 
+## NBA competition ingestion
+
+The upcoming-game and final-score workers poll the NBA sources independently:
+`basketball_nba` stores `sport=NBA, league=NBA`; `basketball_nba_preseason`
+stores `sport=NBA, league=NBA_PRESEASON`. Provider event IDs are the sole game
+identity; no calendar inference, fuzzy matching, or migration is used.
+A conflicting competition marker is logged and rejected rather than overwritten.
+One unavailable NBA source does not stop the other source. If both fail, the
+import raises a sanitized error. Single-source sports retain failure propagation.
+
+Upcoming-worker competition summaries include fetched/processed games, created
+and refreshed games, games with usable odds, games without usable odds,
+returned predictions, prediction skips/errors, and the imported UTC date range.
+The existing `imported` total includes refreshes; prediction counts include
+reused predictions and are not insertion counts. Score summaries are also
+logged per provider source. Provider request errors log their type, not
+credential-bearing exception URLs.
+
+Prediction generation uses the unchanged same-snapshot reuse contract. A new
+snapshot, even with identical prices, follows normal generation with current
+model/profile inputs and new snapshot provenance, subject to existing saved-pick,
+settled-game, and started-game protections. No price-based deduplication is used.
+Odds snapshots remain append-only with unchanged retention.
+Future preseason games appear in NBA upcoming/daily-card feeds; already-started
+games remain excluded. The provider odds feed only supplies bookmaker-listed
+events, not a complete preseason schedule.
+
+Default Performance, Performance Intelligence (including historical model,
+range, and calibration reports), and performance analytics exclude
+`league=NBA_PRESEASON` at their game-history query boundaries. Preseason
+predictions, saved picks, finals, and settlements remain stored. No API contract
+or frontend change is made, so customer cards do not display a preseason badge.
+Season continues to use the existing calendar-year convention, not a new
+cross-year NBA season definition.
+
+Model factors, snapshot-based analytics/replay, training datasets, and
+game-linked backtest reports/promotion evaluations exclude preseason before
+limiting or aggregating. Explicit per-game history remains accessible.
+The legacy `BacktestService.create_result` writer reselects verified regular-season
+evaluations before creating a summary; existing provenance-free backtest summary
+rows are retained but excluded from default reports. These rows cannot establish
+their original phase mix, and newly written summaries still lack durable game
+lineage, so default reporting uses game-linked results instead.
+
+No in-application persistent writer for `ModelPerformance` was found. Existing
+rows cannot prove phase isolation. Default model metrics/list/comparison and
+dashboard model summaries are instead derived from regular-season game-linked
+outcomes, leaving stored aggregate records unchanged. Models represented only
+by provenance-free aggregates no longer appear in these default data-driven
+reports. No historical aggregate is relabeled, guessed phase-clean, or deleted.
+Stored `ModelVersion` performance fields also lack per-game provenance. The
+model-factor endpoint derives its displayed accuracy from scoped outcomes and
+game-linked backtests rather than trusting historical registry aggregates.
+Its headline metrics are scoped to the selected registry model's sport and
+version; backtest wins and sample counts are aggregated in SQL without loading
+global history. Replay checks phase on the game it has already loaded rather
+than issuing an extra per-snapshot query.
+
 ## Production metric contract (NPI-5.0)
 
 Metric Integrity Phase 1 changes semantics, not NPI weights or score normalization.

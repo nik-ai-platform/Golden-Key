@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.models.backtest_result import BacktestResult
+from app.services.performance_scope import regular_backtest_history
 from app.services.cache_service import cache_service
 from app.services.analytics_facade import (
     AnalyticsFacade
@@ -71,7 +72,7 @@ class DashboardService:
             return None
 
         rows = (
-            db.query(BacktestResult)
+            regular_backtest_history(db.query(BacktestResult))
             .order_by(BacktestResult.created_at.desc(), BacktestResult.id.desc())
             .limit(2)
             .all()

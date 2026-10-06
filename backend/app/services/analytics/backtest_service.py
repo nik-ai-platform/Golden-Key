@@ -1,6 +1,11 @@
 from sqlalchemy.orm import Session
 
 from app.models.backtest_result import BacktestResult
+from app.models.game import Game
+from app.models.prediction_evaluation import PredictionEvaluation
+from app.models.prediction_snapshot import PredictionSnapshot
+from app.services.performance_scope import regular_season_games
+from app.services.sport_mapping_service import NBA_PRESEASON
 from app.repositories import game_repository
 from app.repositories import prediction_repository
 from app.services.analytics.analytics_service import (
@@ -40,6 +45,18 @@ class BacktestService:
         sport="unknown",
     ):
 
+        evaluation_ids = [item.id for item in evaluations]
+        evaluations = (
+            db.query(PredictionEvaluation)
+            .join(PredictionSnapshot, PredictionSnapshot.id == PredictionEvaluation.snapshot_id)
+            .join(Game, Game.id == PredictionSnapshot.game_id)
+            .filter(
+                PredictionEvaluation.id.in_(evaluation_ids),
+                PredictionSnapshot.model_version == model_version,
+                regular_season_games(),
+            )
+            .all()
+        )
         accuracy = (
             self.calculate_accuracy(
                 evaluations
@@ -152,6 +169,8 @@ class BacktestService:
             )
 
             if not game or not game.winner_team_id:
+                continue
+            if game.league == NBA_PRESEASON:
                 continue
 
             result = (

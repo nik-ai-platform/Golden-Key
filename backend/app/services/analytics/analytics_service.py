@@ -3,7 +3,10 @@ from sqlalchemy.orm import Session
 from time import perf_counter
 
 from app.models.feature_snapshot import FeatureSnapshot
-from app.models.model_performance import ModelPerformance
+from app.models.game import Game
+from app.models.nik_score import NikScore
+from app.services.performance_scope import regular_model_metrics, regular_season_games
+from sqlalchemy import desc
 from app.repositories import analytics_repository
 from app.repositories import prediction_repository
 from app.services.cache_service import cache_service
@@ -296,8 +299,8 @@ class AnalyticsService:
     def _safe_model_rows(self, db: Session):
         try:
             return (
-                db.query(ModelPerformance)
-                .order_by(ModelPerformance.accuracy.desc())
+                regular_model_metrics(db)
+                .order_by(desc("accuracy"))
                 .limit(2)
                 .all()
             )
@@ -310,6 +313,9 @@ class AnalyticsService:
         try:
             return (
                 db.query(FeatureSnapshot.prediction_id)
+                .join(NikScore, NikScore.id == FeatureSnapshot.prediction_id)
+                .join(Game, Game.id == NikScore.game_id)
+                .filter(regular_season_games())
                 .distinct()
                 .count()
             )

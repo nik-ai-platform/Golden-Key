@@ -9,6 +9,7 @@ from app.models.backtest_result import BacktestResult
 from app.models.game import Game
 from app.models.odds import Odds
 from app.services.prediction_engine import PredictionEngine
+from app.services.performance_scope import regular_backtest_history, regular_season_games
 
 
 class BacktestEngine:
@@ -101,7 +102,7 @@ class BacktestEngine:
         run_ids = [
             value[0]
             for value in (
-                db.query(BacktestResult.backtest_id)
+                regular_backtest_history(db.query(BacktestResult.backtest_id))
                 .filter(BacktestResult.backtest_id.is_not(None))
                 .distinct()
                 .order_by(BacktestResult.backtest_id.desc())
@@ -112,7 +113,7 @@ class BacktestEngine:
 
     def run_summary(self, db: Session, backtest_id: int) -> dict:
         rows = (
-            db.query(BacktestResult)
+            regular_backtest_history(db.query(BacktestResult))
             .filter(BacktestResult.backtest_id == backtest_id)
             .order_by(BacktestResult.id.asc())
             .all()
@@ -151,7 +152,7 @@ class BacktestEngine:
 
     def version_comparison(self, db: Session) -> list[dict]:
         grouped = defaultdict(list)
-        rows = db.query(BacktestResult).filter(BacktestResult.backtest_id.is_not(None)).all()
+        rows = regular_backtest_history(db.query(BacktestResult)).filter(BacktestResult.backtest_id.is_not(None)).all()
         for row in rows:
             grouped[str(row.model_version or "unknown")].append(row)
 
@@ -222,7 +223,7 @@ class BacktestEngine:
         return int(current or 0) + 1
 
     def _load_games(self, db: Session, start_date: date, end_date: date, sport: str | None) -> list[Game]:
-        query = db.query(Game).filter(Game.winner_team_id.is_not(None))
+        query = db.query(Game).filter(Game.winner_team_id.is_not(None), regular_season_games())
         query = query.filter(Game.game_date >= datetime.combine(start_date, datetime.min.time()))
         query = query.filter(Game.game_date <= datetime.combine(end_date, datetime.max.time()))
         if sport:

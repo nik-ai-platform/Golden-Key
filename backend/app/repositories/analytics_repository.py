@@ -4,6 +4,7 @@ from app.models.analytics_feature import AnalyticsFeature
 from app.models.game import Game
 from app.models.nik_score import NikScore
 from app.models.prediction_outcome import PredictionOutcome
+from app.services.performance_scope import regular_season_games
 
 
 
@@ -35,6 +36,8 @@ def get_evaluations(
 ):
     return (
         db.query(PredictionOutcome)
+        .join(Game, Game.id == PredictionOutcome.game_id)
+        .filter(regular_season_games())
         .all()
     )
 
@@ -48,6 +51,7 @@ def get_sport_accuracy_rows(
             PredictionOutcome.prediction_correct
         )
         .join(PredictionOutcome, PredictionOutcome.game_id == Game.id)
+        .filter(regular_season_games())
         .all()
     )
 
@@ -61,6 +65,8 @@ def get_model_accuracy_rows(
             PredictionOutcome.prediction_correct
         )
         .join(NikScore, NikScore.id == PredictionOutcome.prediction_id)
+        .join(Game, Game.id == PredictionOutcome.game_id)
+        .filter(regular_season_games())
         .all()
     )
 
@@ -84,6 +90,7 @@ def get_evaluation_trend_rows(
         )
         .join(PredictionOutcome, PredictionOutcome.game_id == Game.id)
         .join(NikScore, NikScore.id == PredictionOutcome.prediction_id)
+        .filter(regular_season_games())
     )
 
     if team_id is not None:

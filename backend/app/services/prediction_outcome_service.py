@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.models.game import Game
 from app.models.nik_score import NikScore
 from app.models.prediction_outcome import PredictionOutcome
+from app.repositories import analytics_repository
 from app.repositories import game_repository
 from app.services.monitoring_service import MonitoringService
 
@@ -142,7 +143,7 @@ class PredictionOutcomeService:
         return self._serialize(outcome) if outcome else None
 
     def update_prediction_metrics(self, db: Session):
-        outcomes = db.query(PredictionOutcome).all()
+        outcomes = analytics_repository.get_evaluations(db)
         total = len(outcomes)
 
         if total == 0:

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.models.model_version import ModelVersion
 from app.models.model_registry import ModelRegistry
 from app.models.backtest_result import BacktestResult
+from app.services.performance_scope import regular_backtest_history
 
 
 class ModelPromotionService:
@@ -17,7 +18,7 @@ class ModelPromotionService:
         sport: str,
     ):
         results = (
-            db.query(BacktestResult)
+            regular_backtest_history(db.query(BacktestResult))
             .filter(
                 BacktestResult.model_version == model_version,
                 BacktestResult.sport == sport,

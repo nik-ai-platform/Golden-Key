@@ -77,7 +77,10 @@ class LiveDataService:
 
         response.raise_for_status()
 
-        return response.json()
+        payload = response.json()
+        if not isinstance(payload, list):
+            raise ValueError("Unexpected odds provider response")
+        return payload
 
 
     def update_games(

@@ -1,6 +1,9 @@
 from sqlalchemy import case, func
 
 from app.models.npi_factor_result import NPIFactorResult
+from app.models.prediction_record import Prediction
+from app.models.game import Game
+from app.services.performance_scope import regular_season_games
 
 
 def save_factor_result(
@@ -38,6 +41,9 @@ class ModelEvaluation:
                     NPIFactorResult.factor_score
                 )
             )
+            .join(Prediction, Prediction.id == NPIFactorResult.prediction_id)
+            .join(Game, Game.id == Prediction.game_id)
+            .filter(regular_season_games())
             .group_by(
                 NPIFactorResult.factor_name
             )
@@ -68,7 +74,9 @@ class ModelEvaluation:
                     )
                 ).label("wins"),
             )
-            .filter(NPIFactorResult.actual_outcome.is_not(None))
+            .join(Prediction, Prediction.id == NPIFactorResult.prediction_id)
+            .join(Game, Game.id == Prediction.game_id)
+            .filter(regular_season_games(), NPIFactorResult.actual_outcome.is_not(None))
             .group_by(NPIFactorResult.factor_name)
             .all()
         )

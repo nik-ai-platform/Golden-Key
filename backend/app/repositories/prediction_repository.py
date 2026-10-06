@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.models.game import Game
+from app.services.performance_scope import regular_season_games
 from app.models.prediction_evaluation import (
     PredictionEvaluation
 )
@@ -17,6 +18,8 @@ def get_snapshots(
         db.query(
             PredictionSnapshot
         )
+        .join(Game, Game.id == PredictionSnapshot.game_id)
+        .filter(regular_season_games())
         .limit(limit)
         .all()
     )
@@ -30,6 +33,8 @@ def get_recent_snapshots(
         db.query(
             PredictionSnapshot
         )
+        .join(Game, Game.id == PredictionSnapshot.game_id)
+        .filter(regular_season_games())
         .order_by(
             PredictionSnapshot.id.desc()
         )
@@ -65,7 +70,7 @@ def get_snapshots_with_completed_games(
             Game.id == PredictionSnapshot.game_id
         )
         .filter(
-            Game.winner_team_id.isnot(None)
+            Game.winner_team_id.isnot(None), regular_season_games()
         )
         .order_by(
             PredictionSnapshot.id.desc()

@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.models.game import Game
 from app.services.result_settlement_service import ResultSettlementService
-from app.services.sport_mapping_service import SportMappingService
+from app.services.sport_mapping_service import CompetitionSource, SportMappingService
+from app.services.odds_provider_client import safe_sync_error
 
 
 logger = logging.getLogger(__name__)
@@ -48,9 +49,40 @@ class FinalScoreSettlementService:
         days_from: int = 3,
     ) -> FinalScoreSyncSummary:
         internal_sport = sport.upper()
-        provider_sport = self.sport_mapping.provider_key(internal_sport)
+        summary = FinalScoreSyncSummary(sport=internal_sport)
+        for source in self.sport_mapping.competition_sources(internal_sport):
+            try:
+                source_summary = self._sync_source(db, internal_sport, source, days_from)
+            except Exception as exc:
+                db.rollback()
+                source_summary = FinalScoreSyncSummary(sport=internal_sport, errors=1)
+                logger.error(
+                    "Final score source failed sport=%s provider_source=%s error_type=%s",
+                    internal_sport, source.provider_key, type(exc).__name__,
+                )
+                if internal_sport != "NBA":
+                    raise safe_sync_error(exc, source.provider_key) from None
+            for counter in (
+                "fetched", "matched", "finalized", "already_final", "unmatched",
+                "skipped_not_final", "settled", "errors",
+            ):
+                setattr(summary, counter, getattr(summary, counter) + getattr(source_summary, counter))
+            logger.info(
+                "Final score competition sync sport=%s provider_source=%s league=%s "
+                "fetched=%s matched=%s finalized=%s already_final=%s unmatched=%s "
+                "skipped_not_final=%s settled=%s errors=%s",
+                internal_sport, source.provider_key, source.league,
+                source_summary.fetched, source_summary.matched, source_summary.finalized,
+                source_summary.already_final, source_summary.unmatched,
+                source_summary.skipped_not_final, source_summary.settled, source_summary.errors,
+            )
+        return summary
+
+    def _sync_source(
+        self, db: Session, internal_sport: str, source: CompetitionSource, days_from: int,
+    ) -> FinalScoreSyncSummary:
         score_rows = self.provider_client.get_scores(
-            provider_sport,
+            source.provider_key,
             days_from=days_from,
         )
         summary = FinalScoreSyncSummary(
@@ -59,11 +91,18 @@ class FinalScoreSettlementService:
         )
 
         for row in score_rows:
+            if not isinstance(row, dict):
+                summary.errors += 1
+                logger.error(
+                    "Invalid final score row sport=%s provider_source=%s",
+                    internal_sport, source.provider_key,
+                )
+                continue
             provider_game_id = row.get("id")
             provider_home = row.get("home_team")
             provider_away = row.get("away_team")
-            provider_home_score = self._score_for_team(row, provider_home)
-            provider_away_score = self._score_for_team(row, provider_away)
+            provider_home_score = None
+            provider_away_score = None
             local_context = {
                 "id": None,
                 "provider_game_id": None,
@@ -72,6 +111,8 @@ class FinalScoreSettlementService:
                 "game_date": None,
             }
             try:
+                provider_home_score = self._score_for_team(row, provider_home)
+                provider_away_score = self._score_for_team(row, provider_away)
                 if not self._is_completed(row):
                     summary.skipped_not_final += 1
                     continue

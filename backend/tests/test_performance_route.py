@@ -13,6 +13,12 @@ class _Result:
 
 
 class _Query:
+    def join(self, *_args):
+        return self
+
+    def filter(self, *_args):
+        return self
+
     def all(self):
         return [_Result("WIN"), _Result("LOSS"), _Result("WIN")]
 

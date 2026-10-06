@@ -3,6 +3,9 @@ from sqlalchemy.orm import Session
 from app.models.prediction_result import (
     PredictionResult
 )
+from app.models.game import Game
+from app.models.prediction_record import Prediction
+from app.services.performance_scope import regular_season_games
 
 
 class PerformanceEngine:
@@ -17,7 +20,9 @@ class PerformanceEngine:
             db.query(
                 PredictionResult
             )
-
+            .join(Prediction, Prediction.id == PredictionResult.prediction_id)
+            .join(Game, Game.id == Prediction.game_id)
+            .filter(regular_season_games())
             .all()
 
         )

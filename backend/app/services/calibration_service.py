@@ -1,6 +1,6 @@
 from statistics import pvariance
 
-from app.models.prediction_outcome import PredictionOutcome
+from app.repositories import analytics_repository
 
 
 class CalibrationService:
@@ -32,7 +32,7 @@ class CalibrationService:
         if db is None:
             return []
 
-        return db.query(PredictionOutcome).all()
+        return analytics_repository.get_evaluations(db)
 
     def _dedupe_outcomes(self, outcomes):
         deduped = {}

@@ -7,6 +7,15 @@ import requests
 from app.core.config import settings
 
 
+def safe_sync_error(error: Exception, source: str) -> Exception:
+    message = f"Provider sync failed provider_source={source} error_type={type(error).__name__}"
+    if isinstance(error, requests.exceptions.JSONDecodeError):
+        return requests.exceptions.JSONDecodeError(message, "", 0)
+    if isinstance(error, (ValueError, KeyError, RuntimeError, TypeError, AttributeError, requests.RequestException)):
+        return type(error)(message)
+    return RuntimeError(message)
+
+
 class OddsProviderClient:
 
     def __init__(self) -> None:

@@ -7,6 +7,12 @@ from app.services.accuracy_analytics_service import (
 
 def _db_with_results(results):
     class _Query:
+        def join(self, *_args):
+            return self
+
+        def filter(self, *_args):
+            return self
+
         def all(self):
             return results
 

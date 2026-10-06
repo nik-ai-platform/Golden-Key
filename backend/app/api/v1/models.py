@@ -11,7 +11,8 @@ from app.auth.dependencies import require_analyst
 from app.auth.dependencies import require_admin
 from app.core.exceptions import PredictionException
 from app.database.session import get_db
-from app.models.model_performance import ModelPerformance
+from app.models.nik_score import NikScore
+from app.services.performance_scope import regular_model_metrics
 from app.models.weight_profile import WeightProfile
 from app.services.calibration_service import CalibrationService
 from app.services.explainability_service import ExplainabilityService
@@ -116,7 +117,7 @@ def _weight_profile_row(record: WeightProfile):
 
 @router.get("")
 def list_models(db: Session = Depends(get_db)):
-    rows = db.query(ModelPerformance).order_by(ModelPerformance.model_version.asc()).all()
+    rows = regular_model_metrics(db).order_by(NikScore.model_version.asc()).all()
     return [_registry_row(row) for row in rows]
 
 
@@ -359,8 +360,8 @@ def approve_model_version(payload: dict):
 @router.get("/{version}")
 def get_model(version: str, db: Session = Depends(get_db)):
     row = (
-        db.query(ModelPerformance)
-        .filter(ModelPerformance.model_version == version)
+        regular_model_metrics(db)
+        .filter(NikScore.model_version == version)
         .first()
     )
     if not row:
@@ -379,13 +380,13 @@ def compare_models(payload: CompareModelsRequest, db: Session = Depends(get_db))
         return service.compare_models(current_metric, candidate_metric)
 
     current = (
-        db.query(ModelPerformance)
-        .filter(ModelPerformance.model_version == payload.current_version)
+        regular_model_metrics(db)
+        .filter(NikScore.model_version == payload.current_version)
         .first()
     )
     candidate = (
-        db.query(ModelPerformance)
-        .filter(ModelPerformance.model_version == payload.candidate_version)
+        regular_model_metrics(db)
+        .filter(NikScore.model_version == payload.candidate_version)
         .first()
     )
 
