@@ -7,8 +7,8 @@ mount operational API routes, add a frontend page, schedule cleanup, send alerts
 or change public health/readiness contracts. No evidence is fabricated or
 backfilled: initial operational status remains **unknown**.
 
-Phase 1A.2 (worker lifecycle/source instrumentation) and Phase 1A.3
-(admin-protected read API and status evaluation) remain pending.
+Phase 1A.2 adds the opt-in worker instrumentation described below. Phase 1A.3
+(admin-protected read API and status evaluation) remains pending.
 
 ### Storage and safe inputs
 
@@ -59,8 +59,9 @@ telemetry transaction is committed/rolled back. Errors use sanitized
 
 Isolation prevents telemetry transaction failure from altering caller-owned
 business work; it does not eliminate contention for shared PostgreSQL resources.
-Later instrumentation must call the recorder outside business locks and after
-successful business commits. Dispose the engine on process shutdown.
+Instrumentation calls storage outside business sessions, after their existing
+commit/rollback and close paths. The telemetry pool is process-local; process exit
+releases its connections.
 
 All lifecycle operations serialize on the owning instance before cycle/source
 updates. Cycle identity and source identity support exact idempotent retries.
@@ -98,9 +99,145 @@ Stopped instances cannot begin work or receive heartbeat/progress updates.
 | `OPERATIONS_TELEMETRY_POOL_TIMEOUT_SECONDS` | 0.2 | finite, 0.01..2 |
 | `OPERATIONS_TELEMETRY_CONNECT_TIMEOUT_SECONDS` | 2 | 1..10 |
 
-Disabled telemetry performs zero database work. These settings are not yet wired
-into production Compose; enabling storage does not instrument existing workers.
-Startup grace is reserved for later status evaluation.
+Disabled telemetry performs zero database work. These settings are not wired
+into production Compose. Enabling the flag in a worker process opts into
+instrumentation; the additive migration must already exist. This change does not
+enable telemetry or apply migrations.
+
+## Phase 1A.2: best-effort worker instrumentation
+
+The shared worker adapter registers one UUID per `run_forever` process and one
+cycle per complete configured-sport polling pass. Direct `run_once` invocations
+use a short-lived instance. Expected competition identities come from the existing
+sport mapping. NBA regular and preseason remain separate sources, both internal
+sport `NBA`, with leagues `NBA` and `NBA_PRESEASON`.
+
+Disabled mode creates neither a telemetry engine nor a session, wraps no provider
+calls, and uses the original settlement service. Enabled mode buffers source
+observations in memory during business work. Storage operations occur before
+business sessions open or after each sport session closes. Neither worker changes
+provider arguments, result dictionaries, calculations, commit/rollback calls,
+existing logs, sport continuation, NCAAF shadow hooks, retries or polling sleeps.
+If the original session close fails, the adapter suppresses storage and preserves
+that original exception rather than running cleanup beside a possibly open
+business transaction.
+
+### Boundaries and measured evidence
+
+- **Upcoming:** source start is the existing odds fetch boundary. Final counters
+  come from the existing import summaries after import/prediction processing.
+  Source finish follows sport-session close; source duration includes intervening
+  work on the other competitions of that sport. `prediction_rows_returned`
+  counts returned rows, **not** newly created publications: refreshes may reuse
+  all predictions. `publications_skipped` counts the existing no-complete-odds
+  prediction skips. Created/reused/failed publication counts and created
+  prediction-row counts remain NULL because this worker does not receive them.
+- **Final-score:** a worker-local observer delegates each existing `_sync_source`
+  call exactly once to the unchanged service. Returned source summaries supply
+  fetched, matched, finalized, already-final, unmatched, not-final and error
+  counts. `games_settled` counts games with a successful settlement, **not**
+  settled predictions. `prediction_results_created` and game-date bounds remain
+  NULL because source summaries do not expose them.
+- Upcoming game-date bounds are normalized from the existing UTC import summaries.
+  `last_game_processed_at` is a worker observation: upcoming records successful
+  per-game analysis completion; final-score records receipt of a source summary
+  containing finalized/already-final games. It is not a provider event timestamp.
+  Latest odds/publication timestamps remain NULL: no extra business query or
+  provider call reconstructs unavailable timestamps.
+- Zero counters are persisted only when execution measured zero. A failed fetch
+  retains unknown fetched/processed/prediction counts as NULL. Errors and their
+  first allowlisted code are retained. No-games responses alone are successful.
+  Fully observed mixed-source outcomes produce partial/failed cycles with
+  `telemetry_complete=true`; missing/interrupted coverage is incomplete. NCAAF
+  shadow failures increment `auxiliary_errors` without changing business results.
+
+### Heartbeat, recovery and shutdown
+
+Heartbeat and main-loop progress are updated at cycle start, after each closed
+sport session, and cycle completion. There is no background heartbeat thread and
+no new sleep or signal handler. `heartbeat_seconds` records the poll interval,
+not a guaranteed timer cadence. Upcoming remains after-completion scheduling;
+final-score remains start-to-start scheduling. Long in-flight operations can
+therefore appear stale; heartbeat alone does not prove a worker is healthy.
+
+Before PostgreSQL instance registration, the adapter acquires a non-blocking
+session advisory lock on a dedicated telemetry-owned connection. It retains that
+connection for its lifetime, separate from both business sessions and the
+single-connection telemetry transaction pool. The signed 64-bit key is derived
+from a namespaced BLAKE2 digest of the instance UUID, not Python's randomized
+hash. Keys and process metadata are not logged. A negligible hash collision
+fails closed: it can suppress registration/recovery, not allow unsafe abandonment.
+
+After registration, recovery examines at most 32 old running cycles of the same
+worker, oldest first, using telemetry tables only. Per-instance stale cutoff uses
+twice its poll interval plus startup grace and its last successful measured
+duration, when known. Recent heartbeat **or** progress protects an instance.
+For each candidate, the telemetry service non-blockingly acquires
+`pg_try_advisory_xact_lock` using the exact same ownership key as the process's
+session lock. Proof acquisition, stale-state recheck, lifecycle row locks,
+chronology validation and abandonment writes share one telemetry-owned transaction
+and physical PostgreSQL connection. A healthy session owner blocks recovery
+regardless of old persisted freshness. Connection loss before commit rolls back
+recovery; commit or rollback automatically releases its transaction lock.
+Competing recoverers cannot hold the same target lock simultaneously;
+terminal-state checks prevent repeated transitions afterward. Ordinary explicit
+Phase 1A.1 abandonment remains compatible; automatic worker recovery always
+requires transactional ownership proof.
+
+Stale timestamps alone never prove a worker is dead. Unsupported databases
+(including production SQLite use) disable automatic cross-instance abandonment.
+Portable tests use an explicitly injected fake ownership provider; PostgreSQL
+tests use actual independent connections and advisory locks. Unavailable ownership
+checks degrade telemetry without preventing business startup. No completed cycle
+is abandoned. There is no background heartbeat or business-session concurrency.
+
+At safe storage boundaries the adapter verifies its owning connection still holds
+the lock; it does not silently reconnect/reacquire a lost lease. Detected connection
+loss degrades telemetry and discards ownership resources. Business execution
+continues unchanged. Loss cannot be detected continuously during business work;
+termination of the ownership connection releases the lock in PostgreSQL and
+permits stale-cycle recovery even if the Python process itself remains alive.
+Ownership proves the retained telemetry session, not an OS-level process identity.
+
+Python unwinding (including KeyboardInterrupt and SystemExit) establishes one
+three-second monotonic deadline in the worker's inner finally block, before the
+first interruption-time source flush. Close failures establish it before rethrow.
+Source updates, cycle finalization, stopped-state attempts and ownership release
+share that deadline; outer layers never extend/reset it. Ordinary cycle completion
+does not start an interruption deadline.
+The outer process lifecycle also protects acquisition, registration and startup
+recovery. Partial acquisition discards its connection on every exception.
+Startup unwind establishes the same deadline before cleanup and does not record
+an incompletely started process as gracefully stopped. Cleanup failures do not
+replace the original startup interruption. Ownership IDs accept UUID objects
+or canonical UUID strings; malformed/unsupported IDs raise sanitized
+`invalid_input` before engine connection acquisition or SQL.
+
+Interrupted coverage is not marked successful. Unknown/missing source durations
+stay NULL. Once the deadline expires, no further telemetry SQL is started and
+cleanup may remain incomplete. The retained connection is invalidated/closed
+without an unlock query or network rollback; server connection termination
+releases its session lock. If time remains, graceful cleanup explicitly unlocks
+before discarding the connection. Ownership uses a non-pooled connection, so no
+held session lock can be returned to a transaction pool. Buffered evidence can
+remain only in memory when cleanup is skipped.
+
+An already-started operation remains subject to configured storage timeouts.
+Local connection termination is still attempted when the deadline is exhausted.
+This is not a strict three-second wall-clock shutdown guarantee.
+Default SIGTERM/abrupt termination is unchanged and does not fabricate shutdown.
+Already persisted sources survive; buffered in-flight observations can be lost.
+Later startup recovery can mark the stale cycle abandoned.
+
+Only sanitized `TelemetryError` is absorbed at storage boundaries. One fixed
+warning per adapter announces unavailable telemetry, then all further storage
+work becomes a no-op. Missing tables, timeouts, lock/pool failures and invalid
+telemetry configuration cannot replace a business outcome or trigger a business
+retry. Failure does not attempt another write just to increment
+`telemetry_failures`: missing evidence and the bounded warning indicate degradation.
+Business exceptions keep their original propagation/traceback behavior; existing
+application error logs are unchanged. No raw payload, exception, URL, host, PID,
+credential or customer data is persisted.
 
 ### Retention and explicit cleanup
 

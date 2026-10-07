@@ -3,7 +3,16 @@
 Backend services and API layer for the nik-ai-platform.
 
 See [Production Observability](../docs/PRODUCTION_OBSERVABILITY.md) for the
-isolated Phase 1A.1 telemetry storage foundation.
+isolated Phase 1A.1 storage foundation and opt-in Phase 1A.2 worker instrumentation.
+Instrumentation is not deployed or enabled and remains disabled by default.
+Dedicated PostgreSQL session locks protect process ownership; recovery uses a
+transaction-level advisory lock on the same key and physical connection as its
+abandonment transaction. Connection loss before commit rolls back recovery.
+Unsupported ownership checks disable cross-instance abandonment. Startup unwind
+and shutdown use one shared cleanup budget. Invalid ownership IDs fail before
+resource acquisition. Loss of the running ownership session can permit recovery
+before Python notices, without affecting business work. No operational API or
+frontend is included.
 
 ## Structure
 

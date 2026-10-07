@@ -8,6 +8,7 @@ from sqlalchemy import delete, func, insert, select, text, update
 from sqlalchemy.orm import Session
 
 from app.database.telemetry_session import TelemetryDatabase, TelemetryError, telemetry_database
+from app.database.worker_ownership import ownership_key
 from app.models.worker_cycle import WorkerCycle
 from app.models.worker_cycle_source import SOURCE_COUNTERS, WorkerCycleSource
 from app.models.worker_instance import WorkerInstance
@@ -361,9 +362,20 @@ class WorkerTelemetryService:
             return True
         return self._run(operation)
 
-    def abandon_cycle(self, cycle_id: UUID, *, stale_before: datetime, at: datetime) -> bool | None:
+    def abandon_cycle(
+        self, cycle_id: UUID, *, stale_before: datetime, at: datetime,
+        recovery_owner: UUID | None = None,
+    ) -> bool | None:
         def operation(session: Session) -> bool:
+            if recovery_owner is not None:
+                key = ownership_key(_uuid(recovery_owner))
+                if session.bind is None or session.bind.dialect.name != "postgresql":
+                    raise TelemetryError("unsupported_database")
+                if not session.scalar(text("SELECT pg_try_advisory_xact_lock(:key)"), {"key": key}):
+                    return False
             instance, cycle = self._cycle(session, cycle_id)
+            if recovery_owner is not None and instance["id"] != recovery_owner:
+                raise TelemetryError("invalid_input")
             cutoff, instant = _time(stale_before), _time(at)
             if cutoff > instant or instant < _stored_time(cycle["started_at"]):
                 raise TelemetryError("invalid_input")

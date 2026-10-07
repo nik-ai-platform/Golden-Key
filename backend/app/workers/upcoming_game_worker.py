@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 import time
 
 from app.database.session import SessionLocal
@@ -11,6 +12,7 @@ from app.services.ncaaf_shadow_collection_service import (
 )
 from app.services.prediction_engine import PredictionEngine
 from app.workers.game_importer import GameOddsImporter
+from app.workers.worker_instrumentation import WorkerInstrumentation, worker_cycle
 
 logger = logging.getLogger(__name__)
 
@@ -56,11 +58,19 @@ def _poll_seconds() -> int:
 
 
 def run_once() -> dict[str, dict[str, int | str]]:
+    with worker_cycle(
+        "upcoming-game-worker", _configured_sports(), _poll_seconds(), "after_completion",
+    ) as telemetry:
+        return _run_once(telemetry)
+
+
+def _run_once(telemetry: WorkerInstrumentation) -> dict[str, dict[str, int | str]]:
     results: dict[str, dict[str, int | str]] = {}
 
     for sport in _configured_sports():
         db = None
         importer = None
+        original_fetch = None
         imported_count = 0
         import_errors = 0
         predictions_generated = 0
@@ -69,7 +79,11 @@ def run_once() -> dict[str, dict[str, int | str]]:
 
         try:
             db = SessionLocal()
+            telemetry.business_session_opened()
             importer = GameOddsImporter(db=db)
+            if telemetry.enabled:
+                original_fetch = importer.live_data.fetch_games
+                importer.live_data.fetch_games = telemetry.wrap_fetch(sport, original_fetch)
             games = importer.import_games(sport)
             imported_count = len(games)
             engine = PredictionEngine()
@@ -90,6 +104,7 @@ def run_once() -> dict[str, dict[str, int | str]]:
                     predictions_generated += len(predictions)
                     if source is not None:
                         source.predictions += len(predictions)
+                        telemetry.observed_game(sport, source.provider_source)
                 except NoCompleteOddsSnapshotError:
                     predictions_skipped_no_odds += 1
                     if source is not None:
@@ -107,6 +122,7 @@ def run_once() -> dict[str, dict[str, int | str]]:
                     prediction_errors += 1
                     if source is not None:
                         source.errors += 1
+                        telemetry.observed_game(sport, source.provider_source, failed=True)
                     logger.exception(
                         "Prediction generation failed sport=%s game_id=%s",
                         sport,
@@ -124,6 +140,9 @@ def run_once() -> dict[str, dict[str, int | str]]:
             )
 
         finally:
+            interrupted = sys.exc_info()[0] is not None
+            if interrupted:
+                telemetry.begin_cleanup()
             if importer is not None:
                 for source in importer.source_imports:
                     logger.info(
@@ -137,14 +156,55 @@ def run_once() -> dict[str, dict[str, int | str]]:
                         source.predictions_skipped_no_odds, source.errors,
                         source.game_date_min, source.game_date_max,
                     )
+            if original_fetch is not None:
+                importer.live_data.fetch_games = original_fetch
             if db is not None:
-                db.close()
+                try:
+                    db.close()
+                except BaseException:
+                    telemetry.begin_cleanup()
+                    raise
+                telemetry.business_session_closed()
+            if telemetry.enabled and importer is not None:
+                for summary in importer.source_imports:
+                    identity = telemetry.source(sport, summary.provider_source)
+                    if identity is None or identity not in telemetry.evidence:
+                        continue
+                    evidence = telemetry.evidence[identity]
+                    counters = {"errors": summary.errors}
+                    if evidence.fetched:
+                        counters.update({
+                            "fetched": summary.fetched, "processed": summary.processed,
+                            "created": summary.created, "refreshed": summary.refreshed,
+                            "usable_odds": summary.usable_odds, "skipped_no_odds": summary.skipped_no_odds,
+                        })
+                        if not import_errors:
+                            counters.update({
+                                "prediction_rows_returned": summary.predictions,
+                                "publications_skipped": summary.predictions_skipped_no_odds,
+                            })
+                    timestamps = {
+                        key: value for key, value in (
+                            ("game_date_min", summary.game_date_min),
+                            ("game_date_max", summary.game_date_max),
+                        ) if value is not None
+                    }
+                    telemetry.update_source(
+                        identity, counters=counters, timestamps=timestamps,
+                        error_code="invalid_source_data" if summary.errors else None,
+                    )
+                    if not interrupted and not (import_errors and not summary.errors):
+                        telemetry.finish_source(
+                            identity, failed=bool(summary.errors and not summary.processed),
+                        )
+            telemetry.flush_sport(sport)
 
         if sport == "NCAAF":
             try:
                 collect_ncaaf_shadow_evidence()
             except Exception:
                 logger.exception("NCAAF shadow collection hook failed")
+                telemetry.auxiliary_failed()
 
         results[sport] = {
             "sport": sport,
@@ -180,13 +240,16 @@ def run_forever() -> None:
         poll_seconds,
     )
 
-    while True:
-        try:
-            run_once()
-        except Exception:
-            logger.exception("Unexpected upcoming-game worker cycle failure")
+    with WorkerInstrumentation(
+        "upcoming-game-worker", _configured_sports(), poll_seconds, "after_completion",
+    ).process():
+        while True:
+            try:
+                run_once()
+            except Exception:
+                logger.exception("Unexpected upcoming-game worker cycle failure")
 
-        time.sleep(poll_seconds)
+            time.sleep(poll_seconds)
 
 
 if __name__ == "__main__":
