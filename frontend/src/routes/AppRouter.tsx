@@ -3,6 +3,7 @@ import { Suspense, lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { ProtectedRoute } from "../components/ProtectedRoute";
+import { AdminRoute } from "../components/AdminRoute";
 
 const AppLayout = lazy(() => import("../layouts/AppLayout").then((module) => ({ default: module.AppLayout })));
 const LoginPage = lazy(() => import("../pages/LoginPage").then((module) => ({ default: module.LoginPage })));
@@ -19,6 +20,7 @@ const ProductSavedPicksPage = lazy(() => import("../pages/ProductSavedPicksPage"
 const ProductProfilePage = lazy(() => import("../pages/ProductProfilePage").then((module) => ({ default: module.ProductProfilePage })));
 const ParlayOptimizerPage = lazy(() => import("../pages/ParlayOptimizerPage").then((module) => ({ default: module.ParlayOptimizerPage })));
 const HowItWorksPage = lazy(() => import("../pages/HowItWorksPage").then((module) => ({ default: module.HowItWorksPage })));
+const WorkerHealthPage = lazy(() => import("../pages/WorkerHealthPage").then((module) => ({ default: module.WorkerHealthPage })));
 
 function RouteLoader() {
   return (
@@ -49,6 +51,9 @@ export function AppRouter() {
             <Route path="/saved-picks" element={<ProductSavedPicksPage />} />
             <Route path="/parlays" element={<ParlayOptimizerPage />} />
             <Route path="/how-it-works" element={<HowItWorksPage />} />
+            <Route element={<AdminRoute />}>
+              <Route path="/admin/workers" element={<WorkerHealthPage />} />
+            </Route>
           </Route>
         </Route>
         <Route path="*" element={<NotFoundPage />} />

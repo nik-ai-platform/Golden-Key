@@ -8,7 +8,7 @@ or change public health/readiness contracts. No evidence is fabricated or
 backfilled: initial operational status remains **unknown**.
 
 Phase 1A.2 adds the opt-in worker instrumentation described below. Phase 1A.3
-(admin-protected read API and status evaluation) remains pending.
+(admin-protected read API and status evaluation) is described below.
 
 ### Storage and safe inputs
 
@@ -273,6 +273,93 @@ overlapping cleanup. Dry-run takes the same lock but changes no records.
 Output is a deterministic bounded JSON summary. Storage failure exits 1;
 cleanup-lock contention exits 2. Disabled mode reports `enabled: false`
 without connecting. Nothing is scheduled by this phase.
+
+## Admin operations (Phase 1A.3)
+
+`GET /api/v1/operations/workers` reuses `require_admin`; unauthenticated requests
+receive 401 and non-admin requests receive 403 before status storage is accessed.
+There are no operations mutation endpoints. Results are `Cache-Control: no-store`.
+The reader uses the isolated telemetry pool and, on PostgreSQL, a repeatable-read,
+read-only transaction. It reads only the three telemetry tables plus observed
+advisory locks and holder activity. It neither recovers abandoned cycles nor changes lifecycle state.
+Storage failure is explicitly logged with a sanitized code and returns 503; it
+never returns success-shaped empty/healthy evidence for an unavailable database.
+Disabled mode performs no telemetry storage access and reports disabled health.
+
+Each worker response contains at most ten recent instances and ten recent cycles
+for the latest instance, with source evidence and nullable counters. Truncation is
+explicit. NULL remains unknown; zero remains measured zero. No credentials,
+connection URL, raw exception, SQL, host address, PID, or customer data is returned.
+Ownership is a point-in-time retained-session lock observation, not continuous
+OS-process liveness. PostgreSQL exposes transaction recovery locks and session
+ownership locks in the same lock view. Only a matching exclusive lock held by an
+idle backend outside any transaction proves retained ownership. A lock holder in
+a transaction, or whose activity cannot be inspected, yields unknown ownership
+and cannot produce healthy status, including when another recent instance has
+unproven ownership. No matching lock yields not held. SQLite
+cannot prove ownership and reports it as unknown.
+Abruptly stopped processes may retain idle rows with no ownership; this reader
+does not rewrite those rows or misrepresent them as gracefully stopped.
+
+Health and alert classification are deterministic, in-band only (no external
+notification delivery):
+
+- Missing evidence or unprovable ownership is unknown, never healthy.
+- Startup grace uses `OPERATIONS_STARTUP_GRACE_SECONDS` (default 120 seconds).
+- Heartbeat and progress are independently stale strictly after
+  `2 * poll_seconds + startup_grace + ceil(last_success_duration_ms / 1000)`.
+  This respects after-completion upcoming-worker scheduling and distinguishes
+  heartbeat from main-loop progress; NULL duration contributes zero additional
+  grace, not a fabricated measurement.
+- Stale heartbeat/progress, missing observed ownership after startup, failed or
+  abandoned latest terminal cycles, and multiple observed owners are critical.
+- Partial cycles, incomplete terminal source coverage, and truncated instance
+  history are warnings. A running cycle is not called failed for being incomplete.
+- A recorded stop is shown as stopped. Earlier failures remain visible in recent
+  history, but the latest terminal outcome drives current classification.
+
+The additive `/admin/workers` dashboard is guarded by the existing authenticated
+route plus an admin-only UI guard. Its navigation entry is admin-only; customer
+destinations are unchanged. The authenticated API client remains the enforcement
+boundary on the server. The page refreshes every 30 seconds while active, presents
+errors and stale previously loaded evidence explicitly, and uses responsive
+panels and keyboard-accessible source accordions. It provides no restart, flag,
+cleanup, or other operational mutation control.
+
+### Opt-in scheduled retention
+
+The API never starts a scheduler. The independent
+`app.workers.telemetry_retention_worker` runs one bounded batch at a time, waits
+after completion, uses the existing transaction advisory cleanup lock, and keeps
+the existing lifecycle/retention protections. Defaults are hourly, batch 500,
+30-day retention, **dry-run**. Storage errors are logged, not suppressed;
+scheduled mode waits until the next interval rather than retrying in a burst.
+One-shot exit codes are 0 (completed/disabled), 1 (storage error), 2 (lock busy).
+Disposal runs on interruption. No business tables are pruned.
+
+```powershell
+.\.venv\Scripts\python.exe -m app.workers.telemetry_retention_worker --once --dry-run
+.\.venv\Scripts\python.exe -m app.workers.telemetry_retention_worker --once --apply --batch-size 100
+```
+
+`docker-compose.operations.yml` adds only a separate `operations-retention`
+profile/service; the production Compose file and its existing services are not
+modified. It reuses the already built production backend image (no build),
+requires existing production settings, and passes the existing telemetry flag.
+It does not enable telemetry. A separately reviewed rollout may opt in:
+
+```sh
+docker compose -f docker-compose.production.yml -f docker-compose.operations.yml \
+  --env-file .env.production --profile operations-retention \
+  up -d --no-deps --no-build telemetry-retention
+```
+
+Applying actual deletion requires explicit `--apply` in place of `--dry-run`.
+Do not change worker polling intervals to accelerate retention or status tests.
+Existing deployment-local telemetry overrides must remain in use for the
+application services; adding this operations profile does not replace them.
+No production activation, schedule installation, migration, or cleanup is
+performed by these code changes.
 
 Terminal cycles older than the retention cutoff are eligible, with cascading
 source deletion. The newest cycle for a nonretired instance is retained as its

@@ -17,6 +17,10 @@ modules = (
     "app.models.worker_cycle",
     "app.models.worker_cycle_source",
     "app.services.worker_telemetry_service",
+    "app.schemas.worker_status",
+    "app.services.worker_status_service",
+    "app.api.v1.operations",
+    "app.workers.telemetry_retention_worker",
     "app.workers.worker_instrumentation",
     "app.workers.final_score_worker",
     "app.workers.upcoming_game_worker",
@@ -157,6 +161,22 @@ class WorkerProductionRuntimeTests(unittest.TestCase):
 
     def test_final_score_disabled_worker_starts_and_completes_one_polling_pass(self):
         self.assertIn("DISABLED_WORKER_STARTUP=PASS", self.run_probe(STARTUP_PROBE, "final_score_worker"))
+
+    def test_disabled_retention_cli_does_not_access_storage_or_ownership(self):
+        probe = """
+from unittest.mock import patch
+from app.workers.telemetry_retention_worker import main
+def forbidden(*args, **kwargs):
+    raise AssertionError("Disabled retention touched storage or ownership")
+with (
+    patch("app.database.telemetry_session.create_engine", forbidden),
+    patch("app.database.worker_ownership.create_engine", forbidden),
+    patch("app.database.worker_ownership.WorkerOwnership.acquire", forbidden),
+):
+    assert main(["--once", "--dry-run"]) == 0
+print("DISABLED_RETENTION_STARTUP=PASS")
+"""
+        self.assertIn("DISABLED_RETENTION_STARTUP=PASS", self.run_probe(probe))
 
 
 if __name__ == "__main__":

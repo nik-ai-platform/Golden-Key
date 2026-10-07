@@ -1,0 +1,24 @@
+services:
+  telemetry-retention:
+    profiles: ["operations-retention"]
+    image: golden-key-backend:production
+    restart: unless-stopped
+    command:
+      - python
+      - -m
+      - app.workers.telemetry_retention_worker
+      - --dry-run
+      - --interval-seconds
+      - "3600"
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      ODDS_API_KEY: ${ODDS_API_KEY:?ODDS_API_KEY is required}
+      AUTH_DEMO_EMAIL: ${AUTH_DEMO_EMAIL:?AUTH_DEMO_EMAIL is required}
+      AUTH_DEMO_PASSWORD: ${AUTH_DEMO_PASSWORD:?AUTH_DEMO_PASSWORD is required}
+      OPERATIONS_TELEMETRY_ENABLED: ${OPERATIONS_TELEMETRY_ENABLED:-false}
+      OPERATIONS_CYCLE_RETENTION_DAYS: ${OPERATIONS_CYCLE_RETENTION_DAYS:-30}
+    networks:
+      - golden_key_network

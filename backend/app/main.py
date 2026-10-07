@@ -69,6 +69,7 @@ from app.api.v1 import discovery
 from app.api.v1 import intelligence
 from app.api.v1 import pipeline
 from app.api.v1 import jobs
+from app.api.v1 import operations
 from app.api.v1 import onboarding
 from app.api.routes import analytics
 from app.api.routes import auth
@@ -97,6 +98,7 @@ app.add_middleware(
 
 app.add_middleware(SecurityHeadersMiddleware)
 
+app.include_router(operations.router, prefix="/api/v1")
 
 app.include_router(
     teams.router,

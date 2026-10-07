@@ -39,6 +39,7 @@ const navItems = [
   { label: "Performance", path: "/performance", icon: <TimelineOutlinedIcon />, roles: ["user", "viewer", "analyst", "admin"] },
   { label: "Profile", path: "/profile", icon: <PersonOutlineOutlinedIcon />, roles: ["user", "viewer", "analyst", "admin"] },
   { label: "How It Works", path: "/how-it-works", icon: <HelpOutlineOutlinedIcon />, roles: ["user", "viewer", "analyst", "admin"] },
+  { label: "Worker Health", path: "/admin/workers", icon: <TimelineOutlinedIcon />, roles: ["admin"] },
 ];
 
 export function AppLayout() {

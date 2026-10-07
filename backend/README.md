@@ -3,16 +3,20 @@
 Backend services and API layer for the nik-ai-platform.
 
 See [Production Observability](../docs/PRODUCTION_OBSERVABILITY.md) for the
-isolated Phase 1A.1 storage foundation and opt-in Phase 1A.2 worker instrumentation.
-Instrumentation is not deployed or enabled and remains disabled by default.
+isolated Phase 1A.1 storage foundation, opt-in Phase 1A.2 worker instrumentation,
+and Phase 1A.3 admin operations. Telemetry remains disabled by default in code.
 Dedicated PostgreSQL session locks protect process ownership; recovery uses a
 transaction-level advisory lock on the same key and physical connection as its
 abandonment transaction. Connection loss before commit rolls back recovery.
 Unsupported ownership checks disable cross-instance abandonment. Startup unwind
 and shutdown use one shared cleanup budget. Invalid ownership IDs fail before
 resource acquisition. Loss of the running ownership session can permit recovery
-before Python notices, without affecting business work. No operational API or
-frontend is included.
+before Python notices, without affecting business work. The read-only
+`/api/v1/operations/workers` endpoint reuses the existing admin authorization;
+the additive `/admin/workers` dashboard displays polling-aware classifications
+and bounded evidence without operational mutation controls. A separate opt-in
+`operations-retention` Compose profile schedules hourly dry-run pruning; the
+API starts no scheduler, and actual pruning requires explicit `--apply`.
 
 ## Structure
 
