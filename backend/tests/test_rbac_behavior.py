@@ -4,6 +4,7 @@ from datetime import datetime
 from fastapi import Depends
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+import pytest
 
 from app.auth.dependencies import get_current_user as auth_get_current_user
 from app.auth.dependencies import require_admin
@@ -85,7 +86,9 @@ def test_viewer_cannot_import_games(monkeypatch):
     app.dependency_overrides.clear()
 
 
-def test_viewer_can_view_dashboard(monkeypatch):
+@pytest.mark.parametrize("active", [False, True])
+def test_viewer_legacy_dashboard_requires_premium_entitlement(monkeypatch, active):
+    monkeypatch.setattr("app.core.premium.has_active_entitlement", lambda *_: active)
     fake_db = object()
 
     def _override_get_db():
@@ -112,12 +115,15 @@ def test_viewer_can_view_dashboard(monkeypatch):
     client = TestClient(app)
     response = client.get("/api/v1/dashboard")
 
-    assert response.status_code == 200
+    assert response.status_code == (200 if active else 403)
+    if not active:
+        assert response.json() == {"detail": "Active Premium access required"}
 
     app.dependency_overrides.clear()
 
 
-def test_analyst_can_run_predictions(monkeypatch):
+def test_premium_analyst_can_run_predictions(monkeypatch):
+    monkeypatch.setattr("app.core.premium.has_active_entitlement", lambda *_: True)
     fake_db = _PredictionDB()
 
     def _override_get_db():

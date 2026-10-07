@@ -5,6 +5,8 @@ import {
   createBillingPortalSession,
   createCheckoutSession,
   getSubscription,
+  getPlans,
+  formatPlanPrice,
 } from "../../src/services/subscriptionService";
 
 vi.mock("../../src/api/client", () => ({
@@ -16,6 +18,13 @@ vi.mock("../../src/api/client", () => ({
 
 describe("subscription service", () => {
   beforeEach(() => vi.clearAllMocks());
+  it("fetches public pricing rather than creating client-owned prices", async () => {
+    vi.mocked(client.get).mockResolvedValue({ data: { currency: "USD", plans: [] } });
+    await getPlans();
+    expect(client.get).toHaveBeenCalledWith("/subscriptions/plans");
+    expect(formatPlanPrice(1000, "USD")).toBe("$10.00");
+    expect(formatPlanPrice(7999, "USD")).toBe("$79.99");
+  });
 
   it("loads canonical subscription state", async () => {
     vi.mocked(client.get).mockResolvedValue({ data: { active: false } });

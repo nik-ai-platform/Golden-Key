@@ -4,6 +4,7 @@ import { Link as RouterLink, useNavigate } from "react-router-dom";
 
 import { register } from "../services/authService";
 import { useAuth } from "../hooks/useAuth";
+import { CustomerLinks } from "../components/CustomerLinks";
 
 type ApiRequestError = {
   status?: number;
@@ -59,18 +60,19 @@ export function RegisterPage() {
   }
 
   return (
-    <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "radial-gradient(circle at 20% 20%, #ccfbf1 0%, #f8fafc 45%, #fef9c3 100%)", p: 2 }}>
+    <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center", bgcolor: "background.default", p: 2 }}>
       <Card sx={{ width: "100%", maxWidth: 440 }}>
         <CardContent sx={{ p: 4 }}>
           <Stack spacing={2.5} component="form" onSubmit={onSubmit}>
-            <Box><Typography variant="overline" color="text.secondary">Bear A Hand Sports</Typography><Typography variant="h4">Create account</Typography><Typography color="text.secondary" sx={{ mt: 1 }}>Start tracking predictions and performance.</Typography></Box>
+            <Box><Typography variant="overline" color="text.secondary">Bear A Hand Sports</Typography><Typography variant="h4">Create account</Typography><Typography color="text.secondary" sx={{ mt: 1 }}>Join Free Preview. Premium picks and performance require an active subscription.</Typography></Box>
             {error ? <Alert severity="error">{error}</Alert> : null}
             <TextField label="Username" value={username} onChange={(event) => setUsername(event.target.value)} required />
-            <TextField label="Email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
-            <TextField label="Password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} inputProps={{ minLength: 8 }} required />
+            <TextField label="Email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+            <TextField label="Password" type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} inputProps={{ minLength: 8 }} required />
             <Button type="submit" variant="contained" disabled={loading}>{loading ? "Creating account..." : "Create account"}</Button>
             <Typography textAlign="center" color="text.secondary">Already registered? <Link component={RouterLink} to="/login">Sign in</Link></Typography>
           </Stack>
+          <CustomerLinks />
         </CardContent>
       </Card>
     </Box>

@@ -2,6 +2,7 @@ import { Box, Card, CardContent } from "@mui/material";
 import type { ReactNode } from "react";
 
 import { ThemeToggleButton } from "./ThemeToggleButton";
+import { CustomerLinks } from "./CustomerLinks";
 
 type RecoveryLayoutProps = {
   children: ReactNode;
@@ -24,7 +25,7 @@ export function RecoveryLayout({ children }: RecoveryLayoutProps) {
         <ThemeToggleButton />
       </Box>
       <Card sx={{ width: "100%", maxWidth: 440 }}>
-        <CardContent sx={{ p: { xs: 3, sm: 4 } }}>{children}</CardContent>
+        <CardContent sx={{ p: { xs: 3, sm: 4 } }}>{children}<CustomerLinks /></CardContent>
       </Card>
     </Box>
   );

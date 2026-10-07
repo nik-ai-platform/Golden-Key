@@ -11,11 +11,12 @@ from sqlalchemy.orm import Session
 
 from app.auth.hashing import HashingService
 from app.auth.jwt import JWTError, JWTService
-from app.auth.session_store import session_store
+from app.auth.session_store import SessionStore
 from app.auth.schemas import AccessTokenResponse, AuthUser
 from app.core.config import settings
 from app.core.roles import UserRole
 from app.models.password_reset_token import PasswordResetToken
+from app.models.auth_state import EmailVerificationToken
 from app.models.forgot_email_challenge import ForgotEmailChallenge
 from app.models.recovery_email_verification import RecoveryEmailVerification
 from app.models.user import User
@@ -37,6 +38,12 @@ class PasswordResetDelivery:
 class RecoveryCodeDelivery:
     recipient: str
     code: str
+
+
+@dataclass(frozen=True)
+class EmailVerificationDelivery:
+    recipient: str
+    token: str
 
 
 class AuthenticationService:
@@ -98,12 +105,16 @@ class AuthenticationService:
         email: str,
         password: str,
     ):
+        session_store = SessionStore(db)
         if session_store.is_locked(email.lower()):
             performance_metrics.record_auth_failure("lockout", email.lower())
             return None
 
         user = self._resolve_user(db, email)
+        if isinstance(user, User):
+            user = db.query(User).filter(User.id == user.id).populate_existing().with_for_update().first()
         if user is None:
+            self.hashing_service.verify_password(password, self._demo_password_hash)
             attempts, _ = session_store.register_failed_login(email.lower(), self.lockout_minutes, self.max_failed_attempts)
             performance_metrics.record_auth_failure("unknown_user", email.lower(), attempts)
             return None
@@ -134,7 +145,7 @@ class AuthenticationService:
         if user is None:
             return None
 
-        access_token, access_exp, _ = self.jwt_service.create_access_token(
+        access_token, access_exp, access_jti = self.jwt_service.create_access_token(
             {
                 "sub": user.email,
                 "role": self._role_value(user.role),
@@ -150,7 +161,9 @@ class AuthenticationService:
             },
             expires_delta=timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES),
         )
-        session_store.create_refresh_session(refresh_jti, int(user.id), refresh_exp)
+        SessionStore(db).create_refresh_session(refresh_jti, int(user.id), refresh_exp)
+        SessionStore(db).create_access_session(access_jti, int(user.id), access_exp)
+        db.commit()
 
         return AccessTokenResponse(
             access_token=access_token,
@@ -161,16 +174,21 @@ class AuthenticationService:
         )
 
     def refresh(self, db: Session, refresh_token: str) -> AccessTokenResponse:
+        session_store = SessionStore(db)
         payload = self.jwt_service.validate_refresh_token(refresh_token)
         jti = str(payload.get("jti", ""))
         if not jti or not session_store.is_refresh_session_active(jti):
             raise JWTError("Refresh token revoked")
 
         user = self._resolve_user(db, str(payload.get("sub", "")))
+        if isinstance(user, User):
+            # Password updates take this same lock before revoking session rows.
+            # The conditional rotation below revalidates after acquiring it.
+            user = db.query(User).filter(User.id == user.id).populate_existing().with_for_update().first()
         if user is None or not user.is_active:
             raise JWTError("User not found")
 
-        access_token, access_exp, _ = self.jwt_service.create_access_token(
+        access_token, access_exp, access_jti = self.jwt_service.create_access_token(
             {
                 "sub": user.email,
                 "role": self._role_value(user.role),
@@ -186,8 +204,11 @@ class AuthenticationService:
             },
             expires_delta=timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES),
         )
-        session_store.revoke_refresh_session(jti)
-        session_store.create_refresh_session(refresh_jti, int(user.id), refresh_exp)
+        if not session_store.rotate_refresh_session(jti, refresh_jti, int(user.id), refresh_exp):
+            db.rollback()
+            raise JWTError("Refresh token revoked")
+        session_store.create_access_session(access_jti, int(user.id), access_exp)
+        db.commit()
 
         return AccessTokenResponse(
             access_token=access_token,
@@ -197,20 +218,26 @@ class AuthenticationService:
             refresh_expires_in=max(0, refresh_exp - int(datetime.now(UTC).timestamp())),
         )
 
-    def revoke_session(self, access_token: str, refresh_token: str | None = None) -> None:
+    def revoke_session(self, db: Session, access_token: str, refresh_token: str | None = None) -> None:
+        session_store = SessionStore(db)
         access_payload = self.jwt_service.validate_access_token(access_token)
+        refresh_payload = None
+        if refresh_token:
+            refresh_payload = self.jwt_service.validate_refresh_token(refresh_token)
+            if refresh_payload.get("uid") != access_payload.get("uid") or refresh_payload.get("sub") != access_payload.get("sub"):
+                raise JWTError("Session does not belong to user")
         access_jti = str(access_payload.get("jti", ""))
         access_exp = int(access_payload.get("exp", 0) or 0)
         if access_jti and access_exp:
             session_store.revoke_jti(access_jti, access_exp)
 
-        if refresh_token:
-            refresh_payload = self.jwt_service.validate_refresh_token(refresh_token)
+        if refresh_payload:
             refresh_jti = str(refresh_payload.get("jti", ""))
             refresh_exp = int(refresh_payload.get("exp", 0) or 0)
             if refresh_jti:
                 session_store.revoke_refresh_session(refresh_jti)
                 session_store.revoke_jti(refresh_jti, refresh_exp)
+        db.commit()
 
     def request_password_reset(
         self,
@@ -437,7 +464,7 @@ class AuthenticationService:
         if reset_token is None:
             return False
 
-        user = db.get(User, reset_token.user_id)
+        user = db.query(User).filter(User.id == reset_token.user_id).populate_existing().with_for_update().first()
         if user is None or not user.is_active:
             return False
 
@@ -448,8 +475,9 @@ class AuthenticationService:
             PasswordResetToken.used_at.is_(None),
         ).update({PasswordResetToken.used_at: now}, synchronize_session=False)
         db.add(user)
+        SessionStore(db).clear_failed_logins(user.email.lower())
+        SessionStore(db).revoke_user_sessions(int(user.id))
         db.commit()
-        session_store.clear_failed_logins(user.email.lower())
         return True
 
     def change_password(
@@ -459,7 +487,8 @@ class AuthenticationService:
         current_password: str,
         new_password: str,
     ) -> bool:
-        if not user.id or not self.hashing_service.verify_password(
+        user = db.query(User).filter(User.id == user.id).populate_existing().with_for_update().first()
+        if user is None or not user.id or not self.hashing_service.verify_password(
             current_password,
             user.hashed_password,
         ):
@@ -467,37 +496,51 @@ class AuthenticationService:
 
         user.hashed_password = self.hashing_service.hash_password(new_password)
         db.add(user)
+        SessionStore(db).clear_failed_logins(user.email.lower())
+        SessionStore(db).revoke_user_sessions(int(user.id))
         db.commit()
-        session_store.clear_failed_logins(user.email.lower())
         return True
 
     @staticmethod
     def _reset_token_digest(token: str) -> str:
         return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
-    def request_email_verification(self, db: Session, email: str) -> None:
+    def request_email_verification(self, db: Session, email: str) -> EmailVerificationDelivery | None:
         user = self._resolve_user(db, email)
-        if user is None:
-            return
-        verify_token, _, _ = self.jwt_service.create_access_token(
-            {"sub": user.email, "uid": user.id},
-            expires_delta=timedelta(minutes=60),
-        )
-        session_store.create_email_verification(verify_token, user.email, 60)
+        if user is None or not user.is_active or not user.id:
+            return None
+        # Serializes the durable recipient cooldown with resend and confirmation.
+        user = db.query(User).filter(User.id == user.id).populate_existing().with_for_update().one()
+        if not user.is_active or SessionStore(db).is_email_verified(int(user.id), user.email):
+            return None
+        if SessionStore(db).email_verification_on_cooldown(int(user.id), user.email):
+            return None
+        verify_token = secrets.token_urlsafe(32)
+        SessionStore(db).create_email_verification(verify_token, int(user.id), user.email, 60)
+        db.commit()
+        return EmailVerificationDelivery(recipient=user.email, token=verify_token)
+
+    def deliver_email_verification(self, delivery: EmailVerificationDelivery) -> None:
+        try:
+            self.mail_sender.send_email_verification(delivery.recipient, delivery.token)
+        except Exception:  # noqa: BLE001
+            logger.error("Sign-in email verification delivery failed")
 
     def verify_email(self, db: Session, token: str) -> bool:
-        email = session_store.consume_email_verification(token)
-        if not email:
+        if not token:
             return False
-
-        user = self._resolve_user(db, email)
-        if user is None or getattr(user, "id", 0) == 0:
+        store = SessionStore(db)
+        # Lock the user before the token to match resend's lock ordering.
+        candidate = db.get(EmailVerificationToken, store.digest(token))
+        if candidate is None:
             return False
-
-        if hasattr(user, "email_verified"):
-            user.email_verified = True
-            db.add(user)
-            db.commit()
+        user = db.query(User).filter(User.id == candidate.user_id).populate_existing().with_for_update().first()
+        state = store.consume_email_verification(token)
+        if state is None or user is None or not user.is_active or user.email != state[1]:
+            db.rollback()
+            return False
+        store.mark_email_verified(int(user.id), user.email)
+        db.commit()
         return True
 
     def current_user(
@@ -507,7 +550,7 @@ class AuthenticationService:
     ) -> AuthUser:
         payload = self.jwt_service.validate_access_token(token)
         jti = str(payload.get("jti", ""))
-        if jti and session_store.is_revoked(jti):
+        if jti and SessionStore(db).is_revoked(jti):
             raise JWTError("Token revoked")
         email = payload.get("sub")
 
@@ -517,6 +560,8 @@ class AuthenticationService:
 
         if not user.is_active:
             raise JWTError("Inactive user")
+        if not jti or not SessionStore(db).is_access_session_active(jti, int(user.id)):
+            raise JWTError("Session expired or revoked")
 
         return AuthUser(
             id=user.id,
@@ -524,7 +569,7 @@ class AuthenticationService:
             email=user.email,
             role=UserRole(self._role_value(user.role)),
             is_active=user.is_active,
-            email_verified=bool(getattr(user, "email_verified", False)),
+            email_verified=SessionStore(db).is_email_verified(int(user.id), user.email),
             recovery_email_masked=(
                 self.mask_email(user.recovery_email) if getattr(user, "recovery_email", None) else None
             ),

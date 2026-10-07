@@ -1,15 +1,45 @@
 from datetime import timedelta
+import pytest
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.api.routes import auth as auth_routes
-from app.api.v1 import premium, product, subscriptions, users
+from app.api.v1 import product, subscriptions, users
 from app.auth.dependencies import get_auth_service
 from app.auth.jwt import JWTService
 from app.auth.service import AuthenticationService
 from app.database.session import get_db
 from app.main import app
+from app.models.auth_state import AUTH_STATE_MODELS
+from app.models.user import User
+
+
+@pytest.fixture(autouse=True)
+def durable_auth_database():
+    engine = create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    User.__table__.create(engine)
+    for model in AUTH_STATE_MODELS:
+        model.__table__.create(engine)
+    factory = sessionmaker(bind=engine)
+
+    def override_db():
+        with factory() as db:
+            yield db
+
+    previous = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_db] = override_db
+    yield
+    if previous is None:
+        app.dependency_overrides.pop(get_db, None)
+    else:
+        app.dependency_overrides[get_db] = previous
+    engine.dispose()
 
 
 class _EmptyUserRepository:
@@ -20,7 +50,7 @@ class _EmptyUserRepository:
 def _auth_client() -> TestClient:
     auth_app = FastAPI()
     auth_app.include_router(auth_routes.router, prefix="/api/v1")
-    auth_app.dependency_overrides[get_db] = lambda: object()
+    auth_app.dependency_overrides[get_db] = app.dependency_overrides[get_db]
     auth_app.dependency_overrides[get_auth_service] = lambda: AuthenticationService(
         user_repository=_EmptyUserRepository()
     )
@@ -94,7 +124,6 @@ def test_login_token_authenticates_users_me_route(monkeypatch):
         "get_user_provider_subscriptions",
         lambda *_: [],
     )
-    monkeypatch.setattr(premium, "require_premium", lambda *_: True)
     client = TestClient(app)
 
     login_response = client.post(

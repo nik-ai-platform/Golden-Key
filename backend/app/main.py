@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -8,6 +8,8 @@ from time import perf_counter
 
 from app.core.api_exceptions import APIException
 from app.core.config import settings
+from app.core.premium import require_premium_user
+from app.auth.dependencies import require_admin
 from app.core.security_middleware import security_middleware
 from app.core.logging_config import (
     setup_logging
@@ -107,12 +109,14 @@ app.include_router(
 
 app.include_router(
     games.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     live.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
@@ -122,97 +126,116 @@ app.include_router(
 
 app.include_router(
     odds.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     prediction_outcomes.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     predictions.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     models.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     backtests.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     market.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     bets.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     bankroll.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     parlays.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     analyst.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     features.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     experiments.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     ensemble.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     performance.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     prediction_history.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     personalization.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     strategies.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     coach.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     portfolio.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
@@ -227,62 +250,74 @@ app.include_router(
 
 app.include_router(
     assistant.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     profile_intelligence.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     community.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     research_agent.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     simulation.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     learning.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     agent.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     agents.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     discovery.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     intelligence.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     pipeline.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_admin)],
 )
 
 app.include_router(
     jobs.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_admin)],
 )
 
 app.include_router(
@@ -312,37 +347,44 @@ app.include_router(
 
 app.include_router(
     model.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     model_promotion.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_admin)],
 )
 
 app.include_router(
     model_runtime.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_admin)],
 )
 
 app.include_router(
     model_bootstrap.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_admin)],
 )
 
 app.include_router(
     npi_weights.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_admin)],
 )
 
 app.include_router(
     system_integration.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_admin)],
 )
 
 app.include_router(
     settlement.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_admin)],
 )
 
 app.include_router(
@@ -372,12 +414,14 @@ app.include_router(
 
 app.include_router(
     analytics.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(
     dashboard.router,
-    prefix="/api/v1"
+    prefix="/api/v1",
+    dependencies=[Depends(require_premium_user)],
 )
 
 app.include_router(

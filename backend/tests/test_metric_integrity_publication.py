@@ -20,6 +20,8 @@ from sqlalchemy.pool import StaticPool
 from app.api.v1 import predictions as predictions_api
 from app.api.v1 import product as product_api, parlays as parlays_api
 from app.auth.dependencies import get_current_user, require_analyst, require_viewer
+from app.auth.schemas import AuthUser
+from app.core.roles import UserRole
 from app.database.base import Base
 from app.database.session import get_db
 from app.models.game import Game
@@ -281,7 +283,10 @@ def client(db):
         test_app.include_router(router, prefix="/api/v1")
     test_app.dependency_overrides[get_db] = lambda: db
     for dependency in (get_current_user, require_analyst, require_viewer):
-        test_app.dependency_overrides[dependency] = lambda: object()
+        test_app.dependency_overrides[dependency] = lambda: AuthUser(
+            id=1, username="metric_fixture", email="metric@example.com",
+            role=UserRole.ADMIN, is_active=True,
+        )
     with TestClient(test_app) as test_client:
         yield test_client
 

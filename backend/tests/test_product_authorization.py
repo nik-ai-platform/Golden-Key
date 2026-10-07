@@ -1,9 +1,12 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+from sqlalchemy.pool import StaticPool
 
 from app.api.v1 import product
-from app.auth.jwt import JWTService
+from app.database.base import Base
 from app.core.config import settings
 from app.database.session import get_db
 from app.main import app
@@ -34,7 +37,24 @@ def test_product_reads_reject_anonymous_requests(path):
     assert response.json() == {"detail": "Missing bearer token"}
 
 
-def test_authenticated_product_reads_preserve_response_contracts(monkeypatch):
+@pytest.fixture
+def authenticated_client():
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    tables = [table for name, table in Base.metadata.tables.items() if name.startswith("auth_") or name == "users"]
+    Base.metadata.create_all(engine, tables=tables)
+    original = dict(app.dependency_overrides)
+    with Session(engine) as db:
+        app.dependency_overrides[get_db] = lambda: db
+        try:
+            with TestClient(app) as client:
+                yield client
+        finally:
+            app.dependency_overrides.clear()
+            app.dependency_overrides.update(original)
+    engine.dispose()
+
+
+def test_authenticated_product_reads_preserve_response_contracts(monkeypatch, authenticated_client):
     prediction = {
         "prediction_id": 57,
         "game_id": 101,
@@ -145,14 +165,10 @@ def test_authenticated_product_reads_preserve_response_contracts(monkeypatch):
             "period_days": days,
         },
     )
-    access_token, _, _ = JWTService().create_access_token(
-        {
-            "sub": settings.AUTH_DEMO_EMAIL,
-            "role": "admin",
-            "uid": 0,
-        }
-    )
-    client = TestClient(app)
+    client = authenticated_client
+    login = client.post("/api/v1/auth/login", json={"email": settings.AUTH_DEMO_EMAIL, "password": settings.AUTH_DEMO_PASSWORD})
+    assert login.status_code == 200
+    access_token = login.json()["access_token"]
     headers = {"Authorization": f"Bearer {access_token}"}
 
     predictions_response = client.get(

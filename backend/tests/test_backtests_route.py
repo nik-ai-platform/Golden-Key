@@ -1,10 +1,13 @@
 from datetime import date
+import pytest
 
 from fastapi.testclient import TestClient
 
 from app.auth.dependencies import require_analyst
 from app.auth.schemas import AuthUser
 from app.main import app
+
+pytestmark = pytest.mark.usefixtures("admin_api_contract")
 
 
 def _analyst_user():

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.auth.dependencies import require_viewer
+from app.core.premium import require_premium_user
 from app.services.cross_sport_analysis_service import CrossSportAnalysisService
 from app.services.league_comparison_service import LeagueComparisonService
 from app.services.sport_intelligence_service import SportIntelligenceService
@@ -20,19 +21,19 @@ def list_sports():
     ]
 
 
-@router.get("/{sport}/model")
+@router.get("/{sport}/model", dependencies=[Depends(require_premium_user)])
 def get_sport_model(sport: str):
     service = SportIntelligenceService()
     return service.get_model(sport)
 
 
-@router.get("/{sport}/features")
+@router.get("/{sport}/features", dependencies=[Depends(require_premium_user)])
 def get_sport_features(sport: str):
     service = SportIntelligenceService()
     return service.get_features(sport)
 
 
-@router.get("/comparison")
+@router.get("/comparison", dependencies=[Depends(require_premium_user)])
 def get_sport_comparison():
     comparison = LeagueComparisonService()
     analysis = CrossSportAnalysisService()

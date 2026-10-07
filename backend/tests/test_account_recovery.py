@@ -16,6 +16,7 @@ from app.models.password_reset_token import PasswordResetToken
 from app.models.recovery_email_verification import RecoveryEmailVerification
 from app.models.subscription import Subscription
 from app.models.user import User
+from app.models.auth_state import AUTH_STATE_MODELS
 
 
 GENERIC_MESSAGE = (
@@ -47,6 +48,8 @@ def recovery_client():
         poolclass=StaticPool,
     )
     User.__table__.create(bind=engine)
+    for model in AUTH_STATE_MODELS:
+        model.__table__.create(bind=engine)
     Subscription.__table__.create(bind=engine)
     PasswordResetToken.__table__.create(bind=engine)
     RecoveryEmailVerification.__table__.create(bind=engine)

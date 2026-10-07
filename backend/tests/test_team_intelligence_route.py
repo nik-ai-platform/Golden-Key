@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+import pytest
 
 from fastapi.testclient import TestClient
 
@@ -6,6 +7,8 @@ from app.auth.dependencies import require_viewer
 from app.auth.schemas import AuthUser
 from app.core.roles import UserRole
 from app.main import app
+
+pytestmark = pytest.mark.usefixtures("admin_api_contract")
 
 
 class _FakeHistoricalService:

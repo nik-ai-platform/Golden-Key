@@ -67,7 +67,9 @@ def alembic_config(connection=None):
 
 def test_single_head_preserves_both_prior_branches():
     script = ScriptDirectory.from_config(alembic_config())
-    assert script.get_heads() == ["e7b4c2d9a610"]
+    assert script.get_heads() == ["a9b2e4d7c031"]
+    assert script.get_revision("a9b2e4d7c031").down_revision == "f8a1d3c6b920"
+    assert script.get_revision("f8a1d3c6b920").down_revision == "e7b4c2d9a610"
     assert script.get_revision("e7b4c2d9a610").down_revision == "c8d2f6a109b4"
     revision = script.get_revision("c8d2f6a109b4")
     assert set(revision.down_revision) == {"c6f2a8d4e913", "a4c8e2f19b73"}
@@ -624,7 +626,7 @@ def test_actual_postgres_graph_upgrade_backfill_foreign_keys_and_downgrade(db, s
     else:
         command.stamp(alembic_config(db.connection()), ["c6f2a8d4e913", "a4c8e2f19b73"])
     db.commit()
-    command.upgrade(alembic_config(db.connection()), "heads")
+    command.upgrade(alembic_config(db.connection()), "e7b4c2d9a610")
     db.commit()
     assert db.execute(text("SELECT version_num FROM alembic_version")).scalars().all() == ["e7b4c2d9a610"]
     if starting_point == "common_ancestor":
@@ -663,7 +665,7 @@ def test_actual_postgres_graph_upgrade_backfill_foreign_keys_and_downgrade(db, s
     assert set(db.execute(text("SELECT version_num FROM alembic_version")).scalars()) == {
         "c6f2a8d4e913", "a4c8e2f19b73",
     }
-    command.upgrade(alembic_config(db.connection()), "head")
+    command.upgrade(alembic_config(db.connection()), "e7b4c2d9a610")
     db.commit()
     db.expunge_all()
     assert {row.id: row.generation_id for row in db.query(Prediction)} == backfill

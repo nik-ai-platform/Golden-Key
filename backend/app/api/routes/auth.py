@@ -4,6 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_auth_service, get_current_user, oauth2_scheme
+from app.auth.jwt import JWTError
 from app.auth.persistent_user import (
     PersistentUserNotFoundError,
     hydrate_recovery_state,
@@ -45,9 +46,12 @@ router = APIRouter(
 @router.post("/register", response_model=UserResponse)
 def register(
     payload: UserCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    auth: AuthenticationService = Depends(get_auth_service),
 ):
-    if get_user_by_email(db, str(payload.email)):
+    email = str(payload.email).lower()
+    if get_user_by_email(db, email):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered",
@@ -57,12 +61,16 @@ def register(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already registered",
         )
-    return create_user(
+    user = create_user(
         db,
-        str(payload.email),
+        email,
         payload.username,
         payload.password,
     )
+    delivery = auth.request_email_verification(db, user.email)
+    if delivery is not None:
+        background_tasks.add_task(auth.deliver_email_verification, delivery)
+    return user
 
 
 @router.post("/login", response_model=AccessTokenResponse)
@@ -97,7 +105,7 @@ def refresh(
 ):
     try:
         return auth.refresh(db, payload.refresh_token)
-    except Exception as exc:  # noqa: BLE001
+    except JWTError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
 
@@ -107,10 +115,14 @@ def logout(
     access_token: str | None = Depends(oauth2_scheme),
     _: AuthUser = Depends(get_current_user),
     auth: AuthenticationService = Depends(get_auth_service),
+    db: Session = Depends(get_db),
 ):
     if not access_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
-    auth.revoke_session(access_token, payload.refresh_token)
+    try:
+        auth.revoke_session(db, access_token, payload.refresh_token)
+    except JWTError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return MessageResponse(message="Session revoked")
 
 
@@ -264,12 +276,16 @@ def verify_forgot_email(
 
 
 @router.post("/email-verification", response_model=MessageResponse)
+@router.post("/email-verification/resend", response_model=MessageResponse)
 def request_email_verification(
     payload: EmailVerificationRequest,
+    background_tasks: BackgroundTasks,
     auth: AuthenticationService = Depends(get_auth_service),
     db: Session = Depends(get_db),
 ):
-    auth.request_email_verification(db, str(payload.email))
+    delivery = auth.request_email_verification(db, str(payload.email))
+    if delivery is not None:
+        background_tasks.add_task(auth.deliver_email_verification, delivery)
     return MessageResponse(message="If the account exists, a verification email has been queued")
 
 

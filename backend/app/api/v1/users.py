@@ -5,6 +5,7 @@ from app.auth.dependencies import get_current_user
 from app.auth.persistent_user import hydrate_recovery_state, resolve_persistent_user_id
 from app.auth.schemas import AuthUser
 from app.database.session import get_db
+from app.core.premium import require_premium_user
 from app.schemas.api_contract import RemoveSavedPredictionResponse
 from app.schemas.user_prediction import (
     SavePredictionRequest,
@@ -36,7 +37,7 @@ def get_profile(
 )
 def save_user_prediction(
     request: SavePredictionRequest,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_premium_user),
     db: Session = Depends(get_db),
 ):
     user_id = resolve_persistent_user_id(
@@ -57,7 +58,7 @@ def save_user_prediction(
 )
 def remove_user_prediction(
     prediction_id: int,
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_premium_user),
     db: Session = Depends(get_db),
 ):
     user_id = resolve_persistent_user_id(
@@ -80,7 +81,7 @@ def remove_user_prediction(
     response_model=list[UserPredictionResponse],
 )
 def my_predictions(
-    current_user: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(require_premium_user),
     db: Session = Depends(get_db),
 ):
     user_id = resolve_persistent_user_id(

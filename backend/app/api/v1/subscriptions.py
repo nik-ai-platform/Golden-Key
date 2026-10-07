@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
-from stripe import SignatureVerificationError
+import logging
 
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from stripe import SignatureVerificationError, StripeError
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
@@ -32,10 +33,12 @@ from app.services.apple_subscription_service import (
     verify_and_synchronize_apple_transaction,
 )
 from app.services.entitlement_service import get_entitlement, has_active_entitlement
+from app.services.launch_plans import public_launch_plans
 from app.services.entitlement_reconciliation_service import PREMIUM_ENTITLEMENT_KEY
 from app.services.provider_subscription_service import get_user_provider_subscriptions
 from app.services.stripe_gateway import StripeGateway, StripeSandboxConfigurationError
 from app.services.stripe_subscription_service import (
+    PremiumCheckoutConflict,
     StripeEventProcessingError,
     create_billing_portal_session,
     create_checkout_session,
@@ -46,6 +49,12 @@ router = APIRouter(
     prefix="/subscriptions",
     tags=["Subscriptions"]
 )
+logger = logging.getLogger(__name__)
+
+
+@router.get("/plans")
+def launch_plans():
+    return public_launch_plans()
 
 
 @router.get(
@@ -114,8 +123,13 @@ def checkout_session(
     gateway = _stripe_gateway()
     try:
         session = create_checkout_session(db, gateway, user=user, plan=payload.plan)
+    except PremiumCheckoutConflict as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except StripeEventProcessingError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except StripeError as exc:
+        logger.error("Checkout provider request failed code=%s", type(exc).__name__)
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Billing provider temporarily unavailable") from exc
     return {"url": session.url}
 
 
@@ -130,6 +144,9 @@ def billing_portal(
         session = create_billing_portal_session(db, gateway, user=user)
     except StripeEventProcessingError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except StripeError as exc:
+        logger.error("Billing portal provider request failed code=%s", type(exc).__name__)
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Billing provider temporarily unavailable") from exc
     return {"url": session.url}
 
 
@@ -152,6 +169,9 @@ async def stripe_webhook(
         processing_status, duplicate = process_verified_stripe_event(db, gateway, event)
     except StripeEventProcessingError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    except StripeError as exc:
+        logger.error("Webhook provider request failed code=%s", type(exc).__name__)
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Billing provider temporarily unavailable") from exc
     return {"status": processing_status, "duplicate": duplicate}
 
 

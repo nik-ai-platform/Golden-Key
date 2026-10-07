@@ -18,6 +18,7 @@ from app.models.user import User
 from app.models.password_reset_token import PasswordResetToken
 from app.models.recovery_email_verification import RecoveryEmailVerification
 from app.models.forgot_email_challenge import ForgotEmailChallenge
+from app.models.auth_state import AccessSession, RefreshSession, RevokedToken, LoginFailure, EmailVerificationToken, VerifiedEmail
 from app.models.weight_profile import WeightProfile
 from app.models.market_value import MarketValue
 from app.models.betting_recommendation import BettingRecommendation

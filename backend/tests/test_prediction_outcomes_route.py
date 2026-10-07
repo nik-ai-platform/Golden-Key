@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from app.auth.dependencies import require_viewer
+from app.auth.dependencies import get_current_user
 from app.auth.schemas import AuthUser
 from app.main import app
 
@@ -15,11 +15,11 @@ def test_prediction_outcomes_route_lists_outcomes(monkeypatch):
     from app.api.v1 import prediction_outcomes as outcomes_router
 
     app.dependency_overrides[outcomes_router.get_db] = _override_get_db
-    app.dependency_overrides[require_viewer] = lambda: AuthUser(
+    app.dependency_overrides[get_current_user] = lambda: AuthUser(
         id=1,
         username="tester",
         email="tester@example.com",
-        role="viewer",
+        role="admin",
         is_active=True,
     )
 
@@ -66,11 +66,11 @@ def test_prediction_outcomes_route_returns_single_outcome(monkeypatch):
     from app.api.v1 import prediction_outcomes as outcomes_router
 
     app.dependency_overrides[outcomes_router.get_db] = _override_get_db
-    app.dependency_overrides[require_viewer] = lambda: AuthUser(
+    app.dependency_overrides[get_current_user] = lambda: AuthUser(
         id=1,
         username="tester",
         email="tester@example.com",
-        role="viewer",
+        role="admin",
         is_active=True,
     )
 

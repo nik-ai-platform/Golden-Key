@@ -9,6 +9,9 @@ import { ThemeModeProvider } from "../../src/theme/ThemeModeProvider";
 vi.mock("../../src/layouts/AppLayout", () => ({
   AppLayout: () => <Outlet />,
 }));
+vi.mock("../../src/components/PremiumRoute", () => ({
+  PremiumRoute: ({ children }: { children?: React.ReactNode }) => children ?? <Outlet />,
+}));
 
 vi.mock("../../src/pages/ProductDashboardPage", () => ({
   ProductDashboardPage: () => <h1>Production dashboard</h1>,

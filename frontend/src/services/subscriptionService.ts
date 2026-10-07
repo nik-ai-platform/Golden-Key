@@ -1,17 +1,21 @@
 import { client } from "../api/client";
 
-export const SUBSCRIPTION_PLANS = {
-  pro_monthly: {
-    name: "Bear A Hand Pro Monthly",
-    billingLabel: "Monthly",
-  },
-  pro_annual: {
-    name: "Bear A Hand Pro Annual",
-    billingLabel: "Annual",
-  },
-} as const;
+export type SubscriptionPlan = "pro_monthly" | "pro_annual";
+export interface ProductPlans {
+  currency: string;
+  trial_days: number;
+  plans: { id: SubscriptionPlan; name: string; amount_minor: number; interval: "month" | "year" }[];
+  premium_benefits: string[];
+}
 
-export type SubscriptionPlan = keyof typeof SUBSCRIPTION_PLANS;
+export async function getPlans(): Promise<ProductPlans> {
+  const { data } = await client.get<ProductPlans>("/subscriptions/plans");
+  return data;
+}
+
+export function formatPlanPrice(amountMinor: number, currency: string): string {
+  return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(amountMinor / 100);
+}
 
 export interface ProviderSubscription {
   provider: string;

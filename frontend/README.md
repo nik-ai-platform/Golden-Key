@@ -59,7 +59,7 @@ This sequence gets a usable app quickly and validates API contracts incrementall
 
 ## Customer Metric Education
 
-- The protected `/how-it-works` route explains NPI, Model Probability, Confidence
+- The public `/how-it-works` route explains NPI, Model Probability, Confidence
   Rating, Projected Edge, Risk Level, publication, and responsible interpretation.
 - Desktop navigation and the mobile navigation drawer include How It Works.
   The fixed mobile bottom navigation retains its six existing destinations.
@@ -69,6 +69,51 @@ This sequence gets a usable app quickly and validates API contracts incrementall
   calibrated strength bands. No percentiles or predictive strength tiers are
   published. Confidence Rating displays without a percent suffix, while Model
   Probability retains one. Stored values and calculations are unchanged.
+
+## Customer launch: Free Preview and Premium
+
+- `/` is public product information. `/how-it-works`, `/terms`, `/privacy`,
+  `/responsible-gaming`, `/disclaimer`, and `/support` are public. Legal copy is
+  expressly an operational draft requiring attorney review; contact identity,
+  mailbox ownership, jurisdiction and consumer-rights details are launch gates.
+  The support mailto opens the customer's email application and sends nothing.
+- Authentication grants dashboard slate overview and `/profile`, not paid data.
+  Free overview reads only `GET /api/v1/product/preview`:
+  `{sport, count, games:[{game_id,sport,league,home_team,away_team,start_time,status}]}`.
+  It does not render selections, odds, predictions or game-analysis links.
+- `PremiumRoute` checks `GET /api/v1/subscriptions/me` (`active === true`) and
+  explicitly permits authenticated admins. Loading, refetch and API errors
+  fail closed. Games/details, saved picks, parlays and performance are gated.
+  Role labels, profile's legacy `premium` flag, browser URLs and checkout
+  success do not grant access. Server authorization remains authoritative.
+- `GET /api/v1/subscriptions/plans` is the single pricing source:
+  `{currency,trial_days,plans:[{id,name,amount_minor,interval}],premium_benefits}`.
+  Currency is formatted using `Intl.NumberFormat`; no client-owned prices,
+  price IDs or fees. Failed configuration disables plan purchase.
+- `/profile?checkout=success` polls canonical subscription state up to ten
+  times at two-second intervals, stops on active access, and offers an
+  accessible refresh after timeout/error. Canceled/failed returns grant no
+  access. Profile/billing remain reachable for free or expired accounts and
+  billing management is shown for existing Stripe relationships.
+- Verification resend uses neutral `POST /auth/email-verification {email}`;
+  token confirmation uses `/auth/email-verification/confirm {token}`. It never
+  changes the sign-in email. Public `/verify-email?token=...` requires an explicit
+  confirmation click (no scanner-triggered token consumption), and clears the
+  token from the URL on success. Forgot-email recovery supports resend and changing
+  the recovery address before verification.
+- Billing copy discloses trial, automatic renewal and cancellation, and
+  explicitly marks launch billing as sandbox validation—not live availability.
+
+Focused offline validation:
+
+```powershell
+npm test -- tests/frontend/customer-access.test.tsx tests/frontend/subscription-section.test.tsx tests/frontend/account-recovery.test.tsx tests/frontend/parlay-optimizer.test.tsx
+npx playwright test --config playwright.customer-launch.config.ts --workers=1
+```
+
+The customer-launch Playwright suite mocks all API calls and blocks non-local
+network destinations; it covers 320, 390, 600, 900 and 1440px without a backend,
+payment provider, outbound email or customer-account writes.
 
 ## Local Development
 

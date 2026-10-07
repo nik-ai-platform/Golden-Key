@@ -6,7 +6,8 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import {
-  SUBSCRIPTION_PLANS,
+  getPlans,
+  formatPlanPrice,
   createBillingPortalSession,
   createCheckoutSession,
   getSubscription,
@@ -14,33 +15,35 @@ import {
   type SubscriptionPlan,
 } from "../services/subscriptionService";
 
-function planLabel(plan: string): string {
-  if (plan in SUBSCRIPTION_PLANS) {
-    return SUBSCRIPTION_PLANS[plan as SubscriptionPlan].name;
-  }
-  return plan === "free" ? "Standard" : "Current plan";
-}
-
 export function SubscriptionSection() {
   const [searchParams] = useSearchParams();
   const checkoutState = searchParams.get("checkout");
   const [pendingPlan, setPendingPlan] = useState<SubscriptionPlan | null>(null);
   const [portalPending, setPortalPending] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [pollAttempts, setPollAttempts] = useState(0);
+  const plansQuery = useQuery({ queryKey: ["subscriptions", "plans"], queryFn: getPlans, retry: false });
   const subscriptionQuery = useQuery({
     queryKey: ["subscriptions", "me"],
     queryFn: getSubscription,
-    enabled: checkoutState !== "success",
+    retry: false,
+    staleTime: 0,
   });
+  const { data: canonicalSubscription, isFetching: accessFetching, refetch: refreshSubscription } = subscriptionQuery;
+  const checkoutDisabled = pendingPlan !== null || subscriptionQuery.isPending ||
+    subscriptionQuery.isError || accessFetching || canonicalSubscription?.active !== false;
 
   useEffect(() => {
-    if (checkoutState === "success") {
-      void subscriptionQuery.refetch();
-    }
-  }, [checkoutState, subscriptionQuery.refetch]);
+    if (checkoutState !== "success" || canonicalSubscription?.active === true || pollAttempts >= 10 || accessFetching) return;
+    const timer = window.setTimeout(() => {
+      setPollAttempts((attempts) => attempts + 1);
+      void refreshSubscription();
+    }, 2000);
+    return () => window.clearTimeout(timer);
+  }, [checkoutState, canonicalSubscription?.active, accessFetching, refreshSubscription, pollAttempts]);
 
   async function startCheckout(plan: SubscriptionPlan) {
-    if (pendingPlan) return;
+    if (checkoutDisabled) return;
     setActionError("");
     setPendingPlan(plan);
     try {
@@ -82,13 +85,19 @@ export function SubscriptionSection() {
       </Box>
 
       {checkoutState === "success" ? (
-        <Alert severity="success">
-          Your payment was completed. Updating your Bear A Hand Pro access...
+        <Alert severity={subscription?.active === true && !subscriptionQuery.isError ? "success" : pollAttempts >= 10 ? "warning" : "info"}>
+          {subscription?.active === true && !subscriptionQuery.isError
+            ? "Premium access confirmed."
+            : pollAttempts >= 10
+              ? "Access is not confirmed yet. Processing may be delayed. Refresh access or contact support; do not repeat checkout to resolve this."
+              : "Checkout returned. Processing subscription access—waiting for server confirmation. This does not confirm a payment."}
         </Alert>
       ) : null}
       {checkoutState === "canceled" ? (
-        <Alert severity="info">Checkout was canceled. No subscription changes were made.</Alert>
+        <Alert severity="info">Checkout was canceled. Current access is shown below.</Alert>
       ) : null}
+      {checkoutState === "failed" || checkoutState === "failure" ? <Alert severity="error">Checkout could not be completed. Review your current subscription before retrying.</Alert> : null}
+      <Button onClick={() => { setPollAttempts(0); void subscriptionQuery.refetch(); }} disabled={subscriptionQuery.isFetching}>Refresh access</Button>
 
       {subscriptionQuery.isPending ? (
         <Stack direction="row" spacing={1.5} alignItems="center">
@@ -103,36 +112,47 @@ export function SubscriptionSection() {
       {subscription ? (
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ sm: "center" }}>
           <Chip
-            label={subscription.active ? "Premium active" : "Standard access"}
+            label={subscription.active && !subscriptionQuery.isError ? "Premium active" : "Free Preview access"}
             color={subscription.active ? "primary" : "default"}
           />
-          <Typography fontWeight={600}>{planLabel(subscription.plan)}</Typography>
+          <Typography fontWeight={600}>{plansQuery.data?.plans.find((plan) => plan.id === subscription.plan)?.name ?? (subscription.plan === "free" ? "Free Preview" : "Current plan")}</Typography>
         </Stack>
       ) : null}
 
       <Divider />
 
+      {subscription?.active === true ? (
+        <Typography role="status" variant="body2">
+          Premium access is already active. Use billing management for your existing subscription.
+        </Typography>
+      ) : null}
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-        {(Object.entries(SUBSCRIPTION_PLANS) as [SubscriptionPlan, (typeof SUBSCRIPTION_PLANS)[SubscriptionPlan]][]).map(
-          ([plan, details]) => (
-            <Box key={plan} sx={{ flex: 1, border: 1, borderColor: "divider", borderRadius: 1, p: 2 }}>
+        {plansQuery.data?.plans.map(
+          (details) => (
+            <Box key={details.id} sx={{ flex: 1, border: 1, borderColor: "divider", borderRadius: 1, p: 2 }}>
               <Typography fontWeight={700}>{details.name}</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
-                {details.billingLabel}
+                {formatPlanPrice(details.amount_minor, plansQuery.data.currency)} / {details.interval}
               </Typography>
               <Button
                 fullWidth
-                variant={plan === "pro_annual" ? "contained" : "outlined"}
+                variant={details.id === "pro_annual" ? "contained" : "outlined"}
                 startIcon={<CreditCardOutlinedIcon />}
-                disabled={pendingPlan !== null}
-                onClick={() => void startCheckout(plan)}
+                disabled={checkoutDisabled}
+                onClick={() => void startCheckout(details.id)}
               >
-                {pendingPlan === plan ? "Opening checkout..." : `Choose ${details.billingLabel}`}
+                {pendingPlan === details.id ? "Opening checkout..." : `Choose ${details.interval === "month" ? "Monthly" : "Annual"}`}
               </Button>
             </Box>
           ),
         )}
       </Stack>
+      {plansQuery.isPending ? <Typography role="status">Loading plans...</Typography> : null}
+      {plansQuery.isError ? <Alert severity="error" action={<Button onClick={() => void plansQuery.refetch()}>Retry plans</Button>}>Unable to load plans. Checkout is unavailable until prices can be verified.</Alert> : null}
+      {plansQuery.data ? <Typography variant="body2" color="text.secondary">
+        {plansQuery.data.trial_days}-day trial. The selected plan renews automatically at the displayed price per interval after the trial unless canceled before renewal. Cancel through Manage Billing; access follows your subscription end date. Review final checkout terms. Billing is currently under sandbox validation, not a claim of live payment availability.
+      </Typography> : null}
+      {subscription?.ends_at ? <Typography variant="body2">Access end: {new Date(subscription.ends_at).toLocaleString()}</Typography> : null}
 
       {hasStripeSubscription ? (
         <Button

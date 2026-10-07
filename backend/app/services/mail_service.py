@@ -10,6 +10,8 @@ from app.core.config import settings
 
 
 class MailSender(Protocol):
+    def send_email_verification(self, recipient: str, token: str) -> None: ...
+
     def send_password_reset(self, recipient: str, token: str) -> None: ...
 
     def send_recovery_email_verification(self, recipient: str, code: str) -> None: ...
@@ -25,6 +27,16 @@ class SmtpMailSender:
     ) -> None:
         self.smtp_settings = smtp_settings if smtp_settings is not None else settings.SMTP_SETTINGS
         self.frontend_url = (frontend_url or settings.FRONTEND_URL).rstrip("/")
+
+    def send_email_verification(self, recipient: str, token: str) -> None:
+        verify_url = f"{self.frontend_url}/verify-email?{urlencode({'token': token})}"
+        self._send(self._message(
+            recipient,
+            "Verify your Bear A Hand Sports sign-in email",
+            "Verify your Bear A Hand Sports sign-in email:\n\n"
+            f"{verify_url}\n\n"
+            "This link expires in 60 minutes. If you did not request this, ignore this email.",
+        ))
 
     def send_password_reset(self, recipient: str, token: str) -> None:
         host = str(self.smtp_settings.get("host", "")).strip()

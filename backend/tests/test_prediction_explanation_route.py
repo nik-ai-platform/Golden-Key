@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
-from app.auth.dependencies import require_analyst
+from app.auth.dependencies import get_current_user
 from app.auth.schemas import AuthUser
 from app.main import app
 from app.models.prediction_record import Prediction
@@ -52,11 +52,11 @@ def test_prediction_explanation_route_returns_expected_contract(monkeypatch):
     from app.api.v1 import predictions as predictions_router
 
     app.dependency_overrides[predictions_router.get_db] = _override_get_db
-    app.dependency_overrides[require_analyst] = lambda: AuthUser(
+    app.dependency_overrides[get_current_user] = lambda: AuthUser(
         id=1,
         username="analyst",
         email="analyst@example.com",
-        role="analyst",
+        role="admin",
         is_active=True,
     )
 
@@ -121,11 +121,11 @@ def test_prediction_explanation_route_returns_404_when_missing_prediction():
     from app.api.v1 import predictions as predictions_router
 
     app.dependency_overrides[predictions_router.get_db] = _override_get_db
-    app.dependency_overrides[require_analyst] = lambda: AuthUser(
+    app.dependency_overrides[get_current_user] = lambda: AuthUser(
         id=1,
         username="analyst",
         email="analyst@example.com",
-        role="analyst",
+        role="admin",
         is_active=True,
     )
 

@@ -164,7 +164,7 @@ describe("Parlay Optimizer", () => {
   });
 
   it("keeps the no-qualified-parlay state", async () => {
-    vi.mocked(optimizeParlay).mockRejectedValueOnce(new Error("No qualified parlay"));
+    vi.mocked(optimizeParlay).mockRejectedValueOnce({ status: 422, message: "Not enough qualified predictions to build a 6-leg parlay" });
     renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "Build Best Parlay" }));
@@ -172,6 +172,23 @@ describe("Parlay Optimizer", () => {
     expect(
       await screen.findByText("No qualified parlay is available for that leg count right now."),
     ).toBeTruthy();
+  });
+
+  it.each([0, 403, 422, 500])("does not present an API %s failure as an empty result", async (status) => {
+    vi.mocked(optimizeParlay).mockRejectedValueOnce({ status, message: "Request failed" });
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Build Best Parlay" }));
+    expect(await screen.findByText("Unable to build the parlay. Check your connection or access and try again.")).toBeTruthy();
+    expect(screen.queryByText("No qualified parlay is available for that leg count right now.")).toBeNull();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+  });
+
+  it("treats the known market-mix eligibility failure as an empty state", async () => {
+    vi.mocked(optimizeParlay).mockRejectedValueOnce({ status: 422, message: "Qualified predictions cannot satisfy the requested market mix" });
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Build Best Parlay" }));
+    expect(await screen.findByText("No qualified parlay is available for that leg count right now.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
   });
 
   it("renders unavailable risk and a deprecated null edge without fabricating metrics", async () => {

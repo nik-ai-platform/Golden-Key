@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database.base import Base
-from app.auth.dependencies import require_viewer
+from app.auth.dependencies import get_current_user
 from app.auth.schemas import AuthUser
 from app.main import app
 from app.models.game import Game
@@ -632,11 +632,11 @@ def test_optimize_route_forwards_requested_legs_and_sport(monkeypatch):
             return {"leg_count": leg_count, "sport": sport, "legs": []}
 
     app.dependency_overrides[parlays_router.get_db] = override_db
-    app.dependency_overrides[require_viewer] = lambda: AuthUser(
+    app.dependency_overrides[get_current_user] = lambda: AuthUser(
         id=1,
         username="viewer",
         email="viewer@example.com",
-        role="viewer",
+        role="admin",
         is_active=True,
     )
     monkeypatch.setattr(parlays_router, "ParlayOptimizerService", FakeOptimizer)

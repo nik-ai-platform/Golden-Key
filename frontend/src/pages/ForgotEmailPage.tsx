@@ -82,6 +82,13 @@ export function ForgotEmailPage() {
             <Button type="submit" variant="contained" disabled={loading}>
               {loading ? "Please wait..." : requested ? "Verify code" : "Send recovery code"}
             </Button>
+            {requested ? <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+              <Button disabled={loading} onClick={() => { setRequested(false); setCode(""); setError(""); }}>Change recovery address</Button>
+              <Button disabled={loading} onClick={() => {
+                setLoading(true); setError("");
+                void forgotEmail(recoveryEmail).catch(() => setError("Account recovery is temporarily unavailable. Please try again later.")).finally(() => setLoading(false));
+              }}>Resend recovery code</Button>
+            </Stack> : null}
           </>
         )}
         <Link component={RouterLink} to="/login" textAlign="center">Back to sign in</Link>

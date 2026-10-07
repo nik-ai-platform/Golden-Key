@@ -5,6 +5,7 @@ from typing import Any
 import stripe
 
 from app.core.config import settings
+from app.services.launch_plans import LAUNCH_TRIAL_DAYS
 
 
 class StripeSandboxConfigurationError(RuntimeError):
@@ -57,7 +58,7 @@ class StripeGateway:
                 "metadata": metadata,
                 "subscription_data": {
                     "metadata": metadata,
-                    "trial_period_days": 7,
+                    "trial_period_days": LAUNCH_TRIAL_DAYS,
                 },
                 **customer,
             }
@@ -88,3 +89,6 @@ class StripeGateway:
             subscription_id,
             params={"expand": ["items.data.price"]},
         )
+
+    def retrieve_price(self, price_id: str) -> Any:
+        return self.client.v1.prices.retrieve(price_id)

@@ -28,6 +28,7 @@ import { Link as RouterLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { MobileNav } from "../components/MobileNav";
 import { ThemeToggleButton } from "../components/ThemeToggleButton";
+import { CustomerLinks } from "../components/CustomerLinks";
 
 const drawerWidth = 208;
 
@@ -180,6 +181,7 @@ export function AppLayout() {
           <Typography variant="caption" color="text.secondary">
             Bear A Hand Sports Intelligence
           </Typography>
+          <CustomerLinks />
         </Box>
       </Box>
       <MobileNav />

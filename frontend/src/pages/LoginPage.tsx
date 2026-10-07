@@ -4,6 +4,7 @@ import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../hooks/useAuth";
 import { ThemeToggleButton } from "../components/ThemeToggleButton";
+import { CustomerLinks } from "../components/CustomerLinks";
 
 export function LoginPage() {
   const { isAuthenticated, login } = useAuth();
@@ -25,7 +26,7 @@ export function LoginPage() {
 
     try {
       await login(email, password);
-      const redirectPath = (location.state as { from?: string } | null)?.from ?? "/";
+      const redirectPath = (location.state as { from?: string } | null)?.from ?? "/dashboard";
       navigate(redirectPath, { replace: true });
     } catch {
       setError("Login failed. Check credentials and try again.");
@@ -51,6 +52,7 @@ export function LoginPage() {
               <Link component={RouterLink} to="/forgot-password">Forgot password?</Link>
               <Link component={RouterLink} to="/forgot-email">Forgot email?</Link>
             </Stack>
+            <CustomerLinks />
             <Button type="submit" variant="contained" color="primary" disabled={loading}>
               {loading ? "Signing in..." : "Sign In"}
             </Button>

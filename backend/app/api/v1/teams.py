@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_analyst, require_viewer
+from app.core.premium import require_premium_user
 from app.database.session import get_db
 from app.schemas.team_intelligence import TeamIntelligence
 
@@ -42,7 +43,8 @@ def get_teams(
 
 @router.get(
     "/{team_id}/intelligence",
-    response_model=TeamIntelligence
+    response_model=TeamIntelligence,
+    dependencies=[Depends(require_premium_user)],
 )
 def get_team_intelligence(
     team_id: int,
@@ -57,7 +59,7 @@ def get_team_intelligence(
     )
 
 
-@router.get("/{team_id}/intelligence/detail")
+@router.get("/{team_id}/intelligence/detail", dependencies=[Depends(require_premium_user)])
 def get_team_intelligence_detail(
     team_id: int,
     _current_user=Depends(require_viewer),

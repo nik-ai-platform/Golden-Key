@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import require_owner_or_admin, require_viewer
+from app.auth.dependencies import get_auth_service, require_owner_or_admin, require_viewer
 from app.auth.hashing import HashingService
 from app.auth.schemas import AuthUser
 from app.auth.service import AuthenticationService
@@ -72,7 +72,12 @@ def _get_or_create_bankroll(db: Session, user_id: int) -> Bankroll:
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-def register(payload: RegisterRequest, db: Session = Depends(get_db)):
+def register(
+    payload: RegisterRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    auth: AuthenticationService = Depends(get_auth_service),
+):
     if not payload.accept_terms:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Terms acceptance is required")
 
@@ -94,7 +99,9 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         is_active=True,
     )
 
-    AuthenticationService().request_email_verification(db, str(payload.email))
+    delivery = auth.request_email_verification(db, str(payload.email))
+    if delivery is not None:
+        background_tasks.add_task(auth.deliver_email_verification, delivery)
 
     return {
         "user_id": user.id,

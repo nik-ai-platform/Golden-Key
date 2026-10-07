@@ -17,6 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
 import { SubscriptionSection } from "../components/SubscriptionSection";
+import { EmailVerificationSection } from "../components/EmailVerificationSection";
 import { useAuth } from "../hooks/useAuth";
 import { getProfile } from "../services/productApi";
 import { changePassword, setRecoveryEmail, verifyRecoveryEmail } from "../services/authService";
@@ -61,11 +62,14 @@ export function ProductProfilePage() {
 
   if (query.isError) {
     return (
+      <Stack spacing={3}>
       <ErrorState
         kind="generic"
         detail="Unable to load profile right now."
         onRetry={() => void query.refetch()}
       />
+      <SubscriptionSection />
+      </Stack>
     );
   }
 
@@ -193,8 +197,7 @@ export function ProductProfilePage() {
 
                 <Chip
                   size="small"
-                  label={user.premium ? "Premium" : "Standard"}
-                  color={user.premium ? "primary" : "default"}
+                  label="See canonical subscription status below"
                   sx={{ mt: 1 }}
                 />
               </Box>
@@ -204,6 +207,8 @@ export function ProductProfilePage() {
 
             <SubscriptionSection />
 
+            <Divider />
+            <EmailVerificationSection email={user.email} onConfirmed={() => void query.refetch()} />
             <Divider />
 
             <Stack spacing={2} component="form" onSubmit={requestVerification}>

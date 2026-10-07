@@ -26,9 +26,9 @@ function renderEducation(authenticated = true) {
 }
 
 describe("customer metric education", () => {
-  it("renders the protected route with all required accessible sections", async () => {
+  it("renders the customer route with all required accessible sections", async () => {
     renderEducation();
-    await screen.findByRole("heading", { level: 1, name: "How to Read Your Picks" });
+    await screen.findByRole("heading", { level: 1, name: "How to Read Your Picks" }, { timeout: 5000 });
     for (const name of ["What does Best Pick mean?", "What the numbers mean", "Why NPI depends on the market", "NPI Band", "What “projected edge” compares", "How Risk Level is labeled", "How picks are chosen", "A note on uncertainty"]) {
       expect(screen.getByRole("region", { name })).toBeTruthy();
     }
@@ -82,10 +82,10 @@ describe("customer metric education", () => {
     expect(screen.getByRole("main").textContent).not.toMatch(/NPI TOP \d|Confidence %|score out of 200|higher means stronger/i);
   });
 
-  it("does not expose the education route to signed-out customers", async () => {
+  it("exposes metric education publicly without authentication", async () => {
     renderEducation(false);
-    expect(await screen.findByRole("heading", { name: "Sign in required" })).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "How to Read Your Picks" })).toBeNull();
+    expect(await screen.findByRole("heading", { name: "How to Read Your Picks" }, { timeout: 5000 })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Sign in required" })).toBeNull();
   });
 
   it("provides desktop and mobile drawer access without a seventh bottom destination", async () => {

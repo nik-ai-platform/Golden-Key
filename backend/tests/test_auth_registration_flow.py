@@ -5,12 +5,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.api.v1 import product
 from app.core.roles import UserRole
 from app.database.session import get_db
 from app.main import app
 from app.models.subscription import Subscription
 from app.models.user import User
+from app.models.auth_state import AUTH_STATE_MODELS
+from app.models.application_entitlement import ApplicationEntitlement
 
 
 @pytest.fixture
@@ -21,7 +22,10 @@ def auth_client():
         poolclass=StaticPool,
     )
     User.__table__.create(bind=engine)
+    for model in AUTH_STATE_MODELS:
+        model.__table__.create(bind=engine)
     Subscription.__table__.create(bind=engine)
+    ApplicationEntitlement.__table__.create(bind=engine)
     session_factory = sessionmaker(bind=engine)
 
     def override_db():
@@ -38,7 +42,7 @@ def auth_client():
     engine.dispose()
 
 
-def test_register_login_me_and_subscription_flow(auth_client, monkeypatch):
+def test_register_login_me_and_subscription_flow(auth_client):
     client, session_factory = auth_client
     credentials = {
         "username": "new_customer",
@@ -83,27 +87,12 @@ def test_register_login_me_and_subscription_flow(auth_client, monkeypatch):
     assert me_response.json()["email"] == credentials["email"]
     assert me_response.json()["role"] == "viewer"
 
-    monkeypatch.setattr(
-        product.service,
-        "get_today_predictions",
-        lambda **_: {
-            "sport": None,
-            "slate_date": "2026-09-01",
-            "count": 0,
-            "predictions": [],
-        },
-    )
     product_response = client.get(
         "/api/v1/product/predictions/today",
         headers={"Authorization": f"Bearer {tokens['access_token']}"},
     )
-    assert product_response.status_code == 200
-    assert product_response.json() == {
-        "sport": None,
-        "slate_date": "2026-09-01",
-        "count": 0,
-        "predictions": [],
-    }
+    assert product_response.status_code == 403
+    assert "detail" in product_response.json()
 
     refresh_response = client.post(
         "/api/v1/auth/refresh",

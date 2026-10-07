@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 from fastapi import HTTPException
+import pytest
 
 from app.auth.dependencies import require_analyst
 from app.auth.dependencies import require_admin
@@ -7,6 +8,8 @@ from app.auth.dependencies import get_current_user as auth_get_current_user
 from app.auth.schemas import AuthUser
 from app.main import app
 from app.models.model_performance import ModelPerformance
+
+pytestmark = pytest.mark.usefixtures("admin_api_contract")
 
 
 def test_models_list_route_returns_registry_rows():
@@ -244,6 +247,7 @@ def test_admin_can_promote_active_model_version(monkeypatch):
 
 
 def test_analyst_cannot_promote_active_model_version(monkeypatch):
+    monkeypatch.setattr("app.core.premium.has_active_entitlement", lambda *_: True)
     class _FakeRegistry:
         def set_active_version(self, _sport, _version):
             raise HTTPException(status_code=500, detail="should not be called")

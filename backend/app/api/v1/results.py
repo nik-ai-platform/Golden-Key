@@ -6,6 +6,8 @@ from fastapi import (
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
+from app.auth.dependencies import require_admin
+from app.core.premium import require_premium_user
 
 from app.schemas.prediction_result import (
     PredictionResultCreate,
@@ -25,7 +27,8 @@ router = APIRouter(
 
 @router.post(
     "/",
-    response_model=PredictionResultResponse
+    response_model=PredictionResultResponse,
+    dependencies=[Depends(require_admin)],
 )
 def create_result(
     result: PredictionResultCreate,
@@ -40,7 +43,8 @@ def create_result(
 
 @router.get(
     "/",
-    response_model=list[PredictionResultResponse]
+    response_model=list[PredictionResultResponse],
+    dependencies=[Depends(require_premium_user)],
 )
 def results(
     db: Session = Depends(get_db)

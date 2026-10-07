@@ -1,6 +1,6 @@
 from enum import Enum
 
-from sqlalchemy import Column, DateTime, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Column, DateTime, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.sql import func
 
 from app.database.base import Base
@@ -21,6 +21,10 @@ class ProviderSubscriptionEvent(Base):
             "external_event_id",
             name="uq_provider_subscription_event_identity",
         ),
+        Index(
+            "ix_provider_event_subscription_chronology",
+            "provider", "external_subscription_id", "processing_status", "provider_created_at",
+        ),
     )
 
     id = Column(Integer, primary_key=True)
@@ -29,6 +33,7 @@ class ProviderSubscriptionEvent(Base):
     event_type = Column(String, nullable=False)
     external_subscription_id = Column(String, nullable=True)
     received_at = Column(DateTime(timezone=True), nullable=False)
+    provider_created_at = Column(DateTime(timezone=True), nullable=True)
     processed_at = Column(DateTime(timezone=True), nullable=True)
     processing_status = Column(String, nullable=False)
     error_message = Column(Text, nullable=True)

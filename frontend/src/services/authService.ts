@@ -69,3 +69,13 @@ export async function getCurrentUser(): Promise<AuthUser> {
     is_active: data.is_active ?? true,
   };
 }
+
+export async function requestEmailVerification(email: string): Promise<MessageResponse> {
+  const { data } = await client.post<MessageResponse>("/auth/email-verification", { email });
+  return data;
+}
+
+export async function confirmEmailVerification(token: string): Promise<MessageResponse> {
+  const { data } = await client.post<MessageResponse>("/auth/email-verification/confirm", { token });
+  return data;
+}

@@ -117,6 +117,11 @@ export function ParlayOptimizerPage() {
   const mutation = useMutation({
     mutationFn: () => optimizeParlay(legCount),
   });
+  const noQualifiedParlay = typeof mutation.error === "object" && mutation.error !== null
+    && "status" in mutation.error && mutation.error.status === 422
+    && "message" in mutation.error && typeof mutation.error.message === "string"
+    && (mutation.error.message.startsWith("Not enough qualified predictions to build ")
+      || mutation.error.message === "Qualified predictions cannot satisfy the requested market mix");
 
   return (
     <Stack spacing={4}>
@@ -154,8 +159,12 @@ export function ParlayOptimizerPage() {
       </Stack>
 
       {mutation.isError ? (
-        <Alert severity="info">
-          No qualified parlay is available for that leg count right now.
+        <Alert severity={noQualifiedParlay ? "info" : "error"} action={!noQualifiedParlay ? (
+          <Button disabled={mutation.isPending} onClick={() => mutation.mutate()}>Retry</Button>
+        ) : undefined}>
+          {noQualifiedParlay
+            ? "No qualified parlay is available for that leg count right now."
+            : "Unable to build the parlay. Check your connection or access and try again."}
         </Alert>
       ) : null}
 

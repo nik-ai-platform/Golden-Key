@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ForgotEmailPage } from "../../src/pages/ForgotEmailPage";
 import { ForgotPasswordPage } from "../../src/pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "../../src/pages/ResetPasswordPage";
+import { VerifyEmailPage } from "../../src/pages/VerifyEmailPage";
 import { ProductProfilePage } from "../../src/pages/ProductProfilePage";
 import { ThemeModeProvider } from "../../src/theme/ThemeModeProvider";
 import * as authService from "../../src/services/authService";
@@ -21,6 +22,8 @@ vi.mock("../../src/services/authService", () => ({
   verifyForgotEmail: vi.fn(),
   setRecoveryEmail: vi.fn(),
   verifyRecoveryEmail: vi.fn(),
+  requestEmailVerification: vi.fn(),
+  confirmEmailVerification: vi.fn(),
 }));
 
 vi.mock("../../src/services/productApi", () => ({
@@ -32,6 +35,7 @@ vi.mock("../../src/services/subscriptionService", async (importOriginal) => {
   return {
     ...original,
     getSubscription: vi.fn(),
+    getPlans: vi.fn().mockResolvedValue({ currency: "USD", trial_days: 7, plans: [], premium_benefits: [] }),
     createCheckoutSession: vi.fn(),
     createBillingPortalSession: vi.fn(),
     redirectToExternal: vi.fn(),
@@ -140,6 +144,7 @@ describe("account recovery", () => {
     fireEvent.change(screen.getByLabelText(/^Recovery email/), {
       target: { value: "secondary@example.com" },
     });
+
     fireEvent.click(screen.getByRole("button", { name: "Send recovery code" }));
     fireEvent.change(await screen.findByLabelText(/^Recovery code/), {
       target: { value: "123456" },
@@ -154,6 +159,34 @@ describe("account recovery", () => {
     });
   });
 
+  it("resends recovery codes and safely resets the flow to change address", async () => {
+    vi.mocked(authService.forgotEmail).mockResolvedValue({ message: "Generic response" });
+    renderPage(<ForgotEmailPage />, "/forgot-email");
+    fireEvent.change(screen.getByLabelText(/^Recovery email/), { target: { value: "first@example.test" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send recovery code" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Resend recovery code" }));
+    await waitFor(() => expect(authService.forgotEmail).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect((screen.getByRole("button", { name: "Change recovery address" }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole("button", { name: "Change recovery address" }));
+    expect(screen.queryByLabelText(/^Recovery code/)).toBeNull();
+    expect((screen.getByLabelText(/^Recovery email/) as HTMLInputElement).disabled).toBe(false);
+  });
+
+  it("resends and confirms the current sign-in email without changing it", async () => {
+    vi.mocked(productApi.getProfile).mockResolvedValue({ id: 1, username: "customer", email: "customer@example.test", premium: false });
+    vi.mocked(authService.requestEmailVerification).mockResolvedValue({ message: "Neutral" });
+    vi.mocked(authService.confirmEmailVerification).mockResolvedValue({ message: "Confirmed" });
+    renderProfile();
+    fireEvent.click(await screen.findByRole("button", { name: "Resend email verification" }));
+    await waitFor(() => expect(authService.requestEmailVerification).toHaveBeenCalledWith("customer@example.test"));
+    expect(await screen.findByText(/If this address is eligible/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(/^Email verification token/), { target: { value: "opaque-test-token" } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm email verification" }));
+    expect(await screen.findByText("Email verification confirmed.")).toBeTruthy();
+    expect(authService.confirmEmailVerification).toHaveBeenCalledWith("opaque-test-token");
+    expect(authService.setRecoveryEmail).not.toHaveBeenCalled();
+  });
+
   it("keeps support fallback and theme control", () => {
     renderPage(<ForgotEmailPage />, "/forgot-email");
 
@@ -162,6 +195,17 @@ describe("account recovery", () => {
       "mailto:support@nik-ai-platform.com",
     );
     expect(screen.getByRole("button", { name: "Switch to dark mode" })).toBeTruthy();
+  });
+
+  it("requires explicit email confirmation rather than consuming a token on page load", async () => {
+    vi.mocked(authService.confirmEmailVerification).mockResolvedValue({ message: "Confirmed" });
+    renderPage(<VerifyEmailPage />, "/verify-email?token=local-verification-token");
+    expect((screen.getByLabelText(/^Email verification token/) as HTMLInputElement).value).toBe("local-verification-token");
+    expect(authService.confirmEmailVerification).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm email verification" }));
+    expect(await screen.findByText(/Email verification confirmed.*sign in/)).toBeTruthy();
+    expect(authService.confirmEmailVerification).toHaveBeenCalledWith("local-verification-token");
+    expect(screen.queryByLabelText(/^Email verification token/)).toBeNull();
   });
 
   it("configures and verifies a recovery email from Profile", async () => {

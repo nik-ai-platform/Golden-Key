@@ -78,7 +78,7 @@ def postgres():
 def migrated(postgres):
     database, _, _ = postgres
     with database.engine.begin() as connection:
-        command.upgrade(migration_config(connection), "head")
+        command.upgrade(migration_config(connection), "e7b4c2d9a610")
     return postgres
 
 
@@ -170,7 +170,7 @@ def test_migration_upgrade_downgrade_upgrade_business_schema_unchanged(postgres)
             table: connection.execute(text(f'SELECT row_to_json(t)::text FROM "{table}" t ORDER BY id')).scalars().all()
             for table in before
         }
-        command.upgrade(migration_config(connection), "head")
+        command.upgrade(migration_config(connection), "e7b4c2d9a610")
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "e7b4c2d9a610"
         assert schema_snapshot(connection) == before
         inspector = inspect(connection)
@@ -193,7 +193,7 @@ def test_migration_upgrade_downgrade_upgrade_business_schema_unchanged(postgres)
         command.downgrade(migration_config(connection), "c8d2f6a109b4")
         assert not set(inspect(connection).get_table_names()) & {table.name for table in TABLES}
         assert schema_snapshot(connection) == before
-        command.upgrade(migration_config(connection), "head")
+        command.upgrade(migration_config(connection), "e7b4c2d9a610")
         assert_migration_model_agreement(connection, schema)
         assert schema_snapshot(connection) == before
         for table, rows in originals.items():
