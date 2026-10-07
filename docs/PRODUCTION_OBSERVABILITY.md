@@ -104,6 +104,25 @@ into production Compose. Enabling the flag in a worker process opts into
 instrumentation; the additive migration must already exist. This change does not
 enable telemetry or apply migrations.
 
+Before worker rollout, validate the actual production image (Python 3.12), not
+only a newer developer interpreter. The runtime smoke test imports all telemetry
+and worker modules in fresh interpreters and exercises each disabled worker's
+startup, polling pass and original exit using mocked business dependencies.
+It does not contact providers or a database. Tests are excluded from the image,
+so mount the test file read-only:
+
+```sh
+docker run --rm --network none \
+  -e REQUIRE_PRODUCTION_PYTHON312=1 \
+  -v "$PWD/backend/tests/test_worker_production_runtime.py:/app/tests/test_worker_production_runtime.py:ro" \
+  --entrypoint python golden-key-backend:production \
+  /app/tests/test_worker_production_runtime.py -v
+```
+
+Incomplete runtime-evaluated `typing.Generator` annotations can prevent imports
+on Python 3.12 even when telemetry is disabled. Generator return annotations
+must include yield, send and return types.
+
 ## Phase 1A.2: best-effort worker instrumentation
 
 The shared worker adapter registers one UUID per `run_forever` process and one

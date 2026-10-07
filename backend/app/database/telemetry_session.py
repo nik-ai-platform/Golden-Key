@@ -102,7 +102,7 @@ class TelemetryDatabase:
             return self._engine
 
     @contextmanager
-    def transaction(self) -> Generator[Session]:
+    def transaction(self) -> Generator[Session, None, None]:
         try:
             self.engine
             if self._factory is None:
