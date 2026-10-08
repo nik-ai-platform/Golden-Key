@@ -3,6 +3,7 @@ from __future__ import annotations
 import smtplib
 import ssl
 from email.message import EmailMessage
+from email.utils import formataddr
 from typing import Any, Protocol
 from urllib.parse import urlencode
 
@@ -39,20 +40,13 @@ class SmtpMailSender:
         ))
 
     def send_password_reset(self, recipient: str, token: str) -> None:
-        host = str(self.smtp_settings.get("host", "")).strip()
-        from_email = str(self.smtp_settings.get("from_email", "")).strip()
-        if not host or not from_email or "<" in host or "<" in from_email:
-            raise RuntimeError("SMTP delivery is not configured")
-
         reset_url = f"{self.frontend_url}/reset-password?{urlencode({'token': token})}"
-        message = EmailMessage()
-        message["Subject"] = "Reset your Bear A Hand Sports password"
-        message["From"] = from_email
-        message["To"] = recipient
-        message.set_content(
+        message = self._message(
+            recipient,
+            "Reset your Bear A Hand Sports password",
             "A password reset was requested for your Bear A Hand Sports account.\n\n"
             f"Reset your password: {reset_url}\n\n"
-            "This link expires in 20 minutes. If you did not request this, ignore this email."
+            "This link expires in 20 minutes. If you did not request this, ignore this email.",
         )
 
         self._send(message)
@@ -82,9 +76,12 @@ class SmtpMailSender:
         from_email = str(self.smtp_settings.get("from_email", "")).strip()
         if not host or not from_email or "<" in host or "<" in from_email:
             raise RuntimeError("SMTP delivery is not configured")
+        from_name = str(self.smtp_settings.get("from_name", "")).strip()
+        if any(character in from_name for character in "\r\n"):
+            raise RuntimeError("SMTP sender name is invalid")
         message = EmailMessage()
         message["Subject"] = subject
-        message["From"] = from_email
+        message["From"] = formataddr((from_name, from_email)) if from_name else from_email
         message["To"] = recipient
         message.set_content(body)
         return message

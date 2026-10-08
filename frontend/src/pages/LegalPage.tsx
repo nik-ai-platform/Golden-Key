@@ -1,6 +1,8 @@
 import { Alert, Link, Stack, Typography } from "@mui/material";
 import { useLocation } from "react-router-dom";
 
+import { CUSTOMER_SUPPORT_MAILTO } from "../data/customerSupport";
+
 const documents: Record<string, { title: string; sections: [string, string][] }> = {
   "/terms": { title: "Terms of service", sections: [
     ["Use and eligibility", "Bear A Hand Sports provides sports analytics and educational information, not wagering execution or financial advice. Use only if you are of legal age and permitted to use this service where you live. You are responsible for local laws and your decisions."],
@@ -40,6 +42,6 @@ export function LegalPage() {
       <Typography component="h2" variant="h5">{heading}</Typography>
       <Typography sx={{ lineHeight: 1.8 }}>{text}</Typography>
     </Stack>)}
-    {pathname === "/support" ? <Link href="mailto:support@nik-ai-platform.com">Email support (opens your email application)</Link> : null}
+    {pathname === "/support" ? <Link href={CUSTOMER_SUPPORT_MAILTO}>Email support (opens your email application)</Link> : null}
   </Stack>;
 }

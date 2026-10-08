@@ -120,6 +120,12 @@ records must remain untouched.
 - Attorney review of Terms, Privacy, responsible-gaming, disclaimer, trial,
   renewal, cancellation and refund language.
 - Confirm support mailbox ownership, staffing and response expectations.
+- Public support and outgoing customer mail use `owner@bearahandllc.com`, with
+  sender name `Bear A Hand Sports Support`. Public links share the frontend
+  support configuration. SMTP examples use placeholders; confirm provider
+  STARTTLS settings, mailbox send/receive capability and available two-factor
+  authentication before any approved real-delivery test. Private administrator
+  identity is not published or changed by the support-identity hotfix.
 - Confirm the configured Stripe sandbox prices match approved offers.
 - Review auth/chronology migrations and forced-login impact before rollout.
 - Separately approve any real-provider sandbox exercise or future production

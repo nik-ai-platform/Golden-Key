@@ -43,6 +43,26 @@ The service returns an `EmailVerificationDelivery` for callers (including
 registration and onboarding) to queue with `deliver_email_verification`; it never sends synchronously.
 No sign-in address-change endpoint is introduced.
 
+## Customer mail identity
+
+The intended customer sender is
+`Bear A Hand Sports Support <owner@bearahandllc.com>`. Configure `SMTP_SETTINGS`
+with separate `from_email` (`owner@bearahandllc.com`) and `from_name`
+(`Bear A Hand Sports Support`) fields; do not place a formatted display name
+in `from_email`. Use the public mailbox as the SMTP username. The optional
+`from_name` preserves address-only headers when omitted by existing installations.
+All four authentication message types use the same sender configuration.
+
+Environment examples contain placeholders, not validated provider settings or
+credentials. Confirm the SMTP host, port and encryption in the mailbox provider.
+The current sender supports SMTP with STARTTLS (`use_tls: true`, commonly port
+587); it does not implement implicit SMTPS/SSL on port 465. Never disable TLS
+to work around a provider mismatch. Real delivery requires a separately approved
+secrets update and delivery check; this hotfix performs neither.
+Keep private administrator credentials separate from public support identity.
+Mailbox send/receive tests, available two-factor authentication, unique passwords,
+domain authorization and actual delivery are still unverified.
+
 Explicit maintenance, from the backend directory with the configured Python
 environment and `PYTHONPATH` including that directory:
 

@@ -79,6 +79,12 @@ for (const width of [320, 390, 600, 900, 1440]) {
     await education.focus();
     await page.keyboard.press("Enter");
     await expect(page.getByRole("heading", { name: "How to Read Your Picks" })).toBeVisible();
+    await page.goto("/forgot-email");
+    const recoverySupport = page.getByRole("link", { name: "Contact support." });
+    await expect(recoverySupport).toHaveAttribute("href", "mailto:owner@bearahandllc.com");
+    await recoverySupport.focus();
+    await expect(recoverySupport).toBeFocused();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     for (const [path, title] of [
       ["/terms", "Terms of service"], ["/privacy", "Privacy notice"],
       ["/responsible-gaming", "Responsible gaming"], ["/disclaimer", "Prediction disclaimer"], ["/support", "Support"],
@@ -86,6 +92,12 @@ for (const width of [320, 390, 600, 900, 1440]) {
       await page.goto(path);
       await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
       await expect(page.getByText(/Operational draft for attorney review/)).toBeVisible();
+      if (path === "/support") {
+        const support = page.getByRole("link", { name: "Email support (opens your email application)" });
+        await expect(support).toHaveAttribute("href", "mailto:owner@bearahandllc.com");
+        await support.focus();
+        await expect(support).toBeFocused();
+      }
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     }
     expect(requests.filter((path) => path !== "/api/v1/subscriptions/plans")).toEqual([]);

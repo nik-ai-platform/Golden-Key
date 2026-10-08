@@ -192,7 +192,7 @@ describe("account recovery", () => {
 
     expect(screen.getByText(/Can't access your recovery email/i)).toBeTruthy();
     expect(screen.getByRole("link", { name: /Contact support/ }).getAttribute("href")).toBe(
-      "mailto:support@nik-ai-platform.com",
+      "mailto:owner@bearahandllc.com",
     );
     expect(screen.getByRole("button", { name: "Switch to dark mode" })).toBeTruthy();
   });

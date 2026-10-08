@@ -77,6 +77,10 @@ This sequence gets a usable app quickly and validates API contracts incrementall
   expressly an operational draft requiring attorney review; contact identity,
   mailbox ownership, jurisdiction and consumer-rights details are launch gates.
   The support mailto opens the customer's email application and sends nothing.
+- `src/data/customerSupport.ts` centralizes the public support mailbox,
+  `owner@bearahandllc.com`, for support and account-recovery links. Mailbox
+  ownership, send/receive capability, staffing and two-factor setup remain
+  operational checks, not claims established by this code.
 - Authentication grants dashboard slate overview and `/profile`, not paid data.
   Free overview reads only `GET /api/v1/product/preview`:
   `{sport, count, games:[{game_id,sport,league,home_team,away_team,start_time,status}]}`.

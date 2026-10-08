@@ -3,6 +3,7 @@ import { FormEvent, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 
 import { RecoveryLayout } from "../components/RecoveryLayout";
+import { CUSTOMER_SUPPORT_MAILTO } from "../data/customerSupport";
 import { forgotEmail, verifyForgotEmail } from "../services/authService";
 
 export function ForgotEmailPage() {
@@ -94,7 +95,7 @@ export function ForgotEmailPage() {
         <Link component={RouterLink} to="/login" textAlign="center">Back to sign in</Link>
         <Typography variant="body2" color="text.secondary" textAlign="center">
           Can't access your recovery email?{" "}
-          <Link href="mailto:support@nik-ai-platform.com">Contact support.</Link>
+          <Link href={CUSTOMER_SUPPORT_MAILTO}>Contact support.</Link>
         </Typography>
       </Stack>
     </RecoveryLayout>
