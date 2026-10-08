@@ -94,6 +94,10 @@ This sequence gets a usable app quickly and validates API contracts incrementall
   `{currency,trial_days,plans:[{id,name,amount_minor,interval}],premium_benefits}`.
   Currency is formatted using `Intl.NumberFormat`; no client-owned prices,
   price IDs or fees. Failed configuration disables plan purchase.
+- The approved offer is USD 9.99 every month or USD 89.99 every year with a
+  seven-day trial. Annual copy uses "Save about 25%", derived from API amounts,
+  not an exact three-month-free promise. Stripe annual price configuration
+  remains a separate operator step; the legacy annual price must not be reused.
 - `/profile?checkout=success` polls canonical subscription state up to ten
   times at two-second intervals, stops on active access, and offers an
   accessible refresh after timeout/error. Canceled/failed returns grant no

@@ -19,7 +19,8 @@ from app.models.provider_subscription import ProviderSubscription
 from app.models.provider_subscription_event import ProviderSubscriptionEvent
 from app.models.user import User
 from app.services.entitlement_service import has_active_entitlement
-from app.services.stripe_subscription_service import PremiumCheckoutConflict, create_checkout_session, process_verified_stripe_event
+from app.services.stripe_subscription_service import PremiumCheckoutConflict, StripeEventProcessingError, create_checkout_session, process_verified_stripe_event
+from app.core.config import settings
 from test_stripe_subscription_service import FakeStripeGateway, _stripe_event, _stripe_subscription
 
 
@@ -87,6 +88,25 @@ def test_concurrent_duplicate_events_process_once(billing_postgres):
     with billing_postgres() as db:
         assert db.query(ProviderSubscriptionEvent).count() == 1
         assert db.query(ApplicationEntitlement).count() == 1
+
+
+@pytest.mark.parametrize("plan,amount", [("pro_monthly", 999), ("pro_annual", 8999)])
+def test_checkout_offer_validation_in_fresh_postgres_sessions(billing_postgres, monkeypatch, plan, amount):
+    price_id = f"price_test_{plan}"
+    monkeypatch.setattr(settings, "STRIPE_PRICE_IDS", {plan: price_id})
+    with billing_postgres() as db:
+        gateway = FakeStripeGateway()
+        assert gateway.retrieve_price(price_id)["unit_amount"] == amount
+        create_checkout_session(db, gateway, user=db.get(User, 1), plan=plan)
+        assert len(gateway.checkout_calls) == 1
+    with billing_postgres() as db:
+        gateway = FakeStripeGateway()
+        price = gateway.retrieve_price(price_id)
+        price["unit_amount"] = 9999
+        monkeypatch.setattr(gateway, "retrieve_price", lambda _: price)
+        with pytest.raises(StripeEventProcessingError, match="approved offer"):
+            create_checkout_session(db, gateway, user=db.get(User, 1), plan=plan)
+        assert not gateway.checkout_calls
 
 
 @pytest.mark.parametrize("status", ["active", "trialing"])

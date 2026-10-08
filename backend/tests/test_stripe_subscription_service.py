@@ -103,6 +103,33 @@ def test_checkout_rejects_unconfirmed_provider_price(database, monkeypatch, fiel
     assert not gateway.checkout_calls
 
 
+@pytest.mark.parametrize("plan,amount", [
+    ("pro_monthly", 1000), ("pro_annual", 7999),
+    ("pro_annual", 9999), ("pro_annual", 8991),
+])
+def test_checkout_rejects_retired_or_exact_free_month_prices(database, monkeypatch, plan, amount):
+    db, _ = database
+    gateway = FakeStripeGateway()
+    price_id = f"price_test_{plan}"
+    price = gateway.retrieve_price(price_id)
+    price["unit_amount"] = amount
+    monkeypatch.setattr(gateway, "retrieve_price", lambda _: price)
+    monkeypatch.setattr(settings, "STRIPE_PRICE_IDS", {plan: price_id})
+    with pytest.raises(StripeEventProcessingError, match="approved offer"):
+        create_checkout_session(db, gateway, user=db.get(User, 1), plan=plan)
+    assert not gateway.checkout_calls
+
+
+def test_annual_checkout_requires_separate_configuration(database, monkeypatch):
+    db, _ = database
+    gateway = FakeStripeGateway()
+    monkeypatch.setattr(settings, "STRIPE_PRICE_IDS", {"pro_monthly": "price_test_monthly"})
+    monkeypatch.setattr(gateway, "retrieve_price", lambda _: pytest.fail("Missing annual price must not call Stripe"))
+    with pytest.raises(StripeEventProcessingError, match="not configured"):
+        create_checkout_session(db, gateway, user=db.get(User, 1), plan="pro_annual")
+    assert not gateway.checkout_calls
+
+
 @pytest.mark.parametrize("status", ["active", "trialing"])
 @pytest.mark.parametrize("provider", ["stripe", "apple"])
 def test_checkout_rejects_existing_canonical_premium_before_provider_calls(database, monkeypatch, status, provider):
@@ -283,7 +310,7 @@ class RecordingStripeClient:
         self.v1.prices = type("Prices", (), {})()
         self.v1.prices.retrieve = lambda price_id: {
             "id": price_id, "active": True, "livemode": False, "currency": "usd",
-            "unit_amount": 7999 if "annual" in price_id else 1000,
+            "unit_amount": 8999 if "annual" in price_id else 999,
             "recurring": {"interval": "year" if "annual" in price_id else "month", "interval_count": 1},
         }
         self.instances.append(self)
@@ -330,7 +357,7 @@ class FakeStripeGateway:
         annual = "annual" in price_id
         return {
             "id": price_id, "active": True, "livemode": False, "currency": "usd",
-            "unit_amount": 7999 if annual else 1000,
+            "unit_amount": 8999 if annual else 999,
             "recurring": {"interval": "year" if annual else "month", "interval_count": 1},
         }
 

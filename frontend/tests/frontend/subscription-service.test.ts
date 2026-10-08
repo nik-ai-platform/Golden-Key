@@ -7,6 +7,7 @@ import {
   getSubscription,
   getPlans,
   formatPlanPrice,
+  annualSavingsLabel,
 } from "../../src/services/subscriptionService";
 
 vi.mock("../../src/api/client", () => ({
@@ -22,8 +23,19 @@ describe("subscription service", () => {
     vi.mocked(client.get).mockResolvedValue({ data: { currency: "USD", plans: [] } });
     await getPlans();
     expect(client.get).toHaveBeenCalledWith("/subscriptions/plans");
-    expect(formatPlanPrice(1000, "USD")).toBe("$10.00");
-    expect(formatPlanPrice(7999, "USD")).toBe("$79.99");
+    expect(formatPlanPrice(999, "USD")).toBe("$9.99");
+    expect(formatPlanPrice(8999, "USD")).toBe("$89.99");
+  });
+
+  it("derives rounded annual savings from server amounts without an exact free-month claim", () => {
+    const plans = [
+      { id: "pro_monthly" as const, name: "Monthly", amount_minor: 999, interval: "month" as const },
+      { id: "pro_annual" as const, name: "Annual", amount_minor: 8999, interval: "year" as const },
+    ];
+    expect(annualSavingsLabel(plans)).toBe("Save about 25% with annual billing.");
+    expect(annualSavingsLabel(plans.slice(1))).toBeNull();
+    expect(annualSavingsLabel([plans[0], { ...plans[1], amount_minor: 11988 }])).toBeNull();
+    expect(annualSavingsLabel([{ ...plans[0], amount_minor: 0 }, plans[1]])).toBeNull();
   });
 
   it("loads canonical subscription state", async () => {

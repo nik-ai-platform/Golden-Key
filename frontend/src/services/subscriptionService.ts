@@ -17,6 +17,15 @@ export function formatPlanPrice(amountMinor: number, currency: string): string {
   return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(amountMinor / 100);
 }
 
+export function annualSavingsLabel(plans: ProductPlans["plans"]): string | null {
+  const monthly = plans.find((plan) => plan.id === "pro_monthly" && plan.interval === "month");
+  const annual = plans.find((plan) => plan.id === "pro_annual" && plan.interval === "year");
+  if (!monthly || !annual || !Number.isFinite(monthly.amount_minor) ||
+    !Number.isFinite(annual.amount_minor) || monthly.amount_minor <= 0 || annual.amount_minor <= 0) return null;
+  const savings = Math.round((1 - annual.amount_minor / (monthly.amount_minor * 12)) * 100);
+  return savings > 0 ? `Save about ${savings}% with annual billing.` : null;
+}
+
 export interface ProviderSubscription {
   provider: string;
   plan: string;

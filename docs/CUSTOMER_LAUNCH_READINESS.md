@@ -42,8 +42,21 @@ The shared server configuration exposed at `/api/v1/subscriptions/plans` is:
 
 | Plan | Renewal price | Interval | Trial |
 | --- | --- | --- | --- |
-| `pro_monthly` | USD 10.00 | Monthly | Seven days |
-| `pro_annual` | USD 79.99 | Annually | Seven days |
+| `pro_monthly` | USD 9.99 | Monthly | Seven days |
+| `pro_annual` | USD 89.99 | Annually | Seven days |
+
+Annual marketing uses "Save about 25%" (approximately 24.93% versus twelve
+monthly payments), or "Nearly three months free." Do not claim exactly three
+months free: nine monthly payments total USD 89.91, eight cents below the
+annual price. Frontend savings language derives from the server amounts.
+
+Preserve an existing monthly Stripe Price ID only after verifying it resolves
+to active test-mode USD 9.99/month. The legacy annual price is not the approved
+offer: a new active test-mode USD 89.99/year Price must be created and configured
+separately by an authorized operator. No real Price ID is provided or committed
+by this correction. Until configured, annual checkout fails closed; billing
+management and existing subscription history remain unchanged. Do not modify
+existing subscriptions or rewrite historical provider prices.
 
 The frontend formats these minor-unit amounts and uses the same benefits and
 trial definition. Before creating checkout, the backend verifies that the

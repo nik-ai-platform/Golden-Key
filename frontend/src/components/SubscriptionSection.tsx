@@ -7,6 +7,7 @@ import { useSearchParams } from "react-router-dom";
 
 import {
   getPlans,
+  annualSavingsLabel,
   formatPlanPrice,
   createBillingPortalSession,
   createCheckoutSession,
@@ -151,6 +152,9 @@ export function SubscriptionSection() {
       {plansQuery.isError ? <Alert severity="error" action={<Button onClick={() => void plansQuery.refetch()}>Retry plans</Button>}>Unable to load plans. Checkout is unavailable until prices can be verified.</Alert> : null}
       {plansQuery.data ? <Typography variant="body2" color="text.secondary">
         {plansQuery.data.trial_days}-day trial. The selected plan renews automatically at the displayed price per interval after the trial unless canceled before renewal. Cancel through Manage Billing; access follows your subscription end date. Review final checkout terms. Billing is currently under sandbox validation, not a claim of live payment availability.
+      </Typography> : null}
+      {plansQuery.data && annualSavingsLabel(plansQuery.data.plans) ? <Typography variant="body2">
+        {annualSavingsLabel(plansQuery.data.plans)}
       </Typography> : null}
       {subscription?.ends_at ? <Typography variant="body2">Access end: {new Date(subscription.ends_at).toLocaleString()}</Typography> : null}
 

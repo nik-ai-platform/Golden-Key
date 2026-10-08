@@ -51,8 +51,8 @@ describe("subscription section", () => {
     vi.mocked(subscriptionService.getPlans).mockResolvedValue({
       currency: "USD", trial_days: 7,
       plans: [
-        { id: "pro_monthly", name: "Bear A Hand Pro Monthly", amount_minor: 1000, interval: "month" },
-        { id: "pro_annual", name: "Bear A Hand Pro Annual", amount_minor: 7999, interval: "year" },
+        { id: "pro_monthly", name: "Bear A Hand Pro Monthly", amount_minor: 999, interval: "month" },
+        { id: "pro_annual", name: "Bear A Hand Pro Annual", amount_minor: 8999, interval: "year" },
       ], premium_benefits: ["Full picks"],
     });
   });
@@ -209,8 +209,9 @@ describe("subscription section", () => {
 
   it("displays authoritative prices and renewal/trial terms", async () => {
     renderSection();
-    expect(await screen.findByText("$10.00 / month")).toBeTruthy();
-    expect(screen.getByText("$79.99 / year")).toBeTruthy();
+    expect(await screen.findByText("$9.99 / month")).toBeTruthy();
+    expect(screen.getByText("$89.99 / year")).toBeTruthy();
+    expect(screen.getByText("Save about 25% with annual billing.")).toBeTruthy();
     expect(screen.getByText(/7-day trial.*renews automatically/)).toBeTruthy();
     expect(screen.getByText(/sandbox validation/)).toBeTruthy();
   });

@@ -100,7 +100,7 @@ def test_public_offer_config_matches_approved_prices():
     result = subscriptions.launch_plans()
     assert result["currency"] == "USD" and result["trial_days"] == 7
     assert {p["id"]: p["amount_minor"] for p in result["plans"]} == {
-        "pro_monthly": 1000, "pro_annual": 7999,
+        "pro_monthly": 999, "pro_annual": 8999,
     }
 
 

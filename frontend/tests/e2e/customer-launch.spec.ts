@@ -3,8 +3,8 @@ import { expect, test, type Page } from "@playwright/test";
 const plans = {
   currency: "USD", trial_days: 7,
   plans: [
-    { id: "pro_monthly", name: "Bear A Hand Pro Monthly", amount_minor: 1000, interval: "month" },
-    { id: "pro_annual", name: "Bear A Hand Pro Annual", amount_minor: 7999, interval: "year" },
+    { id: "pro_monthly", name: "Bear A Hand Pro Monthly", amount_minor: 999, interval: "month" },
+    { id: "pro_annual", name: "Bear A Hand Pro Annual", amount_minor: 8999, interval: "year" },
   ], premium_benefits: ["Full picks and game analysis"],
 };
 const free = { entitlement_key: "premium", plan: "free", status: "inactive", active: false, starts_at: null, ends_at: null, provider_subscriptions: [] };
@@ -71,8 +71,9 @@ for (const width of [320, 390, 600, 900, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "A clearer view of the game." })).toBeVisible();
-    await expect(page.getByText(/Monthly: \$10.00 \/ month/)).toBeVisible();
-    await expect(page.getByText(/Annual: \$79.99 \/ year/)).toBeVisible();
+    await expect(page.getByText(/Monthly: \$9.99 \/ month/)).toBeVisible();
+    await expect(page.getByText(/Annual: \$89.99 \/ year/)).toBeVisible();
+    await expect(page.getByText("Save about 25% with annual billing.")).toBeVisible();
     await expect(page.getByText(/7-day trial/)).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     const education = page.getByRole("link", { name: "Metric education", exact: true });
@@ -122,6 +123,8 @@ for (const width of [320, 390, 600, 900, 1440]) {
       await page.keyboard.press("Enter");
       await expect(page).toHaveURL(/\/profile$/);
       await expect(page.getByRole("button", { name: "Choose Monthly" })).toBeVisible();
+      await expect(page.getByText("$9.99 / month", { exact: true })).toBeVisible();
+      await expect(page.getByText("$89.99 / year", { exact: true })).toBeVisible();
     }
     expect(requests.some((path) => /\/(predictions|games|parlays|product\/(daily|upcoming|saved|performance))/.test(path))).toBe(false);
   });

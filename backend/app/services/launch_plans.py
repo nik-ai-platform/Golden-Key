@@ -20,11 +20,11 @@ class PublicLaunchPlans(TypedDict):
 LAUNCH_PLANS: dict[str, LaunchPlan] = {
     "pro_monthly": {
         "id": "pro_monthly", "name": "Bear A Hand Pro Monthly",
-        "amount_minor": 1000, "interval": "month",
+        "amount_minor": 999, "interval": "month",
     },
     "pro_annual": {
         "id": "pro_annual", "name": "Bear A Hand Pro Annual",
-        "amount_minor": 7999, "interval": "year",
+        "amount_minor": 8999, "interval": "year",
     },
 }
 LAUNCH_CURRENCY = "USD"
