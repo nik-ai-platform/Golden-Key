@@ -20,7 +20,10 @@ describe("DashboardHero", () => {
     const heading = screen.getByRole("heading", { name: "THE GAME. THE DATA. YOUR EDGE." });
     expect(styleAtBreakpoint(heading, 0, "font-size")).toBe("2.6rem");
     expect(styleAtBreakpoint(heading, 600, "font-size")).toBe("3.4rem");
-    expect(screen.getByRole("img").getAttribute("src")).toBe("/bear-hero.jpg");
+    const artwork = screen.getByRole("img", {
+      name: /Complete Bear A Hand Sports artwork with bear, globe, charts, wordmark/,
+    });
+    expect(artwork.getAttribute("src")).toBe("/Bear_A_Hand_Sports_FullColor.jpg");
     expect(screen.queryByText(/68%/)).toBeNull();
     expect(screen.getByRole("link", { name: "Explore picks" }).getAttribute("href")).toBe("#upcoming-games-heading");
   });

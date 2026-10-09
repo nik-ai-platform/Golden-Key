@@ -74,11 +74,13 @@ export function ProductGameCard({ predictions }: ProductGameCardProps) {
     <Card
       data-testid="game-card"
       data-game-id={game.game_id}
-      variant="outlined"
+      className="gk-card"
       sx={{
-        borderRadius: 3,
+        borderRadius: "var(--gk-radius-md)",
         overflow: "hidden",
         height: "100%",
+        backgroundColor: "var(--gk-surface)",
+        boxShadow: "var(--gk-shadow-sm)",
       }}
     >
       <CardContent sx={{ p: { xs: 2, md: 3 }, "&:last-child": { pb: { xs: 2, md: 3 } } }}>
@@ -102,7 +104,7 @@ export function ProductGameCard({ predictions }: ProductGameCardProps) {
                 </Typography>
               </Stack>
 
-              <Typography variant="h5" fontWeight={700}>
+              <Typography variant="h5" fontWeight={850} sx={{ fontSize: { xs: "1.25rem", sm: "1.55rem" } }}>
                 {game.away_team} @ {game.home_team}
               </Typography>
             </Box>
@@ -110,7 +112,7 @@ export function ProductGameCard({ predictions }: ProductGameCardProps) {
             <Button
               component={RouterLink}
               to={`/games/${game.game_id}`}
-              variant="outlined"
+              variant="contained"
               startIcon={<InsightsOutlinedIcon />}
               sx={{ alignSelf: { xs: "stretch", sm: "flex-start" } }}
             >
@@ -122,7 +124,7 @@ export function ProductGameCard({ predictions }: ProductGameCardProps) {
 
           <Box>
             <Typography variant="h6" fontWeight={700}>
-              Nik AI Predictions
+              Bear A Hand Sports Predictions
             </Typography>
 
             <Typography variant="body2" color="text.secondary">
@@ -137,14 +139,24 @@ export function ProductGameCard({ predictions }: ProductGameCardProps) {
                 size={{ xs: 12, md: 4 }}
               >
                 <Box
+                  data-testid="market-prediction-card"
+                  data-best-pick={prediction.prediction_id === bestPrediction?.prediction_id}
                   sx={{
-                    border: "1px solid",
-                    borderColor: "divider",
-                    borderRadius: 2,
-                    p: 2,
+                    position: "relative",
+                    backgroundColor: "var(--gk-surface-raised)",
+                    borderRadius: "var(--gk-radius-sm)",
+                    p: { xs: 1.75, sm: 2 },
                     height: "100%",
                     display: "flex",
                     flexDirection: "column",
+                    boxShadow: "inset 0 1px 0 rgba(237, 244, 250, 0.035)",
+                    ...(prediction.prediction_id === bestPrediction?.prediction_id
+                      ? {
+                          borderLeft: "3px solid var(--gk-lime)",
+                          backgroundColor: "rgba(164, 239, 24, 0.075)",
+                          boxShadow: "inset 0 0 24px rgba(164, 239, 24, 0.035)",
+                        }
+                      : {}),
                   }}
                 >
                   <Stack spacing={1.5} sx={{ height: "100%" }}>
@@ -160,8 +172,13 @@ export function ProductGameCard({ predictions }: ProductGameCardProps) {
                       {prediction.prediction_id === bestPrediction?.prediction_id ? (
                         <Chip
                           label="Bear A Hand Sports Best Pick"
-                          color="primary"
                           size="small"
+                          sx={{
+                            color: "#060d14",
+                            backgroundColor: "var(--gk-lime)",
+                            fontWeight: 800,
+                            boxShadow: "0 0 16px rgba(164, 239, 24, 0.18)",
+                          }}
                         />
                       ) : null}
                       {prediction.recommendation_designation ? (
@@ -174,12 +191,12 @@ export function ProductGameCard({ predictions }: ProductGameCardProps) {
                       ) : null}
                     </Stack>
 
-                    <Typography variant="h6" fontWeight={700}>
+                    <Typography variant="h6" fontWeight={800} sx={{ lineHeight: 1.35, overflowWrap: "anywhere" }}>
                       {prediction.display_selection}
                     </Typography>
 
                     {prediction.american_odds != null ? (
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography className="gk-data" variant="body2" sx={{ color: "var(--gk-cyan)", fontWeight: 700 }}>
                         Odds {formatAmericanOdds(prediction.american_odds)}
                       </Typography>
                     ) : null}
@@ -195,7 +212,7 @@ export function ProductGameCard({ predictions }: ProductGameCardProps) {
                           NPI
                         </Typography>
 
-                        <Typography fontWeight={700}>
+                        <Typography className="gk-data" fontWeight={700}>
                           {formatNpi(prediction.npi_score)}
                         </Typography>
                       </Box>
@@ -205,7 +222,7 @@ export function ProductGameCard({ predictions }: ProductGameCardProps) {
                           Confidence Rating
                         </Typography>
 
-                        <Typography fontWeight={700}>
+                        <Typography className="gk-data" fontWeight={700}>
                           {formatConfidence(prediction.confidence_score)}
                         </Typography>
                       </Box>

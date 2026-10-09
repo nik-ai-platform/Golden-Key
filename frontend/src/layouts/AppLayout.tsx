@@ -136,29 +136,57 @@ export function AppLayout() {
         <Box
           data-testid="brand-artwork-banner"
           sx={{
-            height: { xs: 104, sm: 136, md: 152 },
-            display: "flex",
+            height: { xs: 136, sm: 176, md: 192 },
+            display: "grid",
+            gridTemplateRows: "minmax(0, 1fr)",
+            gridTemplateColumns: { xs: "38% 62%", sm: "30% 70%" },
             alignItems: "center",
-            justifyContent: "center",
             overflow: "hidden",
-            backgroundColor: "#071521",
+            background: "linear-gradient(100deg, #06111b 0%, #0a1b29 55%, #071521 100%)",
             borderTop: "1px solid rgba(0, 212, 255, 0.34)",
           }}
         >
           <Box
             component="img"
             src="/Bear_A_Hand_Sports_FullColor.jpg"
-            alt="Complete Bear A Hand Sports brand artwork, including its bear, globe, and lettering. Numbers in the artwork are decorative branding, not live prediction metrics."
-            width={1374}
-            height={1145}
+            alt="Bear A Hand Sports artwork featuring the bear, globe, surrounding graphics, and original lettering; embedded numbers are decorative, not live model metrics."
             sx={{
               display: "block",
-              width: "auto",
+              justifySelf: "center",
+              width: "100%",
               height: "100%",
-              maxWidth: "100%",
+              minWidth: 0,
+              minHeight: 0,
+              maxHeight: "100%",
               objectFit: "contain",
             }}
           />
+          <Box
+            sx={{
+              minWidth: 0,
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              px: { xs: 1, sm: 2 },
+              background: "radial-gradient(ellipse at 48% 55%, rgba(0, 212, 255, 0.09), transparent 70%)",
+              borderLeft: "1px solid rgba(0, 212, 255, 0.16)",
+            }}
+          >
+            <Box
+              component="img"
+              src="/Bear_A_Hand_Sports_Wordmark.png"
+              alt="Original metallic Bear A Hand Sports wordmark"
+              sx={{
+                display: "block",
+                width: "min(92%, 860px)",
+                height: "auto",
+                maxHeight: "74%",
+                objectFit: "contain",
+              }}
+            />
+          </Box>
         </Box>
       </AppBar>
 
@@ -199,7 +227,7 @@ export function AppLayout() {
         {navigation()}
       </Drawer>
 
-      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, sm: 2.25 }, pb: { xs: "calc(88px + env(safe-area-inset-bottom))", sm: 2.25 }, mt: { xs: "162px", sm: "194px", md: "210px" } }}>
+      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, sm: 2.25 }, pb: { xs: "calc(88px + env(safe-area-inset-bottom))", sm: 2.25 }, mt: { xs: "194px", sm: "234px", md: "250px" } }}>
         <Outlet />
         <Box component="footer" sx={{ mt: 2.5, pt: 1.5, borderTop: "1px solid", borderTopColor: "divider" }}>
           <Typography variant="caption" color="text.secondary">

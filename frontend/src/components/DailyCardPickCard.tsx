@@ -34,13 +34,13 @@ export function DailyCardPickCard({
   const teamIdentity = getPredictionTeamIdentity(prediction);
   const emphasisColor = {
     default: "var(--gk-border)",
-    featured: "var(--gk-gold)",
-    premium: "var(--gk-gold-bright)",
+    featured: "var(--gk-lime)",
+    premium: "var(--gk-lime)",
     analytics: "var(--gk-analytics)",
   }[resolvedEmphasis];
   const emphasisBackground = {
     default: "var(--gk-surface)",
-    featured: "var(--gk-gold-soft)",
+    featured: "var(--gk-analytics-soft)",
     premium: "var(--gk-surface-raised)",
     analytics: "var(--gk-analytics-soft)",
   }[resolvedEmphasis];
@@ -60,15 +60,15 @@ export function DailyCardPickCard({
         data-testid={`${testIdPrefix}-${pick.role.toLowerCase().replace(/_/g, "-")}`}
         sx={{
           position: "relative",
-          borderColor: "var(--gk-gold)",
+          borderColor: "var(--gk-lime)",
           borderRadius: "var(--gk-radius-sm)",
           backgroundColor: "var(--gk-surface-raised)",
-          boxShadow: "none",
+          boxShadow: "0 14px 36px rgba(0, 0, 0, 0.26), 0 0 22px rgba(164, 239, 24, 0.07)",
           overflow: "hidden",
         }}
       >
         <TeamAccent identity={teamIdentity} variant="glow" testId="best-bet-team-accent" />
-        <Box sx={{ height: 3, backgroundColor: "var(--gk-gold-bright)" }} />
+        <Box sx={{ height: 3, backgroundColor: "var(--gk-lime)" }} />
         <CardContent sx={{ position: "relative", p: { xs: 1.5, md: 2 }, "&:last-child": { pb: { xs: 1.5, md: 2 } } }}>
           <Box
             sx={{
@@ -81,9 +81,8 @@ export function DailyCardPickCard({
               <Box>
                 <Typography
                   variant="overline"
-                  color="primary.main"
                   fontWeight={900}
-                  sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+                  sx={{ color: "var(--gk-lime)", display: "flex", alignItems: "center", gap: 0.5 }}
                 >
                   <StarRoundedIcon sx={{ fontSize: 16 }} />
                   {pick.label}
@@ -100,7 +99,7 @@ export function DailyCardPickCard({
               </Box>
               <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
                 <Chip label={prediction.market} size="small" sx={{ textTransform: "capitalize" }} />
-                {odds ? <Chip label={`Odds ${odds}`} size="small" variant="outlined" /> : null}
+                {odds ? <Chip label={`Odds ${odds}`} size="small" variant="outlined" sx={{ "& .MuiChip-label": { fontFamily: "var(--gk-font-mono)" } }} /> : null}
                 <Stack direction="row" alignItems="center" spacing={0.25}>
                   <Chip label={`NPI ${prediction.npi_score != null && Number.isFinite(prediction.npi_score) ? Math.round(prediction.npi_score) : "Unavailable"}`} size="small" variant="outlined" />
                   <MetricInfoControl metric="npi" market={prediction.market} />
@@ -217,7 +216,7 @@ export function DailyCardPickCard({
         borderColor: emphasisColor,
         borderRadius: "var(--gk-radius-sm)",
         backgroundColor: emphasisBackground,
-        boxShadow: isPremium ? "0 18px 52px rgba(214, 173, 69, 0.12)" : "none",
+        boxShadow: isPremium ? "0 14px 36px rgba(0, 0, 0, 0.26), 0 0 22px rgba(164, 239, 24, 0.07)" : "var(--gk-shadow-sm)",
         overflow: "hidden",
       }}
     >

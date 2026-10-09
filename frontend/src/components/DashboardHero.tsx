@@ -9,7 +9,7 @@ export function DashboardHero() {
       aria-labelledby="dashboard-hero-heading"
       sx={{
         display: "grid",
-        gridTemplateColumns: { xs: "minmax(0, 1fr)", md: "minmax(0, 1.2fr) minmax(240px, 0.8fr)" },
+        gridTemplateColumns: { xs: "minmax(0, 1fr)", md: "minmax(0, 1.1fr) minmax(300px, 0.9fr)" },
         border: "1px solid var(--gk-border-strong)",
         borderRadius: "var(--gk-radius-lg)",
         overflow: "hidden",
@@ -36,14 +36,27 @@ export function DashboardHero() {
           Explore picks
         </Button>
       </Stack>
-      <Box sx={{ backgroundColor: "#060d14", minWidth: 0, display: "flex", justifyContent: "center", alignItems: "center" }}>
+      <Box
+        sx={{
+          backgroundColor: "#060d14",
+          minWidth: 0,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          p: { xs: 1, sm: 1.5 },
+        }}
+      >
         <Box
           component="img"
-          src="/bear-hero.jpg"
-          alt="Bear holding a glowing globe — Bear A Hand Sports brand artwork"
-          width={940}
-          height={1167}
-          sx={{ display: "block", width: "100%", height: { xs: 280, sm: 340, md: "100%" }, maxHeight: { md: 500 }, objectFit: "contain" }}
+          src="/Bear_A_Hand_Sports_FullColor.jpg"
+          alt="Complete Bear A Hand Sports artwork with bear, globe, charts, wordmark, and decorative odds and percentages that are not live model metrics."
+          sx={{
+            display: "block",
+            width: "100%",
+            height: "auto",
+            maxHeight: { md: 520 },
+            objectFit: "contain",
+          }}
         />
       </Box>
     </Box>

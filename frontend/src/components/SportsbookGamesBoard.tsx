@@ -73,9 +73,8 @@ function MarketValue({
         px: 1,
         display: "flex",
         alignItems: "center",
-        border: "1px solid",
-        borderColor: recommended ? "var(--gk-analytics)" : "transparent",
-        backgroundColor: recommended ? "var(--gk-analytics-soft)" : "transparent",
+        borderLeft: recommended ? "2px solid var(--gk-lime)" : "2px solid transparent",
+        backgroundColor: recommended ? "rgba(164, 239, 24, 0.07)" : "transparent",
         color: recommended ? "var(--gk-analytics)" : "text.primary",
       }}
     >

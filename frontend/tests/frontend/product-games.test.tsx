@@ -174,6 +174,14 @@ describe("Games decision screen", () => {
     expect(within(nflCard).getAllByText("83.0")).toHaveLength(3);
     expect(within(nflCard).getAllByText("Bear A Hand Sports Best Pick")).toHaveLength(1);
     expect(within(nbaCard).getAllByText("Bear A Hand Sports Best Pick")).toHaveLength(1);
+    expect(within(nflCard).getAllByTestId("market-prediction-card").filter(
+      (marketCard) => marketCard.getAttribute("data-best-pick") === "true",
+    )).toHaveLength(1);
+    expect(
+      within(nflCard).getByRole("link", { name: /view game analysis/i })
+        .classList.contains("MuiButton-contained"),
+    ).toBe(true);
+    expect(screen.queryByText(/Nik AI/i)).toBeNull();
     expect(within(nbaCard).getByText("High Probability — Low Betting Value")).toBeTruthy();
     expect(within(nbaCard).getByText("Odds -1000")).toBeTruthy();
     expect(
@@ -194,6 +202,7 @@ describe("Games decision screen", () => {
     for (const sport of ["All", "NFL", "NBA", "NCAAF", "NCAAB", "WNBA"]) {
       expect(screen.getByRole("button", { name: sport })).toBeTruthy();
     }
+    expect(screen.getByRole("button", { name: "All" }).getAttribute("aria-pressed")).toBe("true");
 
     fireEvent.click(screen.getByRole("button", { name: "NFL" }));
 
@@ -202,6 +211,7 @@ describe("Games decision screen", () => {
       expect(cards).toHaveLength(1);
       expect(cards[0].getAttribute("data-game-id")).toBe("1");
     });
+    expect(screen.getByRole("button", { name: "NFL" }).getAttribute("aria-pressed")).toBe("true");
     expect(getUpcomingPredictions).toHaveBeenLastCalledWith("NFL");
   });
 

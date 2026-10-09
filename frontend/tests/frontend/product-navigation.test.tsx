@@ -44,7 +44,7 @@ describe("product navigation", () => {
     expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Sign Out" })).toBeTruthy();
     expect(getComputedStyle(document.documentElement).getPropertyValue("--gk-shell-text").trim()).toBe("#edf4fa");
-    const artwork = screen.getByRole("img", { name: /Complete Bear A Hand Sports brand artwork/ });
+    const artwork = screen.getByRole("img", { name: /Bear A Hand Sports artwork featuring the bear/ });
     expect(artwork.getAttribute("src")).toBe("/Bear_A_Hand_Sports_FullColor.jpg");
     expect(screen.getByRole("img", { name: "Bear A Hand Sports wordmark" }).getAttribute("src")).toBe("/Bear_A_Hand_Sports_Wordmark.png");
     expect(screen.queryByText("Sports Intelligence")).toBeNull();
@@ -58,9 +58,9 @@ describe("product navigation", () => {
       screen.getByRole("button", { name: "Games" }).getAttribute("aria-current"),
     ).toBe("page");
     const main = screen.getByRole("main");
-    expect(styleAtBreakpoint(main, 0, "margin-top")).toBe("162px");
-    expect(styleAtBreakpoint(main, 600, "margin-top")).toBe("194px");
-    expect(styleAtBreakpoint(main, 900, "margin-top")).toBe("210px");
+    expect(styleAtBreakpoint(main, 0, "margin-top")).toBe("194px");
+    expect(styleAtBreakpoint(main, 600, "margin-top")).toBe("234px");
+    expect(styleAtBreakpoint(main, 900, "margin-top")).toBe("250px");
     expect(styleAtBreakpoint(main, 0, "padding-bottom")).toBe("calc(88px + env(safe-area-inset-bottom))");
     expect(styleAtBreakpoint(main, 600, "padding-bottom")).toBe("18px");
     const nav = screen.getByTestId("mobile-navigation-shell");

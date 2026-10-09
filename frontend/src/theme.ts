@@ -45,8 +45,8 @@ const brandTokens = {
   "--gk-radius-sm": "8px",
   "--gk-radius-md": "10px",
   "--gk-radius-lg": "12px",
-  "--gk-shadow-sm": "0 0 20px rgba(0, 212, 255, 0.06)",
-  "--gk-shadow-md": "0 0 32px rgba(0, 212, 255, 0.10)",
+  "--gk-shadow-sm": "0 12px 32px rgba(0, 0, 0, 0.22), 0 1px 0 rgba(0, 212, 255, 0.07)",
+  "--gk-shadow-md": "0 20px 48px rgba(0, 0, 0, 0.32), 0 0 28px rgba(0, 212, 255, 0.07)",
   "--gk-motion-fast": "150ms",
   "--gk-motion-normal": "180ms",
   "--gk-motion-slow": "220ms",
@@ -172,8 +172,12 @@ export function createAppTheme(mode: PaletteMode) {
         styleOverrides: {
           root: {
             backgroundImage: "none",
-            borderColor: "var(--gk-border)",
+            backgroundColor: modeTokens["--gk-surface"],
+            borderColor: mode === "dark" ? "rgba(0, 212, 255, 0.13)" : modeTokens["--gk-border"],
             borderRadius: "var(--gk-radius-md)",
+            boxShadow: mode === "dark"
+              ? "0 12px 32px rgba(0, 0, 0, 0.22), 0 1px 0 rgba(0, 212, 255, 0.06)"
+              : "0 12px 28px rgba(17, 21, 27, 0.07)",
           },
         },
       },
@@ -215,6 +219,13 @@ export function createAppTheme(mode: PaletteMode) {
             transition: "transform var(--gk-motion-fast) var(--gk-ease), color var(--gk-motion-fast) var(--gk-ease), background-color var(--gk-motion-fast) var(--gk-ease), border-color var(--gk-motion-fast) var(--gk-ease)",
             "&:active": { transform: "translateY(1px)" },
             "&:focus-visible": { outline: "2px solid var(--gk-gold)", outlineOffset: 2 },
+          },
+          outlined: {
+            borderColor: mode === "dark" ? "rgba(0, 212, 255, 0.48)" : "rgba(0, 103, 125, 0.48)",
+            "&:hover": {
+              borderColor: mode === "dark" ? "#00d4ff" : "#00677d",
+              backgroundColor: mode === "dark" ? "rgba(0, 212, 255, 0.08)" : "rgba(0, 103, 125, 0.06)",
+            },
           },
         },
       },

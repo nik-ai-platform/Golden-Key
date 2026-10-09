@@ -84,25 +84,34 @@ export function ProductGamesPage() {
   return (
     <Stack spacing={3}>
       <Box>
-        <Typography variant="h4" fontWeight={700}>
+        <Typography className="gk-editorial" component="h1" variant="h4" fontWeight={750}>
           Games
         </Typography>
 
         <Typography color="text.secondary" sx={{ mt: 1 }}>
-          Review the next 14 days of matchups and compare Nik AI&apos;s Spread,
+          Review the next 14 days of matchups and compare Bear A Hand Sports Spread,
           Moneyline, and Total picks.
         </Typography>
       </Box>
 
       <Stack
         direction="row"
-        spacing={1}
+        spacing={1.25}
         flexWrap="wrap"
         useFlexGap
+        aria-label="Filter games by sport"
       >
         <Button
           variant={!sport ? "contained" : "outlined"}
+          aria-pressed={!sport}
+          data-testid="sport-filter-all"
           onClick={() => setSearchParams({})}
+          sx={!sport ? {
+            color: "#060d14",
+            background: "var(--gk-lime)",
+            boxShadow: "0 0 18px rgba(164, 239, 24, 0.16)",
+            "&:hover": { background: "#b5f54a", boxShadow: "0 0 22px rgba(164, 239, 24, 0.22)" },
+          } : undefined}
         >
           All
         </Button>
@@ -111,7 +120,15 @@ export function ProductGamesPage() {
           <Button
             key={item}
             variant={sport === item ? "contained" : "outlined"}
+            aria-pressed={sport === item}
+            data-testid={`sport-filter-${item.toLowerCase()}`}
             onClick={() => setSearchParams({ sport: item })}
+            sx={sport === item ? {
+              color: "#060d14",
+              background: "var(--gk-lime)",
+              boxShadow: "0 0 18px rgba(164, 239, 24, 0.16)",
+              "&:hover": { background: "#b5f54a", boxShadow: "0 0 22px rgba(164, 239, 24, 0.22)" },
+            } : undefined}
           >
             {item}
           </Button>
@@ -122,10 +139,16 @@ export function ProductGamesPage() {
         <Stack spacing={2.5}>
           {sections.map((section) => (
             <Box component="section" key={section.dateKey} aria-labelledby={`games-${section.dateKey}`}>
-              <Typography id={`games-${section.dateKey}`} variant="overline" fontWeight={900}>
+              <Typography
+                id={`games-${section.dateKey}`}
+                component="h2"
+                variant="h6"
+                fontWeight={850}
+                sx={{ color: "var(--gk-cyan)", letterSpacing: "0.045em" }}
+              >
                 {formatSectionHeading(section.dateKey)}
               </Typography>
-              <Stack spacing={2.5} sx={{ mt: 1 }}>
+              <Stack spacing={{ xs: 2, md: 2.5 }} sx={{ mt: 1.5 }}>
                 {section.games.map((predictions) => (
                   <ProductGameCard
                     key={predictions[0].game_id}

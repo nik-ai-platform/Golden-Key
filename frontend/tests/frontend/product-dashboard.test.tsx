@@ -453,6 +453,8 @@ describe("daily card dashboard", () => {
     expect(within(selected).getByTestId("game-10-moneyline-value").textContent).toBe("-1000");
     expect(within(opposite).getByTestId("game-10-spread-value").textContent).toBe("—");
     expect(within(opposite).getByTestId("game-10-moneyline-value").textContent).toBe("—");
+    const recommendedSpread = within(selected).getByTestId("game-10-spread-value");
+    expect(recommendedSpread.dataset.recommended).toBe("true");
     expect(screen.getByTestId("game-10-home-score").textContent).toBe("0");
     expect(screen.getByTestId("game-10-away-score").textContent).toBe("7");
     expect(screen.getAllByTestId("game-10-total-row")).toHaveLength(1);

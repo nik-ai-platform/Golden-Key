@@ -71,7 +71,7 @@ for (const width of [320, 390, 430, 600, 900, 1200, 1440]) {
     await expect(page.getByText("Reported model version", { exact: true })).toHaveCount(0);
     await expect(page.getByTestId("upcoming-matchup-count")).toHaveCount(0);
     await expect(page.getByTestId("reported-model-version")).toHaveCount(0);
-    const brandArtwork = page.getByRole("img", { name: /Complete Bear A Hand Sports brand artwork/ });
+    const brandArtwork = page.getByRole("img", { name: /Bear A Hand Sports artwork featuring the bear/ });
     await expect(brandArtwork).toBeVisible();
     await expect(brandArtwork).toHaveAttribute("src", "/Bear_A_Hand_Sports_FullColor.jpg");
     expect(await brandArtwork.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(1374);
@@ -80,20 +80,21 @@ for (const width of [320, 390, 430, 600, 900, 1200, 1440]) {
     const headerBox = (await page.getByTestId("fixed-brand-header").boundingBox())!;
     const controlsBox = (await page.getByTestId("header-controls").boundingBox())!;
     const mainBox = (await page.getByRole("main").boundingBox())!;
-    expect(artworkBox.width / artworkBox.height).toBeCloseTo(1374 / 1145, 2);
+    expect(await brandArtwork.evaluate((image: HTMLImageElement) => getComputedStyle(image).objectFit)).toBe("contain");
     expect(artworkBox.width).toBeLessThanOrEqual(bannerBox.width);
-    expect(artworkBox.height).toBeLessThanOrEqual(bannerBox.height);
+    expect(artworkBox.height).toBeLessThanOrEqual(bannerBox.height + 1);
     expect(controlsBox.y + controlsBox.height).toBeLessThanOrEqual(bannerBox.y);
     expect(mainBox.y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height);
     const wordmark = page.locator('img[alt="Bear A Hand Sports wordmark"]');
     await expect(wordmark).toHaveAttribute("src", "/Bear_A_Hand_Sports_Wordmark.png");
     expect(await wordmark.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(1200);
+    expect(await wordmark.evaluate((image: HTMLImageElement) => getComputedStyle(image).objectFit)).toBe("contain");
     if (width < 600) {
       await page.getByRole("button", { name: "Open navigation" }).click();
       await expect(page.getByRole("img", { name: "Bear A Hand Sports wordmark" })).toBeVisible();
       await page.keyboard.press("Escape");
     } else {
-      await expect(page.getByRole("img", { name: "Bear A Hand Sports wordmark" })).toBeVisible();
+      await expect(wordmark).toBeVisible();
     }
     await expect(page.getByRole("heading", { name: "Model Outcomes" })).toBeVisible();
     await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/favicon.ico");
@@ -123,7 +124,13 @@ for (const width of [320, 390, 430, 600, 900, 1200, 1440]) {
     expect(await outcomes.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await expect(page.getByTestId("npi-pick-label-102")).toContainText("UNDER 47.5");
     await expect(page.getByText("68%", { exact: true })).toHaveCount(0);
-    await expect(page.getByRole("img", { name: /Bear holding a glowing globe/ })).toBeVisible();
+    const heroArtwork = page.getByRole("img", {
+      name: /Complete Bear A Hand Sports artwork with bear, globe, charts, wordmark/,
+    });
+    await expect(heroArtwork).toBeVisible();
+    await expect(heroArtwork).toHaveAttribute("src", "/Bear_A_Hand_Sports_FullColor.jpg");
+    expect(await heroArtwork.evaluate((image: HTMLImageElement) => image.naturalWidth / image.naturalHeight))
+      .toBeCloseTo(1374 / 1145, 2);
     expect(await page.getByText("Bear A Hand Sports", { exact: true }).first().evaluate((element) => getComputedStyle(element).fontFamily)).toContain("Newsreader Variable");
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     for (const sport of ["All", "NFL", "NBA", "NCAAF", "NCAAB", "WNBA"]) {
