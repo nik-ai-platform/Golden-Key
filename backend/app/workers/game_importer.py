@@ -32,6 +32,7 @@ class SourceImportSummary:
     game_date_min: datetime | None = None
     game_date_max: datetime | None = None
     game_ids: list[int] = field(default_factory=list)
+    price_capture_diagnostics: dict[str, int] = field(default_factory=dict)
 
 
 class GameOddsImporter:
@@ -86,7 +87,11 @@ class GameOddsImporter:
                     game, created = self._upsert_game(sport, source, game_data)
                     summary.created += int(created)
                     summary.refreshed += int(not created)
-                    usable_odds = self.import_odds(game, game_data)
+                    usable_odds = self.import_odds(
+                        game,
+                        game_data,
+                        price_capture_diagnostics=summary.price_capture_diagnostics,
+                    )
                     summary.processed += 1
                     summary.usable_odds += int(usable_odds > 0)
                     summary.skipped_no_odds += int(usable_odds == 0)
@@ -168,6 +173,13 @@ class GameOddsImporter:
                 away_team_id=away_team.id,
             )
             self.db.add(game)
+        neutral_site = self._provider_neutral_site(game_data)
+        if neutral_site is not None:
+            game.neutral_site = neutral_site
+        for field_name in ("venue_name", "venue_city", "venue_state"):
+            value = game_data.get(field_name)
+            if isinstance(value, str) and value.strip():
+                setattr(game, field_name, value.strip())
         self.db.commit()
         self.db.refresh(game)
         return game, created
@@ -181,7 +193,8 @@ class GameOddsImporter:
         team = (
             self.db.query(Team)
             .filter(
-                Team.name == name
+                Team.name == name,
+                Team.sport == sport,
             )
             .first()
         )
@@ -201,10 +214,20 @@ class GameOddsImporter:
 
         return team
 
+    @staticmethod
+    def _provider_neutral_site(game_data: dict) -> bool | None:
+        for key in ("neutral_site", "neutralSite"):
+            value = game_data.get(key)
+            if isinstance(value, bool):
+                return value
+        return None
+
     def import_odds(
         self,
         game,
-        game_data
+        game_data,
+        *,
+        price_capture_diagnostics: dict[str, int] | None = None,
     ):
 
         imported_count = 0
@@ -215,7 +238,8 @@ class GameOddsImporter:
             odds = create_odds_snapshot(
                 self.db,
                 game.id,
-                bookmaker
+                bookmaker,
+                price_capture_diagnostics=price_capture_diagnostics,
             )
             if odds is not None:
                 imported_count += 1

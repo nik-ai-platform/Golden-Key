@@ -159,6 +159,69 @@ def test_ncaaf_import_is_idempotent_by_provider_game_id():
     assert games[0].sport == "NCAAF"
 
 
+def test_team_identity_lookup_is_scoped_to_sport():
+    db = _session()
+    nba_team = Team(name="State", sport="NBA", league="NBA")
+    db.add(nba_team)
+    db.commit()
+
+    importer = GameOddsImporter(
+        db=db,
+        live_data_service=MagicMock(fetch_games=MagicMock(return_value=[])),
+    )
+    imported_team = importer.get_or_create_team("State", "NCAAF")
+
+    assert imported_team.id != nba_team.id
+    assert imported_team.sport == "NCAAF"
+
+
+def test_game_importer_preserves_only_explicit_provider_site_metadata():
+    db = _session()
+    live_data = MagicMock()
+    event = _event()
+    event.update(
+        {
+            "neutral_site": True,
+            "venue_name": "Neutral Stadium",
+            "venue_city": "Example City",
+            "venue_state": "TX",
+        }
+    )
+    live_data.fetch_games.return_value = [event]
+    importer = GameOddsImporter(db=db, live_data_service=live_data)
+
+    game = importer.import_games("NCAAF")[0]
+    assert game.neutral_site is True
+    assert (game.venue_name, game.venue_city, game.venue_state) == (
+        "Neutral Stadium",
+        "Example City",
+        "TX",
+    )
+
+    event.pop("neutral_site")
+    event.pop("venue_name")
+    event.pop("venue_city")
+    event.pop("venue_state")
+    importer.import_games("NCAAF")
+    db.refresh(game)
+    assert game.neutral_site is True
+    assert game.venue_name == "Neutral Stadium"
+
+
+def test_game_importer_does_not_infer_neutral_status_from_non_boolean_values():
+    db = _session()
+    live_data = MagicMock()
+    event = _event()
+    event["neutral_site"] = "true"
+    live_data.fetch_games.return_value = [event]
+
+    game = GameOddsImporter(db=db, live_data_service=live_data).import_games(
+        "NCAAF"
+    )[0]
+
+    assert game.neutral_site is None
+
+
 def test_incomplete_legacy_set_is_preserved_and_corrected_version_is_generated():
     db = _session()
     live_data = MagicMock()

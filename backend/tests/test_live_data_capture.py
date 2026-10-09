@@ -21,11 +21,15 @@ from app.models.game_result_observation import GameResultObservation
 from app.models.odds import Odds
 from app.models.prediction_result import PredictionResult
 from app.models.team import Team
+from app.models.team_alias import TeamAlias
+from app.models.team_provider_identity import TeamProviderIdentity
 from app.repositories.odds_repository import SNAPSHOT_FIELDS
 from app.services.final_score_settlement_service import FinalScoreSettlementService
 from app.services.odds_importer import OddsImporter
 from app.services.odds_normalizer_service import OddsNormalizerService
+from app.services.paired_market_prices import paired_market_prices_with_diagnostics
 from app.services.odds_service import OddsService, create_odds_snapshot
+from scripts.report_odds_capture_coverage import build_report
 
 
 @pytest.fixture(params=["sqlite", "postgres"])
@@ -50,6 +54,7 @@ def capture_db(request):
             conn.execute(text("CREATE TABLE import_runs (id INTEGER PRIMARY KEY)"))
         Base.metadata.create_all(engine, tables=[
             Team.__table__, Game.__table__, Odds.__table__, GameResultObservation.__table__,
+            TeamAlias.__table__, TeamProviderIdentity.__table__,
         ])
         with sessionmaker(bind=engine)() as db:
             yield db
@@ -136,6 +141,127 @@ def test_prices_survive_import_and_changed_quotes_append(capture_db, path):
     assert original == {name: getattr(first, name) for name in SNAPSHOT_FIELDS}
     bookmaker["title"] = "Other book"
     assert save().id != reverted.id
+
+
+def test_capture_diagnostics_count_pair_success_and_rejection_reason():
+    bookmaker = quote()
+    prices, diagnostics = paired_market_prices_with_diagnostics(
+        bookmaker,
+        "Home",
+        "Away",
+        spread_home=-4.5,
+        spread_away=4.5,
+        total=170.5,
+    )
+    assert prices["spread_home_price"] == -125
+    assert prices["spread_away_price"] == 105
+    assert diagnostics == {
+        "spread_pair_captured": 1,
+        "total_pair_captured": 1,
+    }
+
+    bookmaker["markets"][0]["outcomes"][0]["point"] = 5.5
+    prices, diagnostics = paired_market_prices_with_diagnostics(
+        bookmaker,
+        "Home",
+        "Away",
+        spread_home=-4.5,
+        spread_away=4.5,
+        total=170.5,
+    )
+    assert prices["spread_home_price"] is None
+    assert diagnostics["spread_line_mismatch"] == 1
+    assert diagnostics["total_pair_captured"] == 1
+
+
+def test_odds_snapshot_collector_accumulates_market_diagnostics(capture_db):
+    game = seed(capture_db)
+    diagnostics = {}
+
+    snapshot = create_odds_snapshot(
+        capture_db,
+        game.id,
+        quote(),
+        monitor=Mock(),
+        price_capture_diagnostics=diagnostics,
+    )
+
+    assert snapshot is not None
+    assert diagnostics == {
+        "spread_pair_captured": 1,
+        "total_pair_captured": 1,
+    }
+
+
+def test_coverage_report_includes_quote_identity_and_explicit_site_status(capture_db):
+    game = seed(capture_db)
+    game.venue_name = "Neutral Arena"
+    home = capture_db.get(Team, game.home_team_id)
+    capture_db.add(
+        TeamProviderIdentity(
+            team_id=home.id,
+            provider="odds_api",
+            sport="WNBA",
+            provider_team_id="home-id",
+            provider_name=home.name,
+        )
+    )
+    capture_db.add(
+        TeamAlias(
+            team_id=home.id,
+            provider="odds_api",
+            alias_name="Home Alias",
+            normalized_alias="homealias",
+        )
+    )
+    capture_db.add_all(
+        [
+            Odds(
+                game_id=game.id,
+                sportsbook="Paired",
+                spread_home=-4.5,
+                spread_away=4.5,
+                spread_home_price=-110,
+                spread_away_price=105,
+                total=170.5,
+                total_over_price=-105,
+                total_under_price=-115,
+                created_at=datetime(2026, 10, 1, 10),
+            ),
+            Odds(
+                game_id=game.id,
+                sportsbook="Legacy",
+                spread_home=-4.5,
+                spread_away=4.5,
+                total=170.5,
+                created_at=datetime(2026, 10, 1, 11),
+            ),
+        ]
+    )
+    capture_db.commit()
+
+    report = build_report(capture_db)
+    row = next(sport for sport in report["sports"] if sport["sport"] == "WNBA")
+
+    assert report["read_only"] is True
+    assert row["spread"] == {
+        "quote_snapshots": 2,
+        "complementary_line_snapshots": 2,
+        "paired_price_snapshots": 1,
+        "one_price_missing_or_invalid": 0,
+        "both_prices_missing_or_invalid": 1,
+        "noncomplementary_line_snapshots": 0,
+    }
+    assert row["spread_since_first_paired_capture"][
+        "quote_snapshots_since_first_pair"
+    ] == 2
+    assert row["spread_since_first_paired_capture"][
+        "paired_price_snapshots_since_first_pair"
+    ] == 1
+    assert row["neutral_site_unknown"] == 1
+    assert row["games_with_explicit_venue"] == 1
+    assert row["team_ids_with_matching_sport_provider_identity"] == 1
+    assert row["team_ids_with_alias"] == 1
 
 
 @pytest.mark.parametrize("change", ["spread", "total", "missing", "invalid", "duplicate"])

@@ -149,12 +149,14 @@ def _run_once(telemetry: WorkerInstrumentation) -> dict[str, dict[str, int | str
                         "Upcoming competition sync sport=%s provider_source=%s league=%s "
                         "fetched=%s processed=%s created=%s refreshed=%s usable_odds=%s "
                         "skipped_no_odds=%s predictions=%s predictions_skipped_no_odds=%s "
-                        "errors=%s game_date_min=%s game_date_max=%s",
+                        "errors=%s game_date_min=%s game_date_max=%s "
+                        "paired_price_capture=%s",
                         sport, source.provider_source, source.league,
                         source.fetched, source.processed, source.created, source.refreshed,
                         source.usable_odds, source.skipped_no_odds, source.predictions,
                         source.predictions_skipped_no_odds, source.errors,
                         source.game_date_min, source.game_date_max,
+                        source.price_capture_diagnostics,
                     )
             if original_fetch is not None:
                 importer.live_data.fetch_games = original_fetch

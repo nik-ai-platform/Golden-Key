@@ -16,6 +16,16 @@ line and moneyline extraction is preserved. Imports lock the game row and compar
 all lines and prices with the latest snapshot for that game/book. Identical
 quotes reuse that snapshot; changes, including price-only changes and reversions,
 append new snapshots without modifying old rows.
+The upcoming-game importer records per-sport/provider rejection counters for
+missing markets, unavailable outcome pairs, line mismatches, invalid or missing
+prices, and successfully captured pairs. These counters are emitted in the
+worker's source summary; they do not alter odds or selection behavior.
+
+Game imports match exact team names within the requested sport. Explicit
+boolean `neutral_site`/`neutralSite` values and non-empty provider venue fields
+are retained. Missing or malformed site values remain unknown; home advantage
+is not inferred. `python -m scripts.report_odds_capture_coverage` prints a
+read-only snapshot, team-identity, venue, and site-status inventory by sport.
 
 Live completed events with valid nonnegative integer scores append an
 `odds_api` GameResultObservation with the actual UTC response receipt time.
@@ -29,11 +39,11 @@ Existing settlement still runs after score capture. Previously settled picks
 are not automatically regraded when scores change.
 
 Deployment requires the exact reviewed source commit, target backend image,
-retained rollback images, and a fresh protected backup after stopping backend
-and both application workers. Verify archive listing and checksum, apply the
-migration using the target image, then recreate only those three services.
-Frontend, database and Caddy must remain unchanged. Never automatically restore
-the database or downgrade on failure.
+retained rollback images, and a fresh protected backup. This collection-only
+change uses existing odds and game columns and requires no migration. Recreate
+only backend and upcoming-game-worker, which execute these import paths.
+Frontend, database, Caddy, and final-score-worker must remain unchanged. Never
+automatically restore the database or downgrade on failure.
 
 Monitor newly inserted paired-price snapshots and live observations by sport,
 using snapshot `created_at` and observation `observed_at` from the cutover onward.
