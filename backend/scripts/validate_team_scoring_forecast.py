@@ -947,7 +947,6 @@ def _split_and_evaluate(targets: list[dict]) -> dict:
             if item["incumbent_home_margin"] is not None
         )
         test_coverage["test_records"] += 1
-        test_coverage[f"earlier_tuning_candidate_errors_{target['sport']}"] += len(candidate_errors)
         if target["candidate_home_margin"] is None:
             test_coverage[f"test_candidate_unavailable_{target['sport']}"] += 1
         else:
@@ -1074,6 +1073,7 @@ def build_report(db) -> dict:
             "ROI is reported only from paired frozen spread prices; missing provider prices are excluded, never imputed.",
             "Missing stored prices on a frozen snapshot cannot be retrospectively attributed to the provider or parser without its original payload; import-time diagnostics support that attribution prospectively.",
             "Current final observation is the evaluation label; only receipt-timestamp-valid prior observations may train a forecast.",
+            "Calibration sample counts collapse tuning targets to one latest prediction per game before each test publication timestamp.",
             "This shadow evaluation does not insert predictions, results, model rows, picks, or optimizer candidates.",
         ],
     }

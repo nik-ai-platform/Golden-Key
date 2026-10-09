@@ -24,7 +24,10 @@ from app.services.team_scoring_walkforward import (
     GamePeriod,
     split_games_chronologically,
 )
-from scripts.validate_team_scoring_forecast import _quote_coverage
+from scripts.validate_team_scoring_forecast import (
+    _quote_coverage,
+    _split_and_evaluate,
+)
 
 
 AS_OF = datetime(2026, 10, 1, tzinfo=UTC)
@@ -422,3 +425,46 @@ def test_quote_coverage_separates_prediction_and_frozen_snapshot_vintages() -> N
     }
     assert by_quote_month["2026-10"]["paired_complementary_prices"] == 1
     assert by_quote_month["2026-09"]["both_prices_missing"] == 1
+
+
+def test_probability_readiness_counts_tuning_games_once_per_test_record() -> None:
+    targets = []
+    first_kickoff = datetime(2026, 1, 1, tzinfo=UTC)
+    for game_id in range(10):
+        kickoff = first_kickoff + timedelta(days=game_id)
+        versions = ("NPI-4.0", "NPI-5.0") if game_id == 9 else ("NPI-4.0",)
+        for version in versions:
+            targets.append(
+                {
+                    "game_id": game_id,
+                    "sport": "NCAAF",
+                    "model_version": version,
+                    "kickoff": kickoff,
+                    "published_at": kickoff - timedelta(hours=2),
+                    "actual_home_margin": float(game_id + 10),
+                    "candidate_home_margin": float(game_id + 8),
+                    "incumbent_home_margin": float(game_id + 9),
+                    "candidate_rejection_reasons": [],
+                    "selection": "HOME",
+                    "spread_home": -3.0,
+                    "spread_away": 3.0,
+                    "line_value": -3.0,
+                    "home_price": -110,
+                    "away_price": -110,
+                }
+            )
+
+    report = _split_and_evaluate(targets)
+
+    calibration = report["candidate_probability_calibration_coverage_by_test_sport"][
+        "NCAAF"
+    ]
+    assert calibration == {
+        "test_prediction_records": 3,
+        "earlier_tuning_error_count_min": 2,
+        "earlier_tuning_error_count_max": 2,
+        "minimum_errors_required": MIN_CALIBRATION_ERRORS,
+        "test_records_with_candidate_margin_and_probability_sample_available": 0,
+    }
+    assert report["test_coverage"]["test_records"] == 3
+    assert "earlier_tuning_candidate_errors_NCAAF" not in report["test_coverage"]
