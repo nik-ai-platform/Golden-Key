@@ -25,7 +25,9 @@ from app.repositories.odds_repository import SNAPSHOT_FIELDS
 from app.services.final_score_settlement_service import FinalScoreSettlementService
 from app.services.odds_importer import OddsImporter
 from app.services.odds_normalizer_service import OddsNormalizerService
+from app.services.paired_market_prices import paired_market_prices_with_diagnostics
 from app.services.odds_service import OddsService, create_odds_snapshot
+from scripts.validate_team_scoring_forecast import _snapshot_price_coverage
 
 
 @pytest.fixture(params=["sqlite", "postgres"])
@@ -136,6 +138,81 @@ def test_prices_survive_import_and_changed_quotes_append(capture_db, path):
     assert original == {name: getattr(first, name) for name in SNAPSHOT_FIELDS}
     bookmaker["title"] = "Other book"
     assert save().id != reverted.id
+
+
+def test_price_capture_diagnostics_distinguish_pair_and_line_failures():
+    bookmaker = quote()
+    prices, diagnostics = paired_market_prices_with_diagnostics(
+        bookmaker,
+        "Home",
+        "Away",
+        spread_home=-4.5,
+        spread_away=4.5,
+        total=170.5,
+    )
+    assert prices["spread_home_price"] == -125
+    assert prices["spread_away_price"] == 105
+    assert diagnostics["spread_pair_captured"] == 1
+
+    bookmaker["markets"][0]["outcomes"][0]["point"] = 5.5
+    prices, diagnostics = paired_market_prices_with_diagnostics(
+        bookmaker,
+        "Home",
+        "Away",
+        spread_home=-4.5,
+        spread_away=4.5,
+        total=170.5,
+    )
+    assert prices["spread_home_price"] is None
+    assert diagnostics["spread_line_mismatch"] == 1
+
+
+def test_odds_snapshot_collector_accumulates_price_pair_diagnostics(capture_db):
+    game = seed(capture_db)
+    diagnostics = {}
+
+    snapshot = create_odds_snapshot(
+        capture_db,
+        game.id,
+        quote(),
+        monitor=Mock(),
+        price_capture_diagnostics=diagnostics,
+    )
+
+    assert snapshot is not None
+    assert diagnostics["spread_pair_captured"] == 1
+    assert diagnostics["total_pair_captured"] == 1
+
+
+def test_snapshot_price_coverage_reports_missing_and_paired_vintages(capture_db):
+    game = seed(capture_db)
+    capture_db.add_all(
+        [
+            Odds(
+                game_id=game.id,
+                sportsbook="Priced",
+                spread_home=-4.5,
+                spread_away=4.5,
+                spread_home_price=-110,
+                spread_away_price=-110,
+                created_at=datetime(2026, 10, 1),
+            ),
+            Odds(
+                game_id=game.id,
+                sportsbook="Legacy",
+                spread_home=-4.5,
+                spread_away=4.5,
+                created_at=datetime(2026, 9, 1),
+            ),
+        ]
+    )
+    capture_db.commit()
+
+    report = _snapshot_price_coverage(capture_db)
+    by_day = {row["snapshot_day"]: row for row in report}
+
+    assert by_day["2026-10-01"]["both_spread_prices"] == 1
+    assert by_day["2026-09-01"]["complementary_lines_without_prices"] == 1
 
 
 @pytest.mark.parametrize("change", ["spread", "total", "missing", "invalid", "duplicate"])

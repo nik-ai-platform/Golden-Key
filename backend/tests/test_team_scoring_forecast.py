@@ -24,6 +24,7 @@ from app.services.team_scoring_walkforward import (
     GamePeriod,
     split_games_chronologically,
 )
+from scripts.validate_team_scoring_forecast import _quote_coverage
 
 
 AS_OF = datetime(2026, 10, 1, tzinfo=UTC)
@@ -340,3 +341,84 @@ def test_evaluator_distinguishes_prices_probabilities_and_pushes() -> None:
     assert report["devigged_market_cover_probability"]["sample_size"] == 0
     assert report["published_npi_pick_actual_price_roi"]["sample_size"] == 1
     assert report["published_npi_pick_actual_price_roi"]["units_profit"] == 0
+
+
+def test_paired_margin_comparisons_use_only_identical_forecast_games() -> None:
+    cases = [
+        ScoringForecastCase(
+            game_id=1,
+            sport="NFL",
+            model_version="NPI-5.0",
+            kickoff_sort=1.0,
+            published_sort=0.0,
+            actual_home_margin=3,
+            spread_home=-3,
+            spread_away=3,
+            selection="HOME",
+            spread_home_price=-110,
+            spread_away_price=-110,
+            published_selection_price=-110,
+            candidate_home_margin=2,
+            incumbent_home_margin=1,
+        ),
+        ScoringForecastCase(
+            game_id=2,
+            sport="NFL",
+            model_version="NPI-5.0",
+            kickoff_sort=2.0,
+            published_sort=1.0,
+            actual_home_margin=-4,
+            spread_home=3.5,
+            spread_away=-3.5,
+            selection="AWAY",
+            spread_home_price=None,
+            spread_away_price=None,
+            published_selection_price=None,
+            candidate_home_margin=-2,
+            incumbent_home_margin=None,
+        ),
+    ]
+
+    report = evaluate_forecasts(cases)
+    paired = report["paired_margin_comparisons"]
+
+    assert report["candidate_margin"]["sample_size"] == 2
+    assert paired["candidate_vs_incumbent_npi"]["sample_size"] == 1
+    assert paired["candidate_vs_incumbent_npi"]["candidate"]["mae"] == 1
+    assert paired["candidate_vs_incumbent_npi"]["baseline"]["mae"] == 2
+    assert paired["candidate_vs_frozen_market_spread"]["sample_size"] == 2
+
+
+def test_quote_coverage_separates_prediction_and_frozen_snapshot_vintages() -> None:
+    published = datetime(2026, 10, 9, 12, tzinfo=UTC)
+    report = _quote_coverage(
+        [
+            {
+                "sport": "NBA",
+                "model_version": "NPI-5.0",
+                "published_at": published,
+                "odds_created_at": published - timedelta(minutes=5),
+                "home_price": -110,
+                "away_price": -110,
+                "spread_home": -2.5,
+                "spread_away": 2.5,
+            },
+            {
+                "sport": "NBA",
+                "model_version": "NPI-5.0",
+                "published_at": published,
+                "odds_created_at": datetime(2026, 9, 30, tzinfo=UTC),
+                "home_price": None,
+                "away_price": None,
+                "spread_home": -2.5,
+                "spread_away": 2.5,
+            },
+        ]
+    )
+
+    by_quote_month = {
+        item["frozen_odds_snapshot_month"]: item
+        for item in report
+    }
+    assert by_quote_month["2026-10"]["paired_complementary_prices"] == 1
+    assert by_quote_month["2026-09"]["both_prices_missing"] == 1

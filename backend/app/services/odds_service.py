@@ -4,7 +4,7 @@ from app.models.game import Game
 from app.models.odds import Odds
 from app.repositories import odds_repository
 from app.services.monitoring_service import MonitoringService
-from app.services.paired_market_prices import paired_market_prices
+from app.services.paired_market_prices import paired_market_prices_with_diagnostics
 
 
 class NoCompleteOddsSnapshotError(ValueError):
@@ -96,6 +96,7 @@ def create_odds_snapshot(
     bookmaker: dict,
     odds_service=None,
     monitor=None,
+    price_capture_diagnostics: dict[str, int] | None = None,
 ):
 
     service = odds_service or OddsService()
@@ -115,6 +116,19 @@ def create_odds_snapshot(
         game.home_team.name,
         game.away_team.name,
     )
+    market_prices, diagnostics = paired_market_prices_with_diagnostics(
+        bookmaker,
+        game.home_team.name,
+        game.away_team.name,
+        spread_home=spread_home,
+        spread_away=spread_away,
+        total=total,
+    )
+    if price_capture_diagnostics is not None:
+        for reason, count in diagnostics.items():
+            price_capture_diagnostics[reason] = (
+                price_capture_diagnostics.get(reason, 0) + count
+            )
 
     required_values = (
         spread_home,
@@ -147,10 +161,7 @@ def create_odds_snapshot(
         moneyline_away=moneyline_away,
 
         total=total,
-        **paired_market_prices(
-            bookmaker, game.home_team.name, game.away_team.name,
-            spread_home=spread_home, spread_away=spread_away, total=total,
-        ),
+        **market_prices,
     )
 
     monitor.log_import(

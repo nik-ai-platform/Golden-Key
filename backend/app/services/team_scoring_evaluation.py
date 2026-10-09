@@ -158,15 +158,12 @@ def evaluate_forecasts(
     minimum_calibration_errors: int = 30,
 ) -> dict:
     rows = tuple(cases)
-    candidate_errors = tuple(
-        item.actual_home_margin - item.candidate_home_margin
-        for item in rows
-        if item.candidate_home_margin is not None
-    )
     metrics: dict[str, list] = {
         "candidate_margin_errors": [],
         "market_margin_errors": [],
         "incumbent_margin_errors": [],
+        "candidate_vs_incumbent_margin_errors": [],
+        "candidate_vs_market_margin_errors": [],
         "candidate_home_probability": [],
         "market_home_probability": [],
         "incumbent_home_probability": [],
@@ -180,7 +177,9 @@ def evaluate_forecasts(
     coverage = {
         "cases": len(rows),
         "candidate_margin_available": 0,
+        "candidate_cover_probability_available": 0,
         "candidate_probability_available": 0,
+        "candidate_probability_pushes_excluded": 0,
         "candidate_actionable_picks": 0,
         "incumbent_margin_available": 0,
         "paired_market_prices": 0,
@@ -200,14 +199,20 @@ def evaluate_forecasts(
         )
         if item.candidate_home_margin is not None:
             coverage["candidate_margin_available"] += 1
-            metrics["candidate_margin_errors"].append(
-                item.candidate_home_margin - item.actual_home_margin
+            candidate_error = item.candidate_home_margin - item.actual_home_margin
+            market_error = -item.spread_home - item.actual_home_margin
+            metrics["candidate_margin_errors"].append(candidate_error)
+            metrics["candidate_vs_market_margin_errors"].append(
+                (candidate_error, market_error)
             )
         if item.incumbent_home_margin is not None:
             coverage["incumbent_margin_available"] += 1
-            metrics["incumbent_margin_errors"].append(
-                item.incumbent_home_margin - item.actual_home_margin
-            )
+            incumbent_error = item.incumbent_home_margin - item.actual_home_margin
+            metrics["incumbent_margin_errors"].append(incumbent_error)
+            if item.candidate_home_margin is not None:
+                metrics["candidate_vs_incumbent_margin_errors"].append(
+                    (candidate_error, incumbent_error)
+                )
 
         market_probability = devigged_home_probability(
             item.spread_home,
@@ -252,6 +257,7 @@ def evaluate_forecasts(
                 continue
             if name == "candidate":
                 coverage["candidate_probability_available"] += 1
+                coverage["candidate_cover_probability_available"] += 1
                 home_price, away_price = item.spread_home_price, item.spread_away_price
             else:
                 home_price, away_price = item.spread_home_price, item.spread_away_price
@@ -259,6 +265,8 @@ def evaluate_forecasts(
             metrics[f"{name}_home_probability"].append(
                 (probability.home_cover, outcome)
             )
+            if name == "candidate" and outcome == "PUSH":
+                coverage["candidate_probability_pushes_excluded"] += 1
             pick = select_positive_ev_side(probability, home_price, away_price)
             if pick is None:
                 if name == "candidate":
@@ -323,6 +331,14 @@ def evaluate_forecasts(
         "candidate_margin": margin_metrics(metrics["candidate_margin_errors"]),
         "incumbent_npi_margin": margin_metrics(metrics["incumbent_margin_errors"]),
         "frozen_market_spread_margin": margin_metrics(metrics["market_margin_errors"]),
+        "paired_margin_comparisons": {
+            "candidate_vs_incumbent_npi": paired_margin_comparison(
+                metrics["candidate_vs_incumbent_margin_errors"]
+            ),
+            "candidate_vs_frozen_market_spread": paired_margin_comparison(
+                metrics["candidate_vs_market_margin_errors"]
+            ),
+        },
         "candidate_cover_probability": probability_metrics(
             metrics["candidate_home_probability"]
         ),
@@ -391,6 +407,56 @@ def margin_metrics(errors: Iterable[float]) -> dict:
         "mae_ci95": _percentile_interval(mae_samples),
         "rmse": round(rmse, 4),
         "rmse_ci95": _percentile_interval(rmse_samples),
+    }
+
+
+def paired_margin_comparison(pairs: Iterable[tuple[float, float]]) -> dict:
+    values = tuple(
+        (float(candidate), float(baseline))
+        for candidate, baseline in pairs
+    )
+    if not values:
+        return {
+            "sample_size": 0,
+            "candidate": margin_metrics(()),
+            "baseline": margin_metrics(()),
+            "mae_delta_candidate_minus_baseline": None,
+            "mae_delta_ci95": None,
+            "rmse_delta_candidate_minus_baseline": None,
+            "rmse_delta_ci95": None,
+        }
+
+    def errors_metrics(sample: tuple[tuple[float, float], ...], column: int) -> tuple[float, float]:
+        errors = tuple(pair[column] for pair in sample)
+        mae = sum(abs(error) for error in errors) / len(errors)
+        rmse = math.sqrt(sum(error * error for error in errors) / len(errors))
+        return mae, rmse
+
+    candidate_mae, candidate_rmse = errors_metrics(values, 0)
+    baseline_mae, baseline_rmse = errors_metrics(values, 1)
+    rng = random.Random(20261009)
+    mae_deltas = []
+    rmse_deltas = []
+    for _ in range(500):
+        sample = tuple(values[rng.randrange(len(values))] for _ in values)
+        candidate_sample = errors_metrics(sample, 0)
+        baseline_sample = errors_metrics(sample, 1)
+        mae_deltas.append(candidate_sample[0] - baseline_sample[0])
+        rmse_deltas.append(candidate_sample[1] - baseline_sample[1])
+    return {
+        "sample_size": len(values),
+        "candidate": {
+            "mae": round(candidate_mae, 4),
+            "rmse": round(candidate_rmse, 4),
+        },
+        "baseline": {
+            "mae": round(baseline_mae, 4),
+            "rmse": round(baseline_rmse, 4),
+        },
+        "mae_delta_candidate_minus_baseline": round(candidate_mae - baseline_mae, 4),
+        "mae_delta_ci95": _percentile_interval(mae_deltas),
+        "rmse_delta_candidate_minus_baseline": round(candidate_rmse - baseline_rmse, 4),
+        "rmse_delta_ci95": _percentile_interval(rmse_deltas),
     }
 
 

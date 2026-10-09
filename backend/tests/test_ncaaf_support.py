@@ -159,6 +159,38 @@ def test_ncaaf_import_is_idempotent_by_provider_game_id():
     assert games[0].sport == "NCAAF"
 
 
+def test_game_importer_never_reuses_same_named_team_from_another_sport():
+    db = _session()
+    basketball_team = Team(name="State", sport="NBA", league="NBA")
+    db.add(basketball_team)
+    db.commit()
+
+    imported_team = GameOddsImporter(
+        db=db,
+        live_data_service=MagicMock(fetch_games=MagicMock(return_value=[])),
+    ).get_or_create_team("State", "NCAAF")
+
+    assert imported_team.id != basketball_team.id
+    assert imported_team.sport == "NCAAF"
+
+
+def test_game_importer_captures_only_explicit_neutral_site_metadata():
+    db = _session()
+    live_data = MagicMock()
+    event = _event()
+    event["neutral_site"] = True
+    live_data.fetch_games.return_value = [event]
+    importer = GameOddsImporter(db=db, live_data_service=live_data)
+
+    game = importer.import_games("NCAAF")[0]
+    assert game.neutral_site is True
+
+    event.pop("neutral_site")
+    importer.import_games("NCAAF")
+    db.refresh(game)
+    assert game.neutral_site is True
+
+
 def test_incomplete_legacy_set_is_preserved_and_corrected_version_is_generated():
     db = _session()
     live_data = MagicMock()

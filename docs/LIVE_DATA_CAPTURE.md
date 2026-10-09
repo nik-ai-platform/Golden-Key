@@ -16,6 +16,14 @@ line and moneyline extraction is preserved. Imports lock the game row and compar
 all lines and prices with the latest snapshot for that game/book. Identical
 quotes reuse that snapshot; changes, including price-only changes and reversions,
 append new snapshots without modifying old rows.
+The upcoming-game worker also logs per-market capture counts, separating missing
+markets, ambiguous outcomes, line mismatches, invalid/missing prices, and captured
+pairs. These counts are collected from each provider response and do not fill or
+rewrite historical snapshots.
+
+Game imports scope exact team-name lookup to the requested sport. They retain
+neutral-site and venue metadata only when the source supplies explicit values;
+unknown neutral-site status remains unknown and is not treated as a home game.
 
 Live completed events with valid nonnegative integer scores append an
 `odds_api` GameResultObservation with the actual UTC response receipt time.
@@ -24,6 +32,15 @@ Valid timezone-qualified provider `last_update` is stored separately as
 observation checks with score/status updates, and both commit together.
 Repeated unchanged finals do not append; corrections and reversions do.
 Historical CFBD observation policy is outside this change.
+
+The read-only team-scoring validator reports candidate-margin rejections by
+sport and chronological evaluation period, separates margin availability from
+cover-probability calibration availability, compares candidate and baselines on
+the same forecastable games, and summarizes frozen-price coverage by snapshot
+vintage. Its observation inventory distinguishes valid known-site and
+unknown-site final receipts and checks provider identity coverage against the
+team IDs used by observed games. It uses no source update time or kickoff as a
+substitute for a receipt timestamp.
 
 Existing settlement still runs after score capture. Previously settled picks
 are not automatically regraded when scores change.

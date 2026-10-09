@@ -5,7 +5,7 @@ import math
 from collections import Counter, defaultdict
 from datetime import UTC, datetime
 
-from sqlalchemy import text
+from sqlalchemy import case, extract, func, text
 from sqlalchemy.orm import aliased
 
 from app.database.session import SessionLocal
@@ -14,6 +14,8 @@ from app.models.game_result_observation import GameResultObservation
 from app.models.odds import Odds
 from app.models.prediction_record import Prediction
 from app.models.team import Team
+from app.models.team_alias import TeamAlias
+from app.models.team_provider_identity import TeamProviderIdentity
 from app.services.prediction_metric_contract import (
     parse_market,
     supported_metadata,
@@ -95,10 +97,15 @@ def _load_inventory(db) -> tuple[list[TimestampedScore], Counter, list[dict]]:
         lambda: {
             "observations": 0,
             "valid_final_observations": 0,
+            "valid_final_known_site_observations": 0,
+            "valid_final_unknown_site_observations": 0,
             "game_ids": set(),
             "team_ids": set(),
+            "teams_missing_neutral_site": set(),
             "first_observed_at": None,
             "last_observed_at": None,
+            "first_valid_final_receipt_at": None,
+            "last_valid_final_receipt_at": None,
         }
     )
     for observation, game in rows:
@@ -118,15 +125,32 @@ def _load_inventory(db) -> tuple[list[TimestampedScore], Counter, list[dict]]:
                 stats["last_observed_at"] or observed_at,
             )
         kickoff = _utc(game.game_date)
-        if (
+        valid_final = (
             (observation.status or "").strip().lower() in {"final", "completed"}
             and _valid_score(observation.home_score)
             and _valid_score(observation.away_score)
             and kickoff is not None
             and observed_at is not None
             and observed_at >= kickoff
-        ):
+        )
+        if valid_final:
             stats["valid_final_observations"] += 1
+            stats["first_valid_final_receipt_at"] = min(
+                observed_at,
+                stats["first_valid_final_receipt_at"] or observed_at,
+            )
+            stats["last_valid_final_receipt_at"] = max(
+                observed_at,
+                stats["last_valid_final_receipt_at"] or observed_at,
+            )
+            if game.neutral_site is None:
+                stats["teams_missing_neutral_site"].update(
+                    (game.home_team_id, game.away_team_id)
+                )
+            else:
+                stats["valid_final_known_site_observations"] += 1
+        if valid_final and game.neutral_site is None:
+            stats["valid_final_unknown_site_observations"] += 1
         if kickoff is None or observed_at is None:
             continue
         observations.append(
@@ -145,12 +169,36 @@ def _load_inventory(db) -> tuple[list[TimestampedScore], Counter, list[dict]]:
             )
         )
     team_rows = db.query(Team.id, Team.sport, Team.league, Team.name).order_by(Team.id).all()
-    team_identity_by_sport: dict[str, list[dict]] = defaultdict(list)
+    team_sport = {
+        team_id: (sport or "UNKNOWN").upper()
+        for team_id, sport, _, _ in team_rows
+    }
     observed_team_ids = {
         team_id
         for item in observations
         for team_id in (item.home_team_id, item.away_team_id)
     }
+    identities_by_team = set(
+        team_id
+        for (team_id,) in db.query(TeamProviderIdentity.team_id.distinct())
+        .filter(TeamProviderIdentity.team_id.in_(observed_team_ids))
+        .all()
+    ) if observed_team_ids else set()
+    aliases_by_team = set(
+        team_id
+        for (team_id,) in db.query(TeamAlias.team_id.distinct())
+        .filter(TeamAlias.team_id.in_(observed_team_ids))
+        .all()
+    ) if observed_team_ids else set()
+    teams_by_sport: dict[str, set[int]] = defaultdict(set)
+    mismatched_team_slots: Counter = Counter()
+    for (observation, game) in rows:
+        sport = (game.sport or "UNKNOWN").upper()
+        for team_id in (game.home_team_id, game.away_team_id):
+            teams_by_sport[sport].add(team_id)
+            if team_sport.get(team_id) != sport:
+                mismatched_team_slots[sport] += 1
+    team_identity_by_sport: dict[str, list[dict]] = defaultdict(list)
     for team_id, sport, league, name in team_rows:
         if team_id in observed_team_ids:
             team_identity_by_sport[(sport or "UNKNOWN").upper()].append(
@@ -165,7 +213,23 @@ def _load_inventory(db) -> tuple[list[TimestampedScore], Counter, list[dict]]:
                 "observations": values["observations"],
                 "games": len(values["game_ids"]),
                 "team_ids": len(values["team_ids"]),
+                "team_ids_with_provider_identity": len(
+                    teams_by_sport[sport] & identities_by_team
+                ),
+                "team_ids_with_alias": len(
+                    teams_by_sport[sport] & aliases_by_team
+                ),
+                "team_ids_missing_neutral_site_history": len(
+                    values["teams_missing_neutral_site"]
+                ),
+                "team_identity_sport_mismatches": mismatched_team_slots[sport],
                 "valid_final_observations": values["valid_final_observations"],
+                "valid_final_known_site_observations": values[
+                    "valid_final_known_site_observations"
+                ],
+                "valid_final_unknown_site_observations": values[
+                    "valid_final_unknown_site_observations"
+                ],
                 "team_identities": team_identity_by_sport.get(sport, []),
                 "first_observed_at": (
                     values["first_observed_at"].isoformat()
@@ -175,6 +239,16 @@ def _load_inventory(db) -> tuple[list[TimestampedScore], Counter, list[dict]]:
                 "last_observed_at": (
                     values["last_observed_at"].isoformat()
                     if values["last_observed_at"] is not None
+                    else None
+                ),
+                "first_valid_final_receipt_at": (
+                    values["first_valid_final_receipt_at"].isoformat()
+                    if values["first_valid_final_receipt_at"] is not None
+                    else None
+                ),
+                "last_valid_final_receipt_at": (
+                    values["last_valid_final_receipt_at"].isoformat()
+                    if values["last_valid_final_receipt_at"] is not None
                     else None
                 ),
             }
@@ -343,6 +417,7 @@ def _load_targets(db, observations: list[TimestampedScore]) -> tuple[list[dict],
                 "spread_away": spread_away,
                 "home_price": odds.spread_home_price,
                 "away_price": odds.spread_away_price,
+                "odds_created_at": _utc(odds.created_at),
                 "selection": selection,
                 "line_value": prediction.line_value,
                 "incumbent_home_margin": incumbent_margin,
@@ -396,11 +471,25 @@ def _forecast_targets(
         else:
             counts[f"candidate_margin_available_{target['sport']}"] += 1
         target = dict(target)
+        rejection_reasons = []
+        if target["neutral_site"] is None:
+            rejection_reasons.append("target_neutral_site_unknown")
+        if not history:
+            rejection_reasons.append("no_usable_timestamped_history")
+        if len(history) < MIN_TRAINING_GAMES:
+            rejection_reasons.append("below_minimum_total_history")
+        if home_history < MIN_TEAM_GAMES:
+            rejection_reasons.append("below_minimum_home_team_history")
+        if away_history < MIN_TEAM_GAMES:
+            rejection_reasons.append("below_minimum_away_team_history")
+        if model is None and not rejection_reasons:
+            rejection_reasons.append("forecast_fit_unavailable")
         target["candidate_home_margin"] = candidate_margin
         target["candidate_history_games"] = model.training_games if model else len(history)
         target["candidate_home_team_games"] = model.home_team_games if model else None
         target["candidate_away_team_games"] = model.away_team_games if model else None
         target["candidate_model_version"] = MODEL_VERSION
+        target["candidate_rejection_reasons"] = rejection_reasons
         forecasted.append(target)
     return forecasted
 
@@ -445,6 +534,202 @@ def _make_case(target: dict, calibration_errors=(), incumbent_errors=()) -> Scor
     )
 
 
+def _quote_coverage(targets: list[dict]) -> list[dict]:
+    grouped: dict[tuple[str, str, str, str], Counter] = defaultdict(Counter)
+    for target in targets:
+        published_at = target["published_at"]
+        odds_created_at = target["odds_created_at"]
+        if odds_created_at is None:
+            quote_age = None
+            odds_month = "missing"
+        else:
+            quote_age = max(0.0, (published_at - odds_created_at).total_seconds())
+            odds_month = odds_created_at.strftime("%Y-%m")
+        key = (
+            target["sport"],
+            target["model_version"],
+            published_at.strftime("%Y-%m"),
+            odds_month,
+        )
+        values = grouped[key]
+        values["targets"] += 1
+        values["paired_complementary_prices"] += int(
+            target["home_price"] not in (None, 0)
+            and target["away_price"] not in (None, 0)
+            and target["spread_away"] is not None
+            and math.isclose(
+                target["spread_home"],
+                -target["spread_away"],
+                abs_tol=1e-6,
+            )
+        )
+        values["both_prices_missing"] += int(
+            target["home_price"] in (None, 0)
+            and target["away_price"] in (None, 0)
+        )
+        values["one_price_missing"] += int(
+            (target["home_price"] in (None, 0))
+            != (target["away_price"] in (None, 0))
+        )
+        values["noncomplementary_price_lines"] += int(
+            target["home_price"] not in (None, 0)
+            and target["away_price"] not in (None, 0)
+            and (
+                target["spread_away"] is None
+                or not math.isclose(
+                    target["spread_home"],
+                    -target["spread_away"],
+                    abs_tol=1e-6,
+                )
+            )
+        )
+        if quote_age is not None:
+            values["quote_age_seconds_sum"] += quote_age
+            values["quote_age_rows"] += 1
+    return [
+        {
+            "sport": key[0],
+            "model_version": key[1],
+            "prediction_month": key[2],
+            "frozen_odds_snapshot_month": key[3],
+            **dict(values),
+            "mean_quote_age_hours": (
+                round(
+                    values["quote_age_seconds_sum"]
+                    / values["quote_age_rows"]
+                    / 3600,
+                    2,
+                )
+                if values["quote_age_rows"]
+                else None
+            ),
+        }
+        for key, values in sorted(grouped.items())
+    ]
+
+
+def _snapshot_price_coverage(db) -> list[dict]:
+    year = extract("year", Odds.created_at).label("snapshot_year")
+    month = extract("month", Odds.created_at).label("snapshot_month")
+    day = extract("day", Odds.created_at).label("snapshot_day")
+    rows = (
+        db.query(
+            Game.sport,
+            year,
+            month,
+            day,
+            func.count(Odds.id).label("snapshots"),
+            func.sum(
+                case(
+                    (
+                        (Odds.spread_home_price.isnot(None))
+                        & (Odds.spread_away_price.isnot(None)),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("both_spread_prices"),
+            func.sum(
+                case(
+                    (
+                        (Odds.spread_home_price.is_(None))
+                        & (Odds.spread_away_price.is_(None)),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("both_spread_prices_missing"),
+            func.sum(
+                case(
+                    (
+                        (Odds.spread_home_price.is_(None))
+                        != (Odds.spread_away_price.is_(None)),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("one_spread_price_missing"),
+            func.sum(
+                case(
+                    (
+                        (Odds.spread_home.isnot(None))
+                        & (Odds.spread_away.isnot(None))
+                        & (func.abs(Odds.spread_home + Odds.spread_away) < 0.000001),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("complementary_spread_lines"),
+            func.sum(
+                case(
+                    (
+                        (Odds.spread_home_price.isnot(None))
+                        & (Odds.spread_away_price.isnot(None))
+                        & (
+                            (Odds.spread_home.is_(None))
+                            | (Odds.spread_away.is_(None))
+                            | (func.abs(Odds.spread_home + Odds.spread_away) >= 0.000001)
+                        ),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("prices_on_noncomplementary_lines"),
+            func.sum(
+                case(
+                    (
+                        (Odds.spread_home_price.is_(None))
+                        & (Odds.spread_away_price.is_(None))
+                        & (Odds.spread_home.isnot(None))
+                        & (Odds.spread_away.isnot(None))
+                        & (func.abs(Odds.spread_home + Odds.spread_away) < 0.000001),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("complementary_lines_without_prices"),
+        )
+        .join(Game, Game.id == Odds.game_id)
+        .group_by(Game.sport, year, month, day)
+        .order_by(Game.sport, year, month, day)
+        .all()
+    )
+    return [
+        {
+            "sport": (sport or "UNKNOWN").upper(),
+            "snapshot_day": (
+                f"{int(snapshot_year):04d}-{int(snapshot_month):02d}-{int(snapshot_day):02d}"
+                if snapshot_year is not None
+                and snapshot_month is not None
+                and snapshot_day is not None
+                else None
+            ),
+            "snapshots": int(snapshots or 0),
+            "both_spread_prices": int(both_prices or 0),
+            "both_spread_prices_missing": int(both_missing or 0),
+            "one_spread_price_missing": int(one_missing or 0),
+            "complementary_spread_lines": int(complementary_lines or 0),
+            "prices_on_noncomplementary_lines": int(noncomplementary_prices or 0),
+            "complementary_lines_without_prices": int(
+                complementary_lines_without_prices or 0
+            ),
+        }
+        for (
+            sport,
+            snapshot_year,
+            snapshot_month,
+            snapshot_day,
+            snapshots,
+            both_prices,
+            both_missing,
+            one_missing,
+            complementary_lines,
+            noncomplementary_prices,
+            complementary_lines_without_prices,
+        ) in rows
+    ]
+
+
 def _split_and_evaluate(targets: list[dict]) -> dict:
     periods_by_sport = {
         sport: split_games_chronologically(
@@ -469,6 +754,50 @@ def _split_and_evaluate(targets: list[dict]) -> dict:
         for period, game_ids in periods.items()
         for game_id in game_ids
     }
+    coverage_by_period: dict[tuple[str, str], dict] = defaultdict(
+        lambda: {
+            "target_records": 0,
+            "game_ids": set(),
+            "candidate_margin_available_records": 0,
+            "primary_rejection_counts": Counter(),
+            "all_rejection_gate_counts": Counter(),
+        }
+    )
+    for target in targets:
+        period = period_by_game.get(target["game_id"], "unassigned")
+        coverage = coverage_by_period[(target["sport"], period)]
+        coverage["target_records"] += 1
+        coverage["game_ids"].add(target["game_id"])
+        if target["candidate_home_margin"] is not None:
+            coverage["candidate_margin_available_records"] += 1
+            continue
+        reasons = target["candidate_rejection_reasons"]
+        if not reasons:
+            reasons = ["forecast_fit_unavailable"]
+        coverage["primary_rejection_counts"][reasons[0]] += 1
+        coverage["all_rejection_gate_counts"].update(reasons)
+    margin_coverage_report = [
+        {
+            "sport": sport,
+            "period": period,
+            "target_records": value["target_records"],
+            "games": len(value["game_ids"]),
+            "candidate_margin_available_records": value[
+                "candidate_margin_available_records"
+            ],
+            "candidate_margin_unavailable_records": (
+                value["target_records"]
+                - value["candidate_margin_available_records"]
+            ),
+            "primary_rejection_counts": dict(
+                sorted(value["primary_rejection_counts"].items())
+            ),
+            "all_rejection_gate_counts": dict(
+                sorted(value["all_rejection_gate_counts"].items())
+            ),
+        }
+        for (sport, period), value in sorted(coverage_by_period.items())
+    ]
     tuning_rows = [
         item for item in targets if period_by_game.get(item["game_id"]) == "tuning"
     ]
@@ -478,6 +807,7 @@ def _split_and_evaluate(targets: list[dict]) -> dict:
 
     test_cases_by_group: dict[tuple[str, str, str, str], list[ScoringForecastCase]] = defaultdict(list)
     test_coverage = Counter()
+    test_calibration_counts: dict[str, list[int]] = defaultdict(list)
     for target in test_rows:
         earlier_tuning = [
             item for item in tuning_rows
@@ -503,6 +833,16 @@ def _split_and_evaluate(targets: list[dict]) -> dict:
         test_coverage[f"earlier_tuning_candidate_errors_{target['sport']}"] += len(candidate_errors)
         if target["candidate_home_margin"] is None:
             test_coverage[f"test_candidate_unavailable_{target['sport']}"] += 1
+        else:
+            test_coverage[f"test_candidate_margin_available_{target['sport']}"] += 1
+        test_calibration_counts[target["sport"]].append(len(candidate_errors))
+        if (
+            target["candidate_home_margin"] is not None
+            and len(candidate_errors) >= MIN_CALIBRATION_ERRORS
+        ):
+            test_coverage[
+                f"test_candidate_probability_calibration_ready_{target['sport']}"
+            ] += 1
         case = _make_case(target, candidate_errors, incumbent_errors)
         pick_type = _picked_side_type(target["selection"], target["spread_home"])
         band_value = (
@@ -532,6 +872,22 @@ def _split_and_evaluate(targets: list[dict]) -> dict:
         },
         "period_game_totals": {name: len(values) for name, values in periods.items()},
         "final_test_results_by_sport_model_pick_and_line_band": reports,
+        "candidate_margin_coverage_by_sport_period": margin_coverage_report,
+        "candidate_probability_calibration_coverage_by_test_sport": {
+            sport: {
+                "test_prediction_records": len(counts),
+                "earlier_tuning_error_count_min": min(counts) if counts else 0,
+                "earlier_tuning_error_count_max": max(counts) if counts else 0,
+                "minimum_errors_required": MIN_CALIBRATION_ERRORS,
+                "test_records_with_candidate_margin_and_probability_sample_available": (
+                    test_coverage.get(
+                        f"test_candidate_probability_calibration_ready_{sport}",
+                        0,
+                    )
+                ),
+            }
+            for sport, counts in sorted(test_calibration_counts.items())
+        },
         "test_coverage": dict(sorted(test_coverage.items())),
     }
 
@@ -565,17 +921,28 @@ def build_report(db) -> dict:
             "game kickoff are strictly before the prediction timestamp; never use "
             "source_updated_at or game date as a substitute receipt time."
         ),
+        "metric_availability_policy": (
+            "Candidate margin coverage counts forecasts with an available margin. "
+            "Candidate cover-probability coverage is separate and requires enough "
+            "earlier tuning residuals; probability scores further exclude pushes."
+        ),
         "observation_inventory_by_sport": inventory,
         "eligible_target_predictions": len(targets),
         "exclusions": dict(sorted(exclusions.items())),
         "candidate_coverage": dict(sorted(forecast_counts.items())),
+        "frozen_quote_coverage_by_vintage": _quote_coverage(targets),
+        "stored_spread_price_coverage_by_sport_day": _snapshot_price_coverage(db),
         "split_and_final_test": split_report,
         "limitations": [
             "Target predictions are grouped by game before chronological split; no game can cross periods.",
             "The final test is scored only after model and ridge penalty were frozen in the versioned candidate.",
             "Tuning forecast errors are used only when their prediction timestamp precedes the test prediction timestamp.",
+            "Candidate and baseline margin error comparisons include paired metrics on exactly the same target records.",
+            "Candidate rejection gates are reported with a primary reason and overlapping diagnostics by sport and chronological period.",
+            "Current provider feeds may omit neutral-site metadata; unknown values are retained and make the candidate unavailable rather than assumed false.",
             "Whole-point pushes are a separate empirical outcome class and are not scored as wins or losses.",
             "ROI is reported only from paired frozen spread prices; missing provider prices are excluded, never imputed.",
+            "Missing stored prices on a frozen snapshot cannot be retrospectively attributed to the provider or parser without its original payload; import-time diagnostics support that attribution prospectively.",
             "Current final observation is the evaluation label; only receipt-timestamp-valid prior observations may train a forecast.",
             "This shadow evaluation does not insert predictions, results, model rows, picks, or optimizer candidates.",
         ],
