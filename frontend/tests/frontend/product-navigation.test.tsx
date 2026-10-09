@@ -45,8 +45,8 @@ describe("product navigation", () => {
     expect(screen.getByRole("button", { name: "Sign Out" })).toBeTruthy();
     expect(getComputedStyle(document.documentElement).getPropertyValue("--gk-shell-text").trim()).toBe("#edf4fa");
     const artwork = screen.getByRole("img", { name: /Complete Bear A Hand Sports brand artwork/ });
-    expect(artwork.getAttribute("src")).toBe("/bear-a-hand-complete-brand.jpg");
-    expect(screen.getByRole("img", { name: "Bear A Hand Sports wordmark" }).getAttribute("src")).toBe("/bear-a-hand-wordmark.png");
+    expect(artwork.getAttribute("src")).toBe("/Bear_A_Hand_Sports_FullColor.jpg");
+    expect(screen.getByRole("img", { name: "Bear A Hand Sports wordmark" }).getAttribute("src")).toBe("/Bear_A_Hand_Sports_Wordmark.png");
     expect(screen.queryByText("Sports Intelligence")).toBeNull();
     expect(screen.queryByText(/Daily model intelligence/)).toBeNull();
     expect(screen.queryByText(/Product API/)).toBeNull();

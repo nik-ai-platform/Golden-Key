@@ -55,7 +55,7 @@ export function AppLayout() {
         <Toolbar sx={{ px: 2.25, minHeight: "64px !important", justifyContent: "center" }}>
           <Box
             component="img"
-            src="/bear-a-hand-wordmark.png"
+            src="/Bear_A_Hand_Sports_Wordmark.png"
             alt="Bear A Hand Sports wordmark"
             width={168}
             height={38}
@@ -147,10 +147,10 @@ export function AppLayout() {
         >
           <Box
             component="img"
-            src="/bear-a-hand-complete-brand.jpg"
+            src="/Bear_A_Hand_Sports_FullColor.jpg"
             alt="Complete Bear A Hand Sports brand artwork, including its bear, globe, and lettering. Numbers in the artwork are decorative branding, not live prediction metrics."
-            width={3000}
-            height={2500}
+            width={1374}
+            height={1145}
             sx={{
               display: "block",
               width: "auto",

@@ -73,20 +73,20 @@ for (const width of [320, 390, 430, 600, 900, 1200, 1440]) {
     await expect(page.getByTestId("reported-model-version")).toHaveCount(0);
     const brandArtwork = page.getByRole("img", { name: /Complete Bear A Hand Sports brand artwork/ });
     await expect(brandArtwork).toBeVisible();
-    await expect(brandArtwork).toHaveAttribute("src", "/bear-a-hand-complete-brand.jpg");
-    expect(await brandArtwork.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(3000);
+    await expect(brandArtwork).toHaveAttribute("src", "/Bear_A_Hand_Sports_FullColor.jpg");
+    expect(await brandArtwork.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(1374);
     const bannerBox = (await page.getByTestId("brand-artwork-banner").boundingBox())!;
     const artworkBox = (await brandArtwork.boundingBox())!;
     const headerBox = (await page.getByTestId("fixed-brand-header").boundingBox())!;
     const controlsBox = (await page.getByTestId("header-controls").boundingBox())!;
     const mainBox = (await page.getByRole("main").boundingBox())!;
-    expect(artworkBox.width / artworkBox.height).toBeCloseTo(1.2, 1);
+    expect(artworkBox.width / artworkBox.height).toBeCloseTo(1374 / 1145, 2);
     expect(artworkBox.width).toBeLessThanOrEqual(bannerBox.width);
     expect(artworkBox.height).toBeLessThanOrEqual(bannerBox.height);
     expect(controlsBox.y + controlsBox.height).toBeLessThanOrEqual(bannerBox.y);
     expect(mainBox.y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height);
     const wordmark = page.locator('img[alt="Bear A Hand Sports wordmark"]');
-    await expect(wordmark).toHaveAttribute("src", "/bear-a-hand-wordmark.png");
+    await expect(wordmark).toHaveAttribute("src", "/Bear_A_Hand_Sports_Wordmark.png");
     expect(await wordmark.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(1200);
     if (width < 600) {
       await page.getByRole("button", { name: "Open navigation" }).click();
@@ -96,6 +96,9 @@ for (const width of [320, 390, 430, 600, 900, 1200, 1440]) {
       await expect(page.getByRole("img", { name: "Bear A Hand Sports wordmark" })).toBeVisible();
     }
     await expect(page.getByRole("heading", { name: "Model Outcomes" })).toBeVisible();
+    await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/favicon.ico");
+    const favicon = await page.request.get("/favicon.ico");
+    expect(favicon.ok()).toBe(true);
     const outcomes = page.getByTestId("dashboard-outcomes-placement");
     const picks = page.getByTestId("dashboard-picks-panel");
     await expect(outcomes.getByTestId("dashboard-recent-result")).toHaveCount(5);
