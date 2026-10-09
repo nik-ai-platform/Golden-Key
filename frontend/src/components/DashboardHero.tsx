@@ -41,7 +41,7 @@ export function DashboardHero({
         >
           Explore picks
         </Button>
-        <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap sx={{ pt: 1 }}>
+        <Stack data-testid="dashboard-hero-metadata" direction="row" spacing={3} flexWrap="wrap" useFlexGap sx={{ display: { xs: "none", sm: "flex" }, pt: 1 }}>
           <Box>
             <Typography variant="caption" color="text.secondary">Upcoming matchups</Typography>
             <Typography className="gk-data" data-testid="upcoming-matchup-count" sx={{ fontWeight: 700, fontSize: "1.15rem" }}>

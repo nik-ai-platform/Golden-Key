@@ -257,6 +257,19 @@ describe("daily card dashboard", () => {
     expect(screen.getByTestId("npi-pick-label-2").textContent).toBe("Alabama -4.5");
   });
 
+  it("places one outcomes panel before picks on mobile and in the desktop sidebar", () => {
+    renderDashboard();
+    const outcomes = screen.getByTestId("dashboard-outcomes-placement");
+    const picks = screen.getByTestId("dashboard-picks-panel");
+    expect(outcomes.nextElementSibling).toBe(picks);
+    expect(screen.getAllByRole("heading", { name: "Model Outcomes" })).toHaveLength(1);
+    expect(styleAtBreakpoint(outcomes, 0, "grid-row")).toBe("1");
+    expect(styleAtBreakpoint(picks, 0, "grid-row")).toBe("2");
+    expect(styleAtBreakpoint(outcomes, 1200, "grid-column")).toBe("2");
+    expect(styleAtBreakpoint(outcomes, 1200, "grid-row")).toBe("1");
+    expect(styleAtBreakpoint(picks, 600, "grid-row")).toBe("1");
+  });
+
   it("renders one dense game board row per game with only real market values", () => {
     mockQueries(card, [gamePredictions[3], ...gamePredictions.slice(0, 3)]);
     renderDashboard();

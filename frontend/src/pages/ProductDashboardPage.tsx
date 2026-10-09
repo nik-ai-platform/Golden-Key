@@ -116,7 +116,10 @@ export function ProductDashboardPage() {
     <Stack spacing={{ xs: 2, md: 2 }} data-testid="intelligence-dashboard">
       <DashboardHero matchupCount={matchupCount} modelVersions={gamesQuery.isError ? [] : modelVersions} />
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(0, 1fr) 290px" }, gap: 2, alignItems: "start" }}>
-      <Stack spacing={2} sx={{ minWidth: 0 }}>
+      <Box data-testid="dashboard-outcomes-placement" sx={{ minWidth: 0, gridColumn: { xs: 1, lg: 2 }, gridRow: { xs: 1, sm: 2, lg: 1 } }}>
+        <DashboardOutcomes />
+      </Box>
+      <Stack data-testid="dashboard-picks-panel" spacing={2} sx={{ minWidth: 0, gridColumn: 1, gridRow: { xs: 2, sm: 1 } }}>
       <Stack
         direction={{ xs: "column", md: "row" }}
         alignItems={{ xs: "stretch", md: "center" }}
@@ -280,7 +283,6 @@ export function ProductDashboardPage() {
         )}
       </Box>
       </Stack>
-      <DashboardOutcomes />
       </Box>
     </Stack>
   );

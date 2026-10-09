@@ -25,7 +25,21 @@ describe("dashboard outcomes", () => {
     for (const count of ["17", "9", "3"]) expect(screen.getByText(count)).toBeTruthy();
     expect(screen.getByText("LOSS")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Home -3.5" }).getAttribute("href")).toBe("/games/20");
-    expect(screen.getByRole("link", { name: "View full performance" }).getAttribute("href")).toBe("/performance");
+    expect(screen.getByRole("link", { name: "View all results" }).getAttribute("href")).toBe("/performance");
+  });
+
+  it("shows only the latest five API-ordered settled picks with their outcomes", () => {
+    const outcomes = ["WIN", "LOSS", "PUSH", "WIN", "LOSS", "PUSH"];
+    show({ data: { wins: 17, losses: 9, pushes: 3, recent_results: outcomes.map((outcome, index) => ({
+      prediction_id: index + 1, game_id: index + 20, sport: "NCAAF", market: "total", outcome,
+      display_selection: `Selection ${index + 1}`, away_team: "Long Away University", home_team: "Long Home University",
+    })) } });
+    const rows = screen.getAllByTestId("dashboard-recent-result");
+    expect(rows).toHaveLength(5);
+    expect(rows.map((row) => row.textContent)).toEqual(outcomes.slice(0, 5).map((outcome, index) =>
+      `NCAAF · total${outcome}Selection ${index + 1}Long Away University @ Long Home University`,
+    ));
+    expect(screen.queryByText("Selection 6")).toBeNull();
   });
 
   it("shows loading without invented results", () => {

@@ -31,6 +31,9 @@ describe("DashboardHero", () => {
     expect(count.textContent).toBe("24");
     expect(count.classList.contains("gk-data")).toBe(true);
     expect(screen.getByTestId("reported-model-version").textContent).toBe("NPI-5.0");
+    const metadata = screen.getByTestId("dashboard-hero-metadata");
+    expect(styleAtBreakpoint(metadata, 0, "display")).toBe("none");
+    expect(styleAtBreakpoint(metadata, 600, "display")).toBe("flex");
     const heading = screen.getByRole("heading", { name: "THE GAME. THE DATA. YOUR EDGE." });
     expect(styleAtBreakpoint(heading, 0, "font-size")).toBe("2.6rem");
     expect(styleAtBreakpoint(heading, 600, "font-size")).toBe("3.4rem");

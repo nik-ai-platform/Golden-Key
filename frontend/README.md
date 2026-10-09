@@ -249,6 +249,13 @@ report model versions, and `/product/performance` for outcomes. Loading, error,
 and empty states are independent for the daily card, board, and outcome sidebar.
 No sample picks, performance charts, opposing odds, or model metrics are invented.
 
+Below 600px, the hero hides matchup/model metadata and the same outcome panel
+appears immediately after the hero, before all picks. Its compact layout shows
+real wins/losses/pushes and up to five latest API-ordered settled results, with a
+View all results link to `/performance`. At desktop sidebar widths (1200px+),
+the existing right-hand placement is preserved; tablet placement is unchanged.
+The fixed mobile navigation retains bottom safe-area content clearance.
+
 `public/bear-hero.jpg` is a resized central crop of the supplied
 `Bear_A_Hand_Sports_Logo_3000px.png`. Decorative odds/charts and the 68% badge are
 excluded; the bear and globe are brand artwork, not prediction evidence.
