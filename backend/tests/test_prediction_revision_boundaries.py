@@ -359,7 +359,9 @@ def test_parlay_newest_matching_observation_preserves_provenance(db, market, cha
     fresh = Odds(**{
         name: getattr(original, name) for name in (
             "game_id", "sportsbook", "spread_home", "spread_away",
+            "spread_home_price", "spread_away_price",
             "moneyline_home", "moneyline_away", "total",
+            "total_over_price", "total_under_price",
         )
     }, created_at=now)
     db.add(fresh)
@@ -369,7 +371,9 @@ def test_parlay_newest_matching_observation_preserves_provenance(db, market, cha
     mismatched = Odds(**{
         name: getattr(fresh, name) for name in (
             "game_id", "sportsbook", "spread_home", "spread_away",
-            "moneyline_home", "moneyline_away", "total", "created_at",
+            "spread_home_price", "spread_away_price",
+            "moneyline_home", "moneyline_away", "total",
+            "total_over_price", "total_under_price", "created_at",
         )
     })
     setattr(mismatched, changed_field, getattr(mismatched, changed_field) + 1)

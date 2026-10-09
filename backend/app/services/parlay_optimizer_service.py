@@ -17,6 +17,7 @@ from app.services.prediction_metric_contract import (
     describe_edge,
     edge_ranking_strength,
     finite_metric,
+    historical_price,
     metric_version,
     metric_reasoning,
     normalized_text,
@@ -45,7 +46,6 @@ class ParlayOptimizerService:
     MAX_GAME_HORIZON_DAYS = 7
     MAX_ODDS_AGE = timedelta(hours=6)
     BEAM_WIDTH = 500
-    FIXED_STANDARD_PRICE = -110
     model_runtime = ModelRuntimeService()
     MARKET_MIX_RULES = {
         2: {"max_moneylines": 1, "min_spreads": 0, "min_totals": 0},
@@ -73,17 +73,76 @@ class ParlayOptimizerService:
             now=now,
             horizon_end=horizon_end,
         )
-        if len({item["game_id"] for item in candidates}) < leg_count:
-            article = "an" if leg_count == 8 else "a"
+        distinct_games = {item["game_id"] for item in candidates}
+        if len(distinct_games) < 2:
+            if distinct_games:
+                guidance = (
+                    f" Choose All sports or another sport to broaden the filter."
+                    if sport else
+                    " Check again after additional games have fresh quotes."
+                )
+                sport_context = f" for {sport.upper()}" if sport else ""
+                raise ParlayOptimizationError(
+                    "Only 1 distinct game has a valid quoted pick with a fresh "
+                    f"matching sportsbook line in the next {self.MAX_GAME_HORIZON_DAYS} days"
+                    f"{sport_context}; at least 2 distinct games are required."
+                    f"{guidance}"
+                )
+            if sport:
+                return_message = (
+                    f" matching {sport.upper()} in the next {self.MAX_GAME_HORIZON_DAYS} days. "
+                    "Choose All sports or another sport, or check again after odds refresh."
+                )
+            else:
+                return_message = (
+                    f" in the next {self.MAX_GAME_HORIZON_DAYS} days. "
+                    "Check again after upcoming games receive fresh odds."
+                )
             raise ParlayOptimizationError(
-                "Not enough qualified predictions to build "
-                f"{article} {leg_count}-leg optimized parlay."
+                "No upcoming picks have fresh, matching quoted odds"
+                f"{return_message}"
             )
 
-        legs = self._optimize(candidates, leg_count)
+        legs = None
+        actual_leg_count = None
+        for count in sorted(
+            (
+                supported_count
+                for supported_count in self.SUPPORTED_LEG_COUNTS
+                if 2 <= supported_count <= leg_count
+                and supported_count <= len(distinct_games)
+            ),
+            reverse=True,
+        ):
+            legs = self._optimize(candidates, count)
+            if legs is not None:
+                actual_leg_count = count
+                break
+
         if legs is None:
-            raise ValueError(
-                "Qualified predictions cannot satisfy the requested market mix"
+            sport_guidance = (
+                f" in {sport.upper()}" if sport else ""
+            )
+            raise ParlayOptimizationError(
+                "The available quoted picks cannot form a 2-leg parlay without "
+                "repeating a game or violating the market mix"
+                f"{sport_guidance}. Choose All sports or another sport to broaden "
+                "the eligible games."
+            )
+
+        adjustment_reason = None
+        if actual_leg_count != leg_count:
+            adjustment_reason = (
+                f"You requested {leg_count} legs. The best-scoring valid "
+                f"combination under the current quoted odds, distinct-game, and "
+                f"market-mix requirements has {actual_leg_count} legs."
+            )
+        for leg in legs:
+            leg["selection_reason"] = (
+                "Included in the highest-scoring valid combination. The existing "
+                "model ranking weighs NPI strength, confidence, selected-side "
+                "probability, market-specific edge, odds freshness, and risk, "
+                "with diversity penalties; only one selection per game is allowed."
             )
 
         market_mix = {
@@ -91,7 +150,9 @@ class ParlayOptimizerService:
             for market in ("spread", "total", "moneyline")
         }
         return {
-            "leg_count": leg_count,
+            "leg_count": actual_leg_count,
+            "requested_leg_count": leg_count,
+            "adjustment_reason": adjustment_reason,
             "generated_at": now,
             "horizon_days": self.MAX_GAME_HORIZON_DAYS,
             "sport": sport.upper() if sport else None,
@@ -214,7 +275,19 @@ class ParlayOptimizerService:
                 continue
             if not self._matches_frozen_snapshot(prediction, odds):
                 continue
-            if not self._matches_current_inputs(prediction.market, odds, current_odds):
+            if not self._matches_current_inputs(
+                prediction.market,
+                prediction.selection,
+                odds,
+                current_odds,
+            ):
+                continue
+            quoted_price = self._quoted_price(
+                prediction.market,
+                prediction.selection,
+                current_odds,
+            )
+            if quoted_price is None:
                 continue
             if not is_recommendation_eligible(
                 prediction.market,
@@ -255,7 +328,7 @@ class ParlayOptimizerService:
                         away.name,
                     ),
                     "line_value": prediction.line_value,
-                    "american_odds": prediction.american_odds,
+                    "american_odds": quoted_price,
                     "npi_score": round(npi, 2),
                     "confidence_score": round(confidence, 2),
                     "simulation_probability": round(probability, 2),
@@ -269,7 +342,7 @@ class ParlayOptimizerService:
                     "reasoning": metric_reasoning(prediction.reasoning, probability),
                     "odds_snapshot_id": prediction.odds_snapshot_id,
                     "sportsbook": prediction.sportsbook,
-                    "odds_observed_at": prediction.odds_observed_at.isoformat(),
+                    "odds_observed_at": current_odds.created_at.isoformat(),
                 }
             )
         return sorted(
@@ -278,14 +351,24 @@ class ParlayOptimizerService:
         )
 
     @classmethod
-    def _matches_current_inputs(cls, market, frozen, current) -> bool:
-        # A newer mismatched observation invalidates availability; do not fall
-        # back to an older matching observation or rewrite frozen provenance.
+    def _matches_current_inputs(cls, market, selection, frozen, current) -> bool:
+        market = parse_market(market)
+        selection = parse_selection(selection)
+        quote_field = cls._quote_field(market, selection)
         fields = {
             "spread": ("spread_home", "spread_away", "total"),
-            "moneyline": ("spread_home", "spread_away", "moneyline_home", "moneyline_away", "total"),
+            "moneyline": (
+                "spread_home",
+                "spread_away",
+                "moneyline_home",
+                "moneyline_away",
+                "total",
+            ),
             "total": ("total",),
-        }.get(parse_market(market), ())
+        }.get(market, ())
+        if quote_field is None:
+            return False
+        fields = (*fields, quote_field)
         return bool(fields) and all(
             cls._same_number(getattr(frozen, name), getattr(current, name))
             for name in fields
@@ -309,7 +392,7 @@ class ParlayOptimizerService:
                 return False
             return (
                 cls._same_number(prediction.line_value, snapshot_line)
-                and prediction.american_odds == cls.FIXED_STANDARD_PRICE
+                and cls._quoted_price(market, selection, odds) is not None
             )
 
         if market == "moneyline":
@@ -319,17 +402,36 @@ class ParlayOptimizerService:
                 snapshot_price = odds.moneyline_away
             else:
                 return False
-            return prediction.american_odds == snapshot_price
+            return (
+                prediction.american_odds == snapshot_price
+                and cls._quoted_price(market, selection, odds) is not None
+            )
 
         if market == "total":
             if selection not in {"OVER", "UNDER"}:
                 return False
             return (
                 cls._same_number(prediction.line_value, odds.total)
-                and prediction.american_odds == cls.FIXED_STANDARD_PRICE
+                and cls._quoted_price(market, selection, odds) is not None
             )
 
         return False
+
+    @staticmethod
+    def _quote_field(market, selection) -> str | None:
+        return {
+            ("spread", "HOME"): "spread_home_price",
+            ("spread", "AWAY"): "spread_away_price",
+            ("moneyline", "HOME"): "moneyline_home",
+            ("moneyline", "AWAY"): "moneyline_away",
+            ("total", "OVER"): "total_over_price",
+            ("total", "UNDER"): "total_under_price",
+        }.get((parse_market(market), parse_selection(selection)))
+
+    @classmethod
+    def _quoted_price(cls, market, selection, odds) -> int | None:
+        field = cls._quote_field(market, selection)
+        return historical_price(getattr(odds, field, None)) if field else None
 
     @staticmethod
     def _same_number(left, right) -> bool:

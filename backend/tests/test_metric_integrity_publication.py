@@ -71,7 +71,9 @@ def add_game(db, index=1, days=1):
     db.flush()
     odds = Odds(
         game_id=game.id, sportsbook="Test Book", spread_home=-2.5, spread_away=2.5,
+        spread_home_price=-110, spread_away_price=-110,
         moneyline_home=-110, moneyline_away=100, total=40.5,
+        total_over_price=-110, total_under_price=-110,
         created_at=datetime.now(UTC).replace(tzinfo=None),
     )
     db.add(odds)

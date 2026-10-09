@@ -22,6 +22,7 @@ export type ParlayLeg = {
   risk_level: string;
   /** Older cached responses may contain this internal score; new responses omit it. */
   parlay_score?: number;
+  selection_reason?: string;
   reasoning: string | null;
   sportsbook: string;
   odds_observed_at: string;
@@ -29,6 +30,8 @@ export type ParlayLeg = {
 
 export type OptimizedParlay = {
   leg_count: number;
+  requested_leg_count?: number;
+  adjustment_reason?: string | null;
   generated_at: string;
   horizon_days: number;
   sport: string | null;

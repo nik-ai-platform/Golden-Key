@@ -83,6 +83,8 @@ def _add_candidate(
         sportsbook="Test Book",
         spread_home=-3.5,
         spread_away=3.5,
+        spread_home_price=-110,
+        spread_away_price=-110,
         moneyline_home=(
             american_odds
             if market == "moneyline" and selection == "HOME" and american_odds is not None
@@ -94,6 +96,8 @@ def _add_candidate(
             else 130
         ),
         total=44.5,
+        total_over_price=-110,
+        total_under_price=-110,
         created_at=observed_at,
     )
     db.add(odds)
@@ -206,6 +210,51 @@ def test_optimizer_never_selects_two_markets_from_the_same_game():
     result = ParlayOptimizerService().build_parlay(db, leg_count=2)
 
     assert len({leg["game_id"] for leg in result["legs"]}) == 2
+    assert len({leg["prediction_id"] for leg in result["legs"]}) == 2
+
+
+def test_optimizer_uses_the_selected_sportsbook_quote_instead_of_standard_price():
+    db = _session()
+    _, spread = _add_candidate(db, 1, "spread")
+    _, total = _add_candidate(db, 2, "total", selection="UNDER")
+    spread_snapshot = db.get(Odds, spread.odds_snapshot_id)
+    total_snapshot = db.get(Odds, total.odds_snapshot_id)
+    spread_snapshot.spread_home_price = -108
+    total_snapshot.total_under_price = 102
+    db.commit()
+
+    result = ParlayOptimizerService().build_parlay(db, leg_count=2)
+    selected = {leg["prediction_id"]: leg for leg in result["legs"]}
+
+    assert selected[spread.id]["american_odds"] == -108
+    assert selected[spread.id]["sportsbook"] == spread.sportsbook
+    assert selected[total.id]["american_odds"] == 102
+    assert selected[total.id]["sportsbook"] == total.sportsbook
+
+
+def test_optimizer_offers_best_smaller_valid_parlay_when_requested_inventory_is_short():
+    db = _session()
+    for index, market in enumerate(("spread", "total", "moneyline", "spread"), start=1):
+        _add_candidate(db, index, market)
+
+    result = ParlayOptimizerService().build_parlay(db, leg_count=6)
+
+    assert result["requested_leg_count"] == 6
+    assert result["leg_count"] == 4
+    assert len(result["legs"]) == 4
+    assert len({leg["game_id"] for leg in result["legs"]}) == 4
+    assert result["adjustment_reason"]
+
+
+def test_optimizer_reports_specific_reason_when_fewer_than_two_games_qualify():
+    db = _session()
+    _add_candidate(db, 1, "spread")
+
+    with pytest.raises(
+        ParlayOptimizationError,
+        match="Only 1 distinct game has a valid quoted pick",
+    ):
+        ParlayOptimizerService().build_parlay(db, leg_count=6)
 
 
 def test_optimizer_preserves_prediction_game_snapshot_and_selected_price_identity():
@@ -244,9 +293,13 @@ def test_optimizer_preserves_prediction_game_snapshot_and_selected_price_identit
             sportsbook=f"Identity Book {index}",
             spread_home=-3.5 - index,
             spread_away=3.5 + index,
+            spread_home_price=-110,
+            spread_away_price=-110,
             moneyline_home=-200 - index,
             moneyline_away=180 + index,
             total=40.0 + index,
+            total_over_price=-110,
+            total_under_price=-110,
             created_at=now - timedelta(minutes=index),
         )
         db.add(snapshot)
@@ -279,6 +332,9 @@ def test_optimizer_preserves_prediction_game_snapshot_and_selected_price_identit
         leg_count=4,
         sport="NCAAF",
     )
+
+    assert result["requested_leg_count"] == result["leg_count"] == 4
+    assert result["adjustment_reason"] is None
     predictions_by_id = {prediction.id: prediction for prediction in predictions}
 
     assert {leg["prediction_id"] for leg in result["legs"]} == set(predictions_by_id)
@@ -292,6 +348,7 @@ def test_optimizer_preserves_prediction_game_snapshot_and_selected_price_identit
         assert leg["odds_snapshot_id"] == prediction.odds_snapshot_id
         assert leg["home_team"] == expected_home
         assert leg["away_team"] == expected_away
+        assert leg["selection_reason"]
 
     legs_by_team = {leg["home_team"]: leg for leg in result["legs"]}
     assert legs_by_team["Nebraska"]["display_selection"] == "Nebraska ML -201"
@@ -325,6 +382,22 @@ def test_optimizer_excludes_attractive_predictions_beyond_actionable_horizon():
     assert result["horizon_days"] == 7
     assert result["generated_at"] >= now
     assert all(game.game_date <= now + timedelta(days=7) for game in near_games)
+
+
+def test_optimizer_includes_upcoming_picks_on_the_next_slate():
+    db = _session()
+    now = datetime.now(UTC).replace(tzinfo=None)
+    games = []
+    for index, market in enumerate(("spread", "total"), start=1):
+        game, _ = _add_candidate(db, index, market)
+        game.game_date = now + timedelta(days=1)
+        games.append(game)
+    db.commit()
+
+    result = ParlayOptimizerService().build_parlay(db, leg_count=2)
+
+    assert {leg["game_id"] for leg in result["legs"]} == {game.id for game in games}
+    assert all(leg["game_date"][:10] == (now + timedelta(days=1)).date().isoformat() for leg in result["legs"])
 
 
 def test_parlay_moneyline_price_boundaries_and_other_markets():
@@ -363,7 +436,7 @@ def test_parlay_moneyline_price_boundaries_and_other_markets():
         ("C", "spread", "HOME", 3.5, -110, False),
         ("D", "spread", "AWAY", -3.5, -110, False),
         ("E", "spread", "HOME", None, -110, False),
-        ("F", "spread", "HOME", -3.5, -105, False),
+        ("F", "spread", "HOME", -3.5, -105, True),
         ("G", "moneyline", "HOME", None, -150, True),
         ("H", "moneyline", "AWAY", None, 130, True),
         ("I", "moneyline", "HOME", None, 130, False),
@@ -372,7 +445,7 @@ def test_parlay_moneyline_price_boundaries_and_other_markets():
         ("L", "total", "UNDER", 44.5, -110, True),
         ("M", "total", "OVER", 45.5, -110, False),
         ("N", "total", "HOME", 44.5, -110, False),
-        ("O", "total", "UNDER", 44.5, -105, False),
+        ("O", "total", "UNDER", 44.5, -105, True),
         ("P", "prop", "HOME", 44.5, -110, False),
     ],
     ids=lambda value: value if isinstance(value, str) and len(value) == 1 else None,
@@ -395,9 +468,13 @@ def test_frozen_snapshot_market_integrity(
     odds = Odds(
         spread_home=-3.5,
         spread_away=3.5,
+        spread_home_price=-110,
+        spread_away_price=-110,
         moneyline_home=-150,
         moneyline_away=130,
         total=44.5,
+        total_over_price=-110,
+        total_under_price=-110,
     )
 
     assert ParlayOptimizerService._matches_frozen_snapshot(prediction, odds) is expected
@@ -435,15 +512,44 @@ def test_newer_odds_alone_does_not_supersede_a_coherent_prediction():
             sportsbook="New Book",
             spread_home=-4.5,
             spread_away=4.5,
+            spread_home_price=-110,
+            spread_away_price=-110,
             moneyline_home=-175,
             moneyline_away=150,
             total=45.5,
+            total_over_price=-110,
+            total_under_price=-110,
             created_at=frozen_snapshot.created_at + timedelta(minutes=1),
         )
     )
     db.commit()
 
     assert prediction.id in _candidate_ids(db)
+
+
+def test_changed_selected_side_quote_invalidates_prediction_until_recomputed():
+    db = _session()
+    game, prediction = _add_candidate(db, 1, "spread")
+    frozen = db.get(Odds, prediction.odds_snapshot_id)
+    db.add(
+        Odds(
+            game_id=game.id,
+            sportsbook=prediction.sportsbook,
+            spread_home=frozen.spread_home,
+            spread_away=frozen.spread_away,
+            spread_home_price=-108,
+            spread_away_price=-112,
+            moneyline_home=frozen.moneyline_home,
+            moneyline_away=frozen.moneyline_away,
+            total=frozen.total,
+            total_over_price=frozen.total_over_price,
+            total_under_price=frozen.total_under_price,
+            created_at=frozen.created_at + timedelta(minutes=1),
+        )
+    )
+    db.commit()
+
+    assert prediction.id not in _candidate_ids(db)
 
 
 def test_prediction_lifecycle_replacement_excludes_superseded_prediction():
@@ -455,9 +561,13 @@ def test_prediction_lifecycle_replacement_excludes_superseded_prediction():
         sportsbook="New Book",
         spread_home=-4.5,
         spread_away=4.5,
+        spread_home_price=-110,
+        spread_away_price=-110,
         moneyline_home=-175,
         moneyline_away=150,
         total=45.5,
+        total_over_price=-110,
+        total_under_price=-110,
         created_at=old_snapshot.created_at + timedelta(minutes=1),
     )
     db.add(new_snapshot)
@@ -539,7 +649,7 @@ def test_preferred_moneyline_outranks_equivalent_lower_priority_moneyline():
     assert components["moneyline_price_adjustment"] == -0.01
 
 
-def test_optimizer_fails_instead_of_expanding_horizon_for_insufficient_inventory():
+def test_optimizer_falls_back_to_a_valid_two_leg_parlay_without_expanding_horizon():
     db = _session()
     now = datetime.now(UTC).replace(tzinfo=None)
     for index, market in enumerate(("spread", "total", "moneyline"), start=1):
@@ -550,11 +660,13 @@ def test_optimizer_fails_instead_of_expanding_horizon_for_insufficient_inventory
     distant_game.game_date = now + timedelta(days=102)
     db.commit()
 
-    with pytest.raises(
-        ParlayOptimizationError,
-        match="Not enough qualified predictions to build a 10-leg optimized parlay",
-    ):
-        ParlayOptimizerService().build_parlay(db, leg_count=10)
+    result = ParlayOptimizerService().build_parlay(db, leg_count=10)
+
+    assert result["requested_leg_count"] == 10
+    assert result["leg_count"] == 2
+    assert result["adjustment_reason"]
+    assert len({leg["game_id"] for leg in result["legs"]}) == 2
+    assert all(leg["game_date"][:10] != distant_game.game_date.date().isoformat() for leg in result["legs"])
 
 
 @pytest.mark.parametrize("version", ["NPI-4.0", "NPI-4.1", "NPI-5.0"])
@@ -649,3 +761,34 @@ def test_optimize_route_forwards_requested_legs_and_sport(monkeypatch):
     assert response.status_code == 200
     assert response.json()["leg_count"] == 6
     assert calls == [(fake_db, 6, "NFL")]
+
+
+def test_optimize_route_returns_smaller_valid_result_with_requested_count(monkeypatch):
+    from app.api.v1 import parlays as parlays_router
+
+    db = _session()
+    for index, market in enumerate(("spread", "total", "moneyline", "spread"), start=1):
+        _add_candidate(db, index, market)
+
+    def override_db():
+        yield db
+
+    app.dependency_overrides[parlays_router.get_db] = override_db
+    app.dependency_overrides[get_current_user] = lambda: AuthUser(
+        id=1,
+        username="viewer",
+        email="viewer@example.com",
+        role="admin",
+        is_active=True,
+    )
+    try:
+        response = TestClient(app).get("/api/v1/parlays/optimize?legs=6")
+    finally:
+        app.dependency_overrides.clear()
+        db.close()
+
+    assert response.status_code == 200
+    assert response.json()["requested_leg_count"] == 6
+    assert response.json()["leg_count"] == 4
+    assert response.json()["adjustment_reason"]
+    assert len(response.json()["legs"]) == 4

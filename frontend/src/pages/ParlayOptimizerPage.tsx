@@ -7,7 +7,11 @@ import {
   CardContent,
   Chip,
   Divider,
+  FormControl,
   Grid2 as Grid,
+  InputLabel,
+  MenuItem,
+  Select,
   Stack,
   ToggleButton,
   ToggleButtonGroup,
@@ -38,7 +42,7 @@ function LegCard({ leg, index }: { leg: ParlayLeg; index: number }) {
   const matchup = `${leg.away_team} at ${leg.home_team}`;
 
   return (
-    <Card variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>
+    <Card data-testid="parlay-leg-card" variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>
       <CardContent>
         <Stack direction="row" justifyContent="space-between" spacing={2} alignItems="flex-start">
           <Box sx={{ minWidth: 0 }}>
@@ -72,12 +76,18 @@ function LegCard({ leg, index }: { leg: ParlayLeg; index: number }) {
         </Grid>
 
         <Divider sx={{ my: 2 }} />
-        <Typography variant="subtitle2">Why it qualified</Typography>
+        <Typography variant="subtitle2">Why selected</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          {leg.selection_reason || "Included in the highest-scoring valid combination under the optimizer's distinct-game and market-mix rules."}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
           {visibleReasoning || "Bear A Hand Sports model signals align on this selection."}
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.5 }}>
           {leg.sportsbook} · {formatAmericanOdds(leg.american_odds)}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
+          Quoted {formatProductDate(leg.odds_observed_at)}
         </Typography>
       </CardContent>
     </Card>
@@ -108,20 +118,33 @@ function ParlayProfile({ parlay }: { parlay: OptimizedParlay }) {
         <Chip label={`Totals: ${parlay.market_mix.total}`} variant="outlined" />
         <Chip label={`Moneylines: ${parlay.market_mix.moneyline}`} variant="outlined" />
       </Stack>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+        No combined win probability is estimated. Multiplying leg probabilities assumes independence; distinct games avoid same-game conflicts but do not establish independence across games.
+      </Typography>
     </Box>
   );
 }
 
 export function ParlayOptimizerPage() {
   const [legCount, setLegCount] = useState<number>(6);
+  const [sport, setSport] = useState("");
   const mutation = useMutation({
-    mutationFn: () => optimizeParlay(legCount),
+    mutationFn: () => optimizeParlay(legCount, sport || undefined),
   });
-  const noQualifiedParlay = typeof mutation.error === "object" && mutation.error !== null
-    && "status" in mutation.error && mutation.error.status === 422
-    && "message" in mutation.error && typeof mutation.error.message === "string"
-    && (mutation.error.message.startsWith("Not enough qualified predictions to build ")
-      || mutation.error.message === "Qualified predictions cannot satisfy the requested market mix");
+  const errorObject = typeof mutation.error === "object" && mutation.error !== null
+    ? mutation.error
+    : null;
+  const errorStatus = errorObject && "status" in errorObject
+    && typeof errorObject.status === "number" ? errorObject.status : null;
+  const errorMessage = errorObject && "message" in errorObject
+    && typeof errorObject.message === "string" ? errorObject.message : null;
+  const noQualifiedParlay = errorStatus === 422 && errorMessage !== null && (
+    errorMessage.startsWith("Not enough qualified predictions")
+    || errorMessage.startsWith("Only ")
+    || errorMessage.startsWith("No upcoming picks")
+    || errorMessage.startsWith("The available quoted picks")
+    || errorMessage === "Qualified predictions cannot satisfy the requested market mix"
+  );
 
   return (
     <Stack spacing={4}>
@@ -146,6 +169,20 @@ export function ParlayOptimizerPage() {
             </ToggleButton>
           ))}
         </ToggleButtonGroup>
+        <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 160 } }}>
+          <InputLabel id="parlay-sport-label">Sport</InputLabel>
+          <Select<string>
+            labelId="parlay-sport-label"
+            value={sport}
+            label="Sport"
+            onChange={(event) => setSport(event.target.value)}
+          >
+            <MenuItem value="">All sports</MenuItem>
+            {["NFL", "NBA", "NCAAF", "NCAAB", "WNBA"].map((value) => (
+              <MenuItem key={value} value={value}>{value}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
         <Button
           variant="contained"
           size="large"
@@ -163,13 +200,16 @@ export function ParlayOptimizerPage() {
           <Button disabled={mutation.isPending} onClick={() => mutation.mutate()}>Retry</Button>
         ) : undefined}>
           {noQualifiedParlay
-            ? "No qualified parlay is available for that leg count right now."
+            ? errorMessage
             : "Unable to build the parlay. Check your connection or access and try again."}
         </Alert>
       ) : null}
 
       {mutation.data ? (
         <Stack spacing={3}>
+          {mutation.data.adjustment_reason ? (
+            <Alert severity="info">{mutation.data.adjustment_reason}</Alert>
+          ) : null}
           <Box>
             <Typography variant="overline" color="secondary.main" fontWeight={800}>
               Bear A Hand Sports
@@ -179,6 +219,7 @@ export function ParlayOptimizerPage() {
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
               Optimized from qualifying games in the next {mutation.data.horizon_days} days
+              {mutation.data.sport ? ` · ${mutation.data.sport}` : " · All sports"}
             </Typography>
           </Box>
           <Grid container spacing={2}>

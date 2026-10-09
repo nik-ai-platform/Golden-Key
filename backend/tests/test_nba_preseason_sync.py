@@ -66,12 +66,12 @@ def event(event_id, *, with_odds=True, start=None):
                     {"name": row["home_team"], "price": -280},
                 ]},
                 {"key": "spreads", "outcomes": [
-                    {"name": row["away_team"], "point": 7.5},
-                    {"name": row["home_team"], "point": -7.5},
+                    {"name": row["away_team"], "point": 7.5, "price": -105},
+                    {"name": row["home_team"], "point": -7.5, "price": -115},
                 ]},
                 {"key": "totals", "outcomes": [
-                    {"name": "Over", "point": 212.5},
-                    {"name": "Under", "point": 212.5},
+                    {"name": "Over", "point": 212.5, "price": -108},
+                    {"name": "Under", "point": 212.5, "price": -112},
                 ]},
             ],
         }]
