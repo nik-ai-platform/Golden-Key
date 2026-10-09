@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ParlayOptimizerPage } from "../../src/pages/ParlayOptimizerPage";
@@ -97,9 +98,11 @@ function renderPage() {
     defaultOptions: { mutations: { retry: false } },
   });
   return render(
-    <QueryClientProvider client={queryClient}>
-      <ParlayOptimizerPage />
-    </QueryClientProvider>,
+    <MemoryRouter>
+      <QueryClientProvider client={queryClient}>
+        <ParlayOptimizerPage />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 }
 
@@ -207,13 +210,19 @@ describe("Parlay Optimizer", () => {
     expect(screen.getAllByTestId(/parlay-leg-card/)).toHaveLength(4);
   });
 
-  it.each([0, 403, 422, 500])("does not present an API %s failure as an empty result", async (status) => {
+  it.each([
+    [401, "Your session has expired or is no longer valid. Sign in again to continue.", "link", "Sign in"],
+    [403, "Parlay Optimizer requires active Premium access. Review your subscription in Profile.", "link", "Profile"],
+    [0, "Could not reach the optimizer service. Check your connection and try again.", "button", "Retry"],
+    [408, "The optimizer request timed out. Try again in a moment.", "button", "Retry"],
+    [500, "The optimizer service encountered a server error (HTTP 500). Try again; contact Support if it continues.", "button", "Retry"],
+  ] as const)("explains API %s failures without hiding their category", async (status, message, role, action) => {
     vi.mocked(optimizeParlay).mockRejectedValueOnce({ status, message: "Request failed" });
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: "Build Best Parlay" }));
-    expect(await screen.findByText("Unable to build the parlay. Check your connection or access and try again.")).toBeTruthy();
+    expect(await screen.findByText(message)).toBeTruthy();
     expect(screen.queryByText("No qualified parlay is available for that leg count right now.")).toBeNull();
-    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+    expect(screen.getByRole(role, { name: action })).toBeTruthy();
   });
 
   it("treats the known market-mix eligibility failure as an empty state", async () => {

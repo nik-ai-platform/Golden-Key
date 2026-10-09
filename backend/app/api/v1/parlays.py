@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_viewer
+from app.core.premium import require_premium_user
 from app.database.session import get_db
 from app.services.parlay_optimizer_service import ParlayOptimizerService
 from app.services.parlay_service import ParlayService
@@ -11,7 +12,7 @@ from app.services.parlay_analysis_service import ParlayAnalysisService
 router = APIRouter(
     prefix="/parlays",
     tags=["Parlays"],
-    dependencies=[Depends(require_viewer)],
+    dependencies=[Depends(require_viewer), Depends(require_premium_user)],
 )
 
 

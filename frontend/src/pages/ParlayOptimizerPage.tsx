@@ -18,6 +18,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
+import { Link as RouterLink } from "react-router-dom";
 import { useState } from "react";
 
 import {
@@ -29,12 +30,90 @@ import { customerFacingReasoning, formatConfidence, formatModelProbability, form
 
 const legCounts = [2, 4, 6, 8, 10] as const;
 
+type ParlayFailure = {
+  severity: "error" | "info";
+  message: string;
+  action: "retry" | "profile" | "login" | null;
+};
+
 function formatAmericanOdds(value: number): string {
   return value > 0 ? `+${value}` : String(value);
 }
 
 function titleCase(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+}
+
+function getParlayFailure(error: unknown): ParlayFailure {
+  const failure = typeof error === "object" && error !== null ? error : null;
+  const status = failure && "status" in failure && typeof failure.status === "number"
+    ? failure.status
+    : null;
+  const message = failure && "message" in failure && typeof failure.message === "string"
+    ? failure.message
+    : null;
+
+  if (status === 401) {
+    return {
+      severity: "error",
+      message: "Your session has expired or is no longer valid. Sign in again to continue.",
+      action: "login",
+    };
+  }
+  if (status === 403) {
+    return {
+      severity: "error",
+      message: "Parlay Optimizer requires active Premium access. Review your subscription in Profile.",
+      action: "profile",
+    };
+  }
+  if (status === 422 && message) {
+    const insufficientPicks = [
+      "not enough qualified predictions",
+      "only ",
+      "no upcoming picks",
+      "the available quoted picks",
+      "qualified predictions cannot satisfy",
+    ].some((phrase) => message.toLowerCase().startsWith(phrase));
+    return {
+      severity: insufficientPicks ? "info" : "error",
+      message,
+      action: insufficientPicks ? null : "retry",
+    };
+  }
+  if (status === 0) {
+    return {
+      severity: "error",
+      message: "Could not reach the optimizer service. Check your connection and try again.",
+      action: "retry",
+    };
+  }
+  if (status === 408) {
+    return {
+      severity: "error",
+      message: "The optimizer request timed out. Try again in a moment.",
+      action: "retry",
+    };
+  }
+  if (status !== null && status >= 500) {
+    return {
+      severity: "error",
+      message: `The optimizer service encountered a server error (HTTP ${status}). Try again; contact Support if it continues.`,
+      action: "retry",
+    };
+  }
+  if (status !== null && status >= 400) {
+    return {
+      severity: "error",
+      message: message || `The request was rejected (HTTP ${status}).`,
+      action: "retry",
+    };
+  }
+  return {
+    severity: "error",
+    message: "The optimizer request failed unexpectedly. Try again; contact Support if it continues.",
+    action: "retry",
+  };
 }
 
 function LegCard({ leg, index }: { leg: ParlayLeg; index: number }) {
@@ -131,20 +210,7 @@ export function ParlayOptimizerPage() {
   const mutation = useMutation({
     mutationFn: () => optimizeParlay(legCount, sport || undefined),
   });
-  const errorObject = typeof mutation.error === "object" && mutation.error !== null
-    ? mutation.error
-    : null;
-  const errorStatus = errorObject && "status" in errorObject
-    && typeof errorObject.status === "number" ? errorObject.status : null;
-  const errorMessage = errorObject && "message" in errorObject
-    && typeof errorObject.message === "string" ? errorObject.message : null;
-  const noQualifiedParlay = errorStatus === 422 && errorMessage !== null && (
-    errorMessage.startsWith("Not enough qualified predictions")
-    || errorMessage.startsWith("Only ")
-    || errorMessage.startsWith("No upcoming picks")
-    || errorMessage.startsWith("The available quoted picks")
-    || errorMessage === "Qualified predictions cannot satisfy the requested market mix"
-  );
+  const parlayFailure = mutation.isError ? getParlayFailure(mutation.error) : null;
 
   return (
     <Stack spacing={4}>
@@ -195,13 +261,20 @@ export function ParlayOptimizerPage() {
         </Button>
       </Stack>
 
-      {mutation.isError ? (
-        <Alert severity={noQualifiedParlay ? "info" : "error"} action={!noQualifiedParlay ? (
-          <Button disabled={mutation.isPending} onClick={() => mutation.mutate()}>Retry</Button>
-        ) : undefined}>
-          {noQualifiedParlay
-            ? errorMessage
-            : "Unable to build the parlay. Check your connection or access and try again."}
+      {parlayFailure ? (
+        <Alert
+          severity={parlayFailure.severity}
+          action={
+            parlayFailure.action === "retry" ? (
+              <Button disabled={mutation.isPending} onClick={() => mutation.mutate()}>Retry</Button>
+            ) : parlayFailure.action === "profile" ? (
+              <Button component={RouterLink} to="/profile">Profile</Button>
+            ) : parlayFailure.action === "login" ? (
+              <Button component={RouterLink} to="/login">Sign in</Button>
+            ) : undefined
+          }
+        >
+          {parlayFailure.message}
         </Alert>
       ) : null}
 

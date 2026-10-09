@@ -8,17 +8,23 @@ from sqlalchemy.pool import StaticPool
 
 from app.database.base import Base
 from app.auth.dependencies import get_current_user
+from app.auth.jwt import JWTService
+from app.auth.session_store import SessionStore
 from app.auth.schemas import AuthUser
+from app.core.roles import UserRole
 from app.main import app
+from app.models.application_entitlement import ApplicationEntitlement
 from app.models.game import Game
 from app.models.model_registry import ModelRegistry
 from app.models.odds import Odds
 from app.models.prediction_record import Prediction
 from app.models.team import Team
+from app.models.user import User
 from app.services.parlay_optimizer_service import (
     ParlayOptimizationError,
     ParlayOptimizerService,
 )
+from app.services.entitlement_reconciliation_service import PREMIUM_ENTITLEMENT_KEY
 
 
 def _session():
@@ -44,6 +50,34 @@ def _session():
     )
     db.commit()
     return db
+
+
+def _create_authenticated_viewer(db, *, premium):
+    user = User(
+        username="parlay-viewer",
+        email="parlay-viewer@example.com",
+        hashed_password="unused-test-hash",
+        role=UserRole.VIEWER,
+        is_active=True,
+    )
+    db.add(user)
+    db.flush()
+    if premium:
+        db.add(ApplicationEntitlement(
+            user_id=user.id,
+            entitlement_key=PREMIUM_ENTITLEMENT_KEY,
+            plan="pro_monthly",
+            status="active",
+            starts_at=datetime.now(UTC),
+        ))
+    token, expires_at, token_id = JWTService().create_access_token({
+        "sub": user.email,
+        "role": user.role.value,
+        "uid": user.id,
+    })
+    SessionStore(db).create_access_session(token_id, user.id, expires_at)
+    db.commit()
+    return token
 
 
 def _add_candidate(
@@ -763,7 +797,7 @@ def test_optimize_route_forwards_requested_legs_and_sport(monkeypatch):
     assert calls == [(fake_db, 6, "NFL")]
 
 
-def test_optimize_route_returns_smaller_valid_result_with_requested_count(monkeypatch):
+def test_optimize_route_returns_smaller_valid_result_with_requested_count():
     from app.api.v1 import parlays as parlays_router
 
     db = _session()
@@ -774,15 +808,12 @@ def test_optimize_route_returns_smaller_valid_result_with_requested_count(monkey
         yield db
 
     app.dependency_overrides[parlays_router.get_db] = override_db
-    app.dependency_overrides[get_current_user] = lambda: AuthUser(
-        id=1,
-        username="viewer",
-        email="viewer@example.com",
-        role="admin",
-        is_active=True,
-    )
+    token = _create_authenticated_viewer(db, premium=True)
     try:
-        response = TestClient(app).get("/api/v1/parlays/optimize?legs=6")
+        response = TestClient(app).get(
+            "/api/v1/parlays/optimize?legs=6",
+            headers={"Authorization": f"Bearer {token}"},
+        )
     finally:
         app.dependency_overrides.clear()
         db.close()
@@ -792,3 +823,35 @@ def test_optimize_route_returns_smaller_valid_result_with_requested_count(monkey
     assert response.json()["leg_count"] == 4
     assert response.json()["adjustment_reason"]
     assert len(response.json()["legs"]) == 4
+    assert response.json()["legs"][0]["american_odds"] == -110
+    assert response.json()["legs"][0]["odds_observed_at"]
+
+
+def test_optimize_route_denies_authenticated_viewer_without_premium(monkeypatch):
+    from app.api.v1 import parlays as parlays_router
+
+    db = _session()
+
+    def override_db():
+        yield db
+
+    app.dependency_overrides[parlays_router.get_db] = override_db
+    token = _create_authenticated_viewer(db, premium=False)
+    try:
+        response = TestClient(app).get(
+            "/api/v1/parlays/optimize?legs=6",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+        db.close()
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Active Premium access required"}
+
+
+def test_optimize_route_rejects_missing_authentication():
+    response = TestClient(app).get("/api/v1/parlays/optimize?legs=6")
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Missing bearer token"}
