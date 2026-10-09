@@ -23,6 +23,7 @@ export interface Prediction {
   risk_level: string | null;
   reasoning: string | null;
   outcome?: string | null;
+  result_status?: string | null;
   recommendation_eligible?: boolean;
   recommendation_tier?: "PREFERRED" | "LOWER_PRIORITY" | "LOW_VALUE_HEAVY_FAVORITE" | null;
   recommendation_designation?: string | null;
@@ -94,6 +95,7 @@ export interface SavedPick {
   confidence_score: number | null;
   risk_level: string | null;
   outcome: string | null;
+  result_status: string | null;
   home_score: number | null;
   away_score: number | null;
 }
@@ -149,6 +151,7 @@ export interface PerformanceIntelligenceSummary {
   wins: number;
   losses: number;
   pushes: number;
+  no_bets: number;
   win_rate: number;
   units_won: number;
   roi: number;

@@ -129,10 +129,16 @@ function MarketCard({
                   variant="outlined"
                 />
               ) : null}
-              {prediction.outcome ? (
+              {(prediction.result_status ?? prediction.outcome) ? (
                 <Chip
-                  label={prediction.outcome}
-                  color={outcomeColor(prediction.outcome.toUpperCase())}
+                  label={
+                    (prediction.result_status ?? prediction.outcome)?.toUpperCase() === "NO_BET"
+                      ? "NO BET"
+                      : prediction.result_status ?? prediction.outcome
+                  }
+                  color={outcomeColor(
+                    (prediction.result_status ?? prediction.outcome)?.toUpperCase() ?? "",
+                  )}
                   size="small"
                 />
               ) : null}

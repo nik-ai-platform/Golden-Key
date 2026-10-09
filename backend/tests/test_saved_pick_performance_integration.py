@@ -163,6 +163,7 @@ def test_saved_pick_exposes_authoritative_prediction_result_and_is_user_scoped()
         assert saved["confidence_score"] == 80.0
         assert saved["risk_level"] == "LOW"
         assert saved["outcome"] == "WIN"
+        assert saved["result_status"] == "WIN"
         assert saved["away_score"] == 21
         assert saved["home_score"] == 31
         assert saved["display_selection"] == (
@@ -231,6 +232,24 @@ def test_performance_uses_prediction_results_and_excludes_pushes_from_accuracy()
             selection="OVER",
             line_value=52.0,
         )
+        pass_game = Game(
+            sport="NCAAF",
+            league="NCAAF",
+            game_date=datetime.now(timezone.utc),
+            home_team_id=home.id,
+            away_team_id=away.id,
+            home_score=31,
+            away_score=21,
+        )
+        db.add(pass_game)
+        db.flush()
+        pass_prediction = _prediction(
+            db,
+            game_id=pass_game.id,
+            market="spread",
+            selection="PASS",
+            line_value=-3.5,
+        )
 
         _result(
             db,
@@ -250,12 +269,20 @@ def test_performance_uses_prediction_results_and_excludes_pushes_from_accuracy()
             result="PUSH",
             profit_loss=0.0,
         )
+        pass_result = _result(
+            db,
+            prediction_id=pass_prediction.id,
+            result="PUSH",
+            profit_loss=0.0,
+        )
+        pass_result.actual_result = "NO_BET"
 
         db.commit()
 
         performance = V1ReadService().get_performance(db=db)
         data = _dump(performance)
 
+        assert data["total_predictions"] == 3
         assert data["wins"] == 1
         assert data["losses"] == 1
         assert data["pushes"] == 1

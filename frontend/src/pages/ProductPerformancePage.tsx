@@ -84,12 +84,13 @@ function BreakdownTable({
           width: "100%",
         }}
       >
-        <Table size="small" aria-label={`${title ?? "Performance"} table`} sx={{ minWidth: 640 }}>
+        <Table size="small" aria-label={`${title ?? "Performance"} table`} sx={{ minWidth: 700 }}>
           <TableHead>
             <TableRow>
               <TableCell>Segment</TableCell>
               <TableCell align="right">Bets</TableCell>
               <TableCell align="right">W-L-P</TableCell>
+              <TableCell align="right">No Bet</TableCell>
               <TableCell align="right">Win Rate</TableCell>
               <TableCell align="right">Units</TableCell>
               <TableCell align="right">ROI</TableCell>
@@ -106,6 +107,7 @@ function BreakdownTable({
                   <TableCell align="right">
                     {row.wins}-{row.losses}-{row.pushes}
                   </TableCell>
+                  <TableCell align="right">{row.no_bets}</TableCell>
                   <TableCell align="right">{row.win_rate.toFixed(2)}%</TableCell>
                   <TableCell align="right">{formatSigned(row.units_won, " units")}</TableCell>
                   <TableCell align="right">{formatSigned(row.roi, "%")}</TableCell>
@@ -113,7 +115,7 @@ function BreakdownTable({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={6}>No settled predictions in this period.</TableCell>
+                <TableCell colSpan={7}>No settled predictions in this period.</TableCell>
               </TableRow>
             )}
           </TableBody>
@@ -429,6 +431,9 @@ export function ProductPerformancePage() {
           <Stack component="section" aria-labelledby="model-version" spacing={2} sx={{ minWidth: 0, width: "100%" }}>
             <Typography id="model-version" variant="h5" fontWeight={700}>
               Model Version
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              PASS picks are shown as No Bet, not counted as wagers or genuine pushes.
             </Typography>
             <BreakdownTable rows={query.data.by_model_version} />
           </Stack>

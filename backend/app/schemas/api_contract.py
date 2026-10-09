@@ -26,6 +26,7 @@ class TodayPredictionItem(BaseModel):
     risk_level: str | None = None
     reasoning: str | None = None
     outcome: str | None = None
+    result_status: str | None = None
     recommendation_eligible: bool = True
     recommendation_tier: str | None = None
     recommendation_designation: str | None = None
@@ -92,6 +93,7 @@ class SavedPickItem(BaseModel):
     confidence_score: float | None = None
     risk_level: str | None = None
     outcome: str | None = None
+    result_status: str | None = None
     home_score: float | None = None
     away_score: float | None = None
 

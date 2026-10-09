@@ -23,6 +23,7 @@ function breakdown(
     wins: 1,
     losses: 1,
     pushes: 0,
+    no_bets: 0,
     win_rate: 47.25,
     units_won: -1.2,
     roi: -4.3,
@@ -38,6 +39,7 @@ const performance: PerformanceIntelligenceResponse = {
     wins: 3,
     losses: 2,
     pushes: 1,
+    no_bets: 0,
     win_rate: 61.23,
     units_won: 3.42,
     roi: 8.55,
@@ -138,8 +140,31 @@ describe("Performance Intelligence", () => {
     expect(within(betProfile).getByText("Favorite")).toBeTruthy();
     expect(within(betProfile).getByText("Underdog")).toBeTruthy();
     expect(within(modelVersion).getByText("NPI-4.0")).toBeTruthy();
+    expect(within(modelVersion).getByText("No Bet")).toBeTruthy();
+    expect(within(modelVersion).getByText(/not counted as wagers or genuine pushes/)).toBeTruthy();
     expect(screen.getAllByText("-1.20 units").length).toBeGreaterThan(0);
     expect(screen.getAllByText("-4.30%").length).toBeGreaterThan(0);
+  });
+
+  it("shows PASS/no-bet rows separately from genuine pushes", async () => {
+    vi.mocked(getPerformanceIntelligence).mockResolvedValue({
+      ...performance,
+      by_model_version: [
+        breakdown("NPI-4.0", {
+          total_bets: 4,
+          wins: 1,
+          losses: 2,
+          pushes: 1,
+          no_bets: 209,
+        }),
+      ],
+    });
+    renderPage();
+    const modelVersion = await screen.findByRole("region", { name: "Model Version" });
+    const row = within(modelVersion).getByRole("row", { name: /NPI-4\.0/ });
+    expect(within(row).getByText("1-2-1")).toBeTruthy();
+    expect(within(row).getByText("209")).toBeTruthy();
+    expect(within(row).getByText("4")).toBeTruthy();
   });
 
   it("renders NPI 4.0 actionable spread summary and Brier Score", async () => {
@@ -197,7 +222,7 @@ describe("Performance Intelligence", () => {
     expect(metricsStyle.minWidth).toBe("0px");
     expect(metricsStyle.width).toBe("100%");
     for (const table of screen.getAllByRole("table")) {
-      expect(getComputedStyle(table).minWidth).toBe("640px");
+      expect(["640px", "700px"]).toContain(getComputedStyle(table).minWidth);
       expect(getComputedStyle(table.parentElement!).overflowX).toBe("auto");
       expect(getComputedStyle(table.parentElement!).width).toBe("100%");
     }
@@ -225,6 +250,7 @@ describe("Performance Intelligence", () => {
         wins: 0,
         losses: 0,
         pushes: 0,
+        no_bets: 0,
         win_rate: 0,
         units_won: 0,
         roi: 0,

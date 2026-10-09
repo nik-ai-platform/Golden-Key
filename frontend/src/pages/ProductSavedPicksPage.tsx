@@ -40,7 +40,9 @@ function marketLabel(market: string): string {
 }
 
 function isSettled(pick: SavedPick): boolean {
-  return ["WIN", "LOSS", "PUSH"].includes(pick.outcome?.toUpperCase() ?? "");
+  return ["WIN", "LOSS", "PUSH", "NO_BET"].includes(
+    (pick.result_status ?? pick.outcome)?.toUpperCase() ?? "",
+  );
 }
 
 function outcomeColor(
@@ -101,6 +103,7 @@ function RemovePickButton({ predictionId }: { predictionId: number }) {
 function SavedPickCard({ pick }: { pick: SavedPick }) {
   const settled = isSettled(pick);
   const hasFinalScore = pick.away_score != null && pick.home_score != null;
+  const resultStatus = (pick.result_status ?? pick.outcome)?.toUpperCase() ?? null;
 
   return (
     <Card
@@ -125,11 +128,11 @@ function SavedPickCard({ pick }: { pick: SavedPick }) {
             <Box sx={{ minWidth: 0 }}>
               <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
                 <Chip label={pick.sport} size="small" variant="outlined" />
-                {settled && pick.outcome ? (
+                {settled && resultStatus ? (
                   <Chip
-                    label={pick.outcome.toUpperCase()}
+                    label={resultStatus === "NO_BET" ? "NO BET" : resultStatus}
                     size="small"
-                    color={outcomeColor(pick.outcome)}
+                    color={outcomeColor(resultStatus)}
                   />
                 ) : null}
               </Stack>

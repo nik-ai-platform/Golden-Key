@@ -108,6 +108,57 @@ def test_new_spread_probability_confidence_and_risk(probability, selection):
         assert result["risk_level"] == engine.calculate_risk(result["confidence_score"], 15)
 
 
+@pytest.mark.parametrize(
+    ("home_line", "home_cover_probability", "selection", "selected_line", "probability", "edge"),
+    [
+        (-3.5, 60.0, "HOME", -3.5, 60.0, 10.0),
+        (3.5, 60.0, "HOME", 3.5, 60.0, 10.0),
+        (-3.5, 40.0, "AWAY", 3.5, 60.0, 10.0),
+        (3.5, 40.0, "AWAY", -3.5, 60.0, 10.0),
+        (38.5, 99.99, "HOME", 38.5, 99.99, 49.99),
+        (-38.5, 0.01, "AWAY", 38.5, 99.99, 49.99),
+        (-0.5, 50.0, "PASS", -0.5, None, 0.0),
+    ],
+)
+def test_spread_selection_preserves_signed_provider_side_and_legacy_metrics(
+    home_line,
+    home_cover_probability,
+    selection,
+    selected_line,
+    probability,
+    edge,
+):
+    engine = PredictionEngine()
+    engine.simulation_engine = MagicMock()
+    engine.simulation_engine.simulate.return_value = {
+        "win_probability": home_cover_probability,
+        "runs": 10000,
+        "average_margin": home_line,
+    }
+    odds = SimpleNamespace(
+        spread_home=home_line,
+        spread_away=-home_line,
+        moneyline_home=-150,
+        moneyline_away=130,
+        total=48.5,
+    )
+
+    result = engine._market_specifications(
+        "NFL",
+        odds,
+        {"npi_score": 100, "factors": []},
+    )[0]
+
+    assert result["selection"] == selection
+    assert result["line_value"] == selected_line
+    assert result["simulation_probability"] == probability
+    assert result["projected_edge"] == edge
+    engine.simulation_engine.simulate.assert_called_once_with(
+        npi_score=100,
+        spread=home_line,
+    )
+
+
 @pytest.mark.parametrize(("confidence", "risk"), [(64.99, "high"), (65, "medium"), (79.99, "medium"), (80, "low"), (95, "low")])
 def test_risk_boundaries(confidence, risk):
     assert PredictionEngine().calculate_risk(confidence, 0) == risk

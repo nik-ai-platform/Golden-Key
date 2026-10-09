@@ -31,6 +31,7 @@ function savedPick(overrides: Partial<SavedPick>): SavedPick {
     confidence_score: 78,
     risk_level: "LOW",
     outcome: null,
+    result_status: null,
     home_score: null,
     away_score: null,
     ...overrides,
@@ -216,6 +217,25 @@ describe("saved picks tracking", () => {
     renderPage();
     expect(await screen.findByText("Unable to load saved picks right now.")).toBeTruthy();
     expect(screen.queryByText("database detail")).toBeNull();
+  });
+
+  it("renders a legacy PASS result as NO BET rather than a genuine PUSH", async () => {
+    vi.mocked(getSavedPicks).mockResolvedValue(response([
+      savedPick({
+        selection: "PASS",
+        display_selection: "PASS",
+        outcome: "PUSH",
+        result_status: "NO_BET",
+        away_score: 21,
+        home_score: 24,
+      }),
+    ]));
+    renderPage();
+
+    const card = await screen.findByTestId("saved-pick-card");
+    expect(within(card).getByText("NO BET")).toBeTruthy();
+    expect(within(card).queryByText("PUSH")).toBeNull();
+    expect(screen.getByTestId("settled-count").textContent).toBe("1");
   });
 
   it("shows the full empty state", async () => {

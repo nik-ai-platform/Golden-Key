@@ -140,7 +140,7 @@ def _session_with_npi_4_spread_results():
         db.add(
             PredictionResult(
                 prediction_id=prediction.id,
-                actual_result="24-20",
+                actual_result="NO_BET" if selection == "PASS" else "24-20",
                 predicted_result=selection,
                 outcome=outcome,
                 profit_loss=profit,
@@ -196,6 +196,7 @@ def test_performance_intelligence_push_is_excluded_from_win_rate():
     assert overall["wins"] == 1
     assert overall["losses"] == 1
     assert overall["pushes"] == 1
+    assert overall["no_bets"] == 0
     assert overall["win_rate"] == 50.0
 
 
@@ -234,6 +235,20 @@ def test_npi_4_spread_summary_filters_market_version_pass_and_period():
     assert thirty_day["summary"]["units"] == 1.0
     assert thirty_day["summary"]["roi"] == 25.0
     assert ninety_day["summary"]["sample_size"] == 5
+
+
+def test_model_version_reporting_separates_pass_no_bet_from_genuine_push():
+    db = _session_with_npi_4_spread_results()
+    try:
+        report = V1ReadService().get_performance_intelligence(db, days=7)
+    finally:
+        db.close()
+
+    by_version = {row["key"]: row for row in report["by_model_version"]}
+    legacy = by_version["NPI-4.0"]
+    assert legacy["pushes"] == 1
+    assert legacy["no_bets"] == 1
+    assert legacy["total_bets"] == legacy["wins"] + legacy["losses"] + legacy["pushes"]
 
 
 def test_npi_4_spread_returns_fixed_npi_confidence_and_absolute_edge_bands():

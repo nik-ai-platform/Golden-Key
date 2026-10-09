@@ -574,7 +574,8 @@ def test_sql_canonical_selection_bounds_materialized_generations(db):
     finally:
         event.remove(db, "loaded_as_persistent", track_peak)
     assert intelligence["overall"]["total_bets"] == 3
-    assert sum(row["total_bets"] for row in intelligence["by_model_version"]) == 12
+    assert sum(row["total_bets"] for row in intelligence["by_model_version"]) == 11
+    assert sum(row["no_bets"] for row in intelligence["by_model_version"]) == 1
     assert intelligence["npi_4_spread"]["summary"]["sample_size"] == 4
     assert max(peak_predictions) <= 15
 
@@ -721,6 +722,14 @@ def test_normalized_pass_never_counts_as_customer_bet(db, client, variant):
     game.status, game.home_score, game.away_score = "final", 31, 21
     db.commit()
     ResultSettlementService().settle_game(db, game.id)
+    result_item = V1ReadService().get_game_detail(db, game.id)["predictions"][0]
+    assert result_item["outcome"] == "PUSH"
+    assert result_item["result_status"] == "NO_BET"
+    db.add(UserPrediction(user_id=42, prediction_id=current.id))
+    db.commit()
+    saved_pick = V1ReadService().get_saved_picks(db, 42)["picks"][0]
+    assert saved_pick["outcome"] == "PUSH"
+    assert saved_pick["result_status"] == "NO_BET"
     assert V1ReadService().get_performance(db)["total_predictions"] == 0
     assert V1ReadService().get_performance_intelligence(db)["overall"]["total_bets"] == 0
 

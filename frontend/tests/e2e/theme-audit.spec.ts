@@ -147,6 +147,7 @@ async function mockProductApi(page: import("@playwright/test").Page) {
         wins: 1,
         losses: 1,
         pushes: 1,
+        no_bets: 0,
         accuracy: 50,
         profit_loss: 90,
         market_performance: [

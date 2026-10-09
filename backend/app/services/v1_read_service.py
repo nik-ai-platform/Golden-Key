@@ -1,6 +1,7 @@
 from datetime import UTC, date, datetime, timedelta, timezone
 from dataclasses import dataclass
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, aliased
 
 from app.models.game import Game
@@ -41,15 +42,32 @@ def _utc_iso(value: datetime | None) -> str | None:
     return value.isoformat().replace("+00:00", "Z")
 
 
+def _result_status(prediction: Prediction, result: PredictionResult) -> str | None:
+    if (
+        parse_selection(prediction.selection) == "PASS"
+        or normalized_text(result.actual_result, upper=True) == "NO_BET"
+    ):
+        return "NO_BET"
+    return result.outcome
+
+
 @dataclass
 class _OutcomeCounts:
     wins: int = 0
     losses: int = 0
     pushes: int = 0
+    no_bets: int = 0
     units: float = 0.0
 
-    def add(self, result: PredictionResult) -> None:
+    def add(self, result: PredictionResult, *, is_pass: bool = False) -> None:
         outcome = normalized_text(result.outcome, upper=True)
+        actual_result = normalized_text(
+            getattr(result, "actual_result", None),
+            upper=True,
+        )
+        if is_pass or actual_result == "NO_BET":
+            self.no_bets += 1
+            return
         self.wins += outcome == "WIN"
         self.losses += outcome == "LOSS"
         self.pushes += outcome == "PUSH"
@@ -60,7 +78,7 @@ class _OutcomeCounts:
         total = graded + self.pushes
         return {
             "total_bets": total, "wins": self.wins, "losses": self.losses,
-            "pushes": self.pushes,
+            "pushes": self.pushes, "no_bets": self.no_bets,
             "win_rate": round(self.wins / graded * 100, 2) if graded else 0.0,
             "units_won": round(self.units, 2),
             "roi": round(self.units / total * 100, 2) if total else 0.0,
@@ -485,16 +503,23 @@ class V1ReadService:
             for market in ("spread", "moneyline", "total")
             if market in latest_by_market
         ]
-        outcomes = {
-            result.prediction_id: result.outcome
-            for result in db.query(PredictionResult)
+        results = (
+            db.query(PredictionResult)
             .filter(
                 PredictionResult.prediction_id.in_(
                     [prediction.id for prediction in selected_predictions]
                 )
             )
             .all()
-        } if selected_predictions else {}
+            if selected_predictions
+            else []
+        )
+        outcomes = {result.prediction_id: result.outcome for result in results}
+        result_statuses = {}
+        selected_by_id = {prediction.id: prediction for prediction in selected_predictions}
+        for result in results:
+            prediction = selected_by_id[result.prediction_id]
+            result_statuses[result.prediction_id] = _result_status(prediction, result)
         return {
             "game_id": game.id,
             "sport": game.sport,
@@ -516,6 +541,7 @@ class V1ReadService:
                         away_team,
                     ),
                     "outcome": outcomes.get(prediction.id),
+                    "result_status": result_statuses.get(prediction.id),
                 }
                 for prediction in selected_predictions
             ],
@@ -578,6 +604,9 @@ class V1ReadService:
                     "confidence_score": finite_metric(prediction.confidence_score),
                     "risk_level": historical_text(prediction.risk_level),
                     "outcome": result.outcome if result else None,
+                    "result_status": (
+                        _result_status(prediction, result) if result else None
+                    ),
                     "home_score": game.home_score,
                     "away_score": game.away_score,
                 }
@@ -606,6 +635,12 @@ class V1ReadService:
             .join(home_team, home_team.id == Game.home_team_id)
             .join(away_team, away_team.id == Game.away_team_id)
             .filter(PredictionResult.outcome.in_(("WIN", "LOSS", "PUSH")))
+            .filter(
+                or_(
+                    PredictionResult.actual_result.is_(None),
+                    PredictionResult.actual_result != "NO_BET",
+                )
+            )
             .filter(regular_season_games())
             .filter(Prediction.id.in_(canonical_prediction_id_query()))
             .filter(sql_supported_metadata(Prediction.market, Prediction.selection))
@@ -713,6 +748,10 @@ class V1ReadService:
             Prediction.id.in_(canonical_prediction_id_query()),
             sql_supported_metadata(Prediction.market, Prediction.selection),
             sql_selection(Prediction.selection).is_not(None), sql_selection(Prediction.selection) != "PASS",
+            or_(
+                PredictionResult.actual_result.is_(None),
+                PredictionResult.actual_result != "NO_BET",
+            ),
         ).all()
         def summarize(items) -> dict:
             counts = _OutcomeCounts()
@@ -829,7 +868,10 @@ class V1ReadService:
         )
         for prediction, result, game in version_history.order_by(PredictionResult.id).yield_per(200):
             version = historical_text(prediction.model_version) or "Unknown"
-            versions.setdefault(version, _OutcomeCounts()).add(result)
+            versions.setdefault(version, _OutcomeCounts()).add(
+                result,
+                is_pass=parse_selection(prediction.selection) == "PASS",
+            )
             if (
                 version in spreads and parse_market(prediction.market) == "spread"
                 and parse_selection(prediction.selection) != "PASS"
