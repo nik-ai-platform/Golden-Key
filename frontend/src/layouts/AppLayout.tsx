@@ -1,7 +1,6 @@
 import BookmarkBorderOutlinedIcon from "@mui/icons-material/BookmarkBorderOutlined";
 import CasinoOutlinedIcon from "@mui/icons-material/CasinoOutlined";
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
-import DirectionsRunOutlinedIcon from "@mui/icons-material/DirectionsRunOutlined";
 import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
 import HelpOutlineOutlinedIcon from "@mui/icons-material/HelpOutlineOutlined";
@@ -53,13 +52,15 @@ export function AppLayout() {
 
     return (
       <>
-        <Toolbar sx={{ px: 2.25, minHeight: "64px !important" }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <DirectionsRunOutlinedIcon sx={{ color: "var(--gk-cyan)" }} fontSize="small" />
-            <Typography className="gk-editorial" variant="subtitle1" fontWeight={650} color="var(--gk-shell-text)">
-              Bear A Hand Sports
-            </Typography>
-          </Stack>
+        <Toolbar sx={{ px: 2.25, minHeight: "64px !important", justifyContent: "center" }}>
+          <Box
+            component="img"
+            src="/bear-a-hand-wordmark.png"
+            alt="Bear A Hand Sports wordmark"
+            width={168}
+            height={38}
+            sx={{ display: "block", width: "100%", maxWidth: 168, height: "auto", objectFit: "contain" }}
+          />
         </Toolbar>
         <Divider />
         <List sx={{ px: 1.25, py: 1.75 }}>
@@ -105,6 +106,7 @@ export function AppLayout() {
   return (
     <Box sx={{ display: "flex", minHeight: "100vh", backgroundColor: "background.default" }}>
       <AppBar
+        data-testid="fixed-brand-header"
         position="fixed"
         color="inherit"
         elevation={0}
@@ -118,15 +120,11 @@ export function AppLayout() {
           boxShadow: "none",
         }}
       >
-        <Toolbar sx={{ minHeight: "56px !important", px: { xs: 1.5, sm: 2.25 }, justifyContent: "space-between" }}>
+        <Toolbar data-testid="header-controls" sx={{ minHeight: "56px !important", px: { xs: 1.5, sm: 2.25 }, justifyContent: "space-between" }}>
           <Stack direction="row" spacing={1.2} alignItems="center">
             <IconButton aria-label="Open navigation" sx={{ display: { sm: "none" }, color: "var(--gk-cyan)" }} onClick={() => setMobileOpen((value) => !value)}>
               <MenuOutlinedIcon />
             </IconButton>
-            <Stack>
-              <Typography data-testid="sports-intelligence-title" className="gk-editorial" variant="subtitle1" fontWeight={650} sx={{ color: "var(--gk-shell-text)", lineHeight: 1.15 }}>Sports Intelligence</Typography>
-              <Typography variant="caption" sx={{ color: "var(--gk-shell-text-secondary)" }}>Daily model intelligence · {user?.role ?? "user"}</Typography>
-            </Stack>
           </Stack>
           <Stack direction="row" spacing={0.5} alignItems="center">
             <ThemeToggleButton />
@@ -135,6 +133,33 @@ export function AppLayout() {
             </IconButton>
           </Stack>
         </Toolbar>
+        <Box
+          data-testid="brand-artwork-banner"
+          sx={{
+            height: { xs: 104, sm: 136, md: 152 },
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            overflow: "hidden",
+            backgroundColor: "#071521",
+            borderTop: "1px solid rgba(0, 212, 255, 0.34)",
+          }}
+        >
+          <Box
+            component="img"
+            src="/bear-a-hand-complete-brand.jpg"
+            alt="Complete Bear A Hand Sports brand artwork, including its bear, globe, and lettering. Numbers in the artwork are decorative branding, not live prediction metrics."
+            width={3000}
+            height={2500}
+            sx={{
+              display: "block",
+              width: "auto",
+              height: "100%",
+              maxWidth: "100%",
+              objectFit: "contain",
+            }}
+          />
+        </Box>
       </AppBar>
 
       <Drawer
@@ -174,7 +199,7 @@ export function AppLayout() {
         {navigation()}
       </Drawer>
 
-      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, sm: 2.25 }, pb: { xs: "calc(88px + env(safe-area-inset-bottom))", sm: 2.25 }, mt: 7 }}>
+      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, sm: 2.25 }, pb: { xs: "calc(88px + env(safe-area-inset-bottom))", sm: 2.25 }, mt: { xs: "162px", sm: "194px", md: "210px" } }}>
         <Outlet />
         <Box component="footer" sx={{ mt: 2.5, pt: 1.5, borderTop: "1px solid", borderTopColor: "divider" }}>
           <Typography variant="caption" color="text.secondary">

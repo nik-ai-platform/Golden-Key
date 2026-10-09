@@ -91,9 +91,6 @@ export function ProductDashboardPage() {
 
   const card = query.data;
   const upcoming = gamesQuery.data?.predictions ?? [];
-  const matchupCount = gamesQuery.isLoading || gamesQuery.isError || !gamesQuery.data
-    ? null : new Set(upcoming.map((prediction) => prediction.game_id)).size;
-  const modelVersions = [...new Set(upcoming.map((prediction) => prediction.model_version).filter(Boolean))].sort();
   const allPicks = card
     ? [card.best_bet, ...card.featured_picks, ...card.next_best].filter(
         (pick): pick is DailyCardPick => pick != null,
@@ -114,7 +111,7 @@ export function ProductDashboardPage() {
   const averageConfidence = finiteAverage(uniquePicks.map((pick) => pick.prediction.confidence_score));
   return (
     <Stack spacing={{ xs: 2, md: 2 }} data-testid="intelligence-dashboard">
-      <DashboardHero matchupCount={matchupCount} modelVersions={gamesQuery.isError ? [] : modelVersions} />
+      <DashboardHero />
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(0, 1fr) 290px" }, gap: 2, alignItems: "start" }}>
       <Box data-testid="dashboard-outcomes-placement" sx={{ minWidth: 0, gridColumn: { xs: 1, lg: 2 }, gridRow: { xs: 1, sm: 2, lg: 1 } }}>
         <DashboardOutcomes />

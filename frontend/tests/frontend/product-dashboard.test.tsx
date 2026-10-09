@@ -467,12 +467,15 @@ describe("daily card dashboard", () => {
     }
   });
 
-  it("reports unique upcoming matchups and actual model versions rather than pick count", () => {
+  it("keeps the upcoming matchup data on the board without duplicating it under the hero", () => {
     renderDashboard();
-    expect(screen.getByTestId("upcoming-matchup-count").textContent).toBe("2");
-    expect(screen.getByTestId("reported-model-version").textContent).toBe("NPI-4.0");
+    expect(screen.queryByTestId("upcoming-matchup-count")).toBeNull();
+    expect(screen.queryByTestId("reported-model-version")).toBeNull();
+    expect(screen.queryByText("Upcoming matchups")).toBeNull();
+    expect(screen.queryByText("Reported model version")).toBeNull();
     expect(screen.getByRole("heading", { name: "Model Outcomes" })).toBeTruthy();
     expect(screen.getAllByRole("link", { name: /Read spread reasoning/ }).length).toBeGreaterThan(0);
+    expect(screen.getByTestId("game-10-header")).toBeTruthy();
   });
 
   it("keeps a long moneyline in Moneyline Value instead of Best Bet", () => {
@@ -573,8 +576,8 @@ describe("daily card dashboard", () => {
     renderDashboard();
     expect(screen.getByTestId("daily-card-best-bet")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Model Outcomes" })).toBeTruthy();
-    expect(screen.getByTestId("upcoming-matchup-count").textContent).toBe("Unavailable");
-    expect(screen.getByTestId("reported-model-version").textContent).toBe("Unavailable");
+    expect(screen.queryByTestId("upcoming-matchup-count")).toBeNull();
+    expect(screen.queryByTestId("reported-model-version")).toBeNull();
     expect(screen.getByText(state === "loading" ? "Loading upcoming matchups..." : "Unable to load upcoming matchups.")).toBeTruthy();
   });
 
@@ -588,7 +591,7 @@ describe("daily card dashboard", () => {
     renderDashboard();
     expect(screen.getByText("Building today's card...")).toBeTruthy();
     expect(screen.getByTestId("sportsbook-games-board")).toBeTruthy();
-    expect(screen.getByTestId("upcoming-matchup-count").textContent).toBe("2");
+    expect(screen.queryByTestId("upcoming-matchup-count")).toBeNull();
     expect(screen.getByRole("heading", { name: "Model Outcomes" })).toBeTruthy();
   });
 });

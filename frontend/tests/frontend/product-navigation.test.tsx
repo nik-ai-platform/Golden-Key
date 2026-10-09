@@ -43,10 +43,12 @@ describe("product navigation", () => {
     expect(screen.getByRole("button", { name: "Open navigation" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Sign Out" })).toBeTruthy();
-    const title = screen.getByTestId("sports-intelligence-title");
-    expect(getComputedStyle(title).color).toBe("var(--gk-shell-text)");
     expect(getComputedStyle(document.documentElement).getPropertyValue("--gk-shell-text").trim()).toBe("#edf4fa");
-    expect(title.classList.contains("gk-editorial")).toBe(true);
+    const artwork = screen.getByRole("img", { name: /Complete Bear A Hand Sports brand artwork/ });
+    expect(artwork.getAttribute("src")).toBe("/bear-a-hand-complete-brand.jpg");
+    expect(screen.getByRole("img", { name: "Bear A Hand Sports wordmark" }).getAttribute("src")).toBe("/bear-a-hand-wordmark.png");
+    expect(screen.queryByText("Sports Intelligence")).toBeNull();
+    expect(screen.queryByText(/Daily model intelligence/)).toBeNull();
     expect(screen.queryByText(/Product API/)).toBeNull();
 
     for (const label of ["Dashboard", "Games", "Saved Picks", "Parlay Optimizer", "Performance", "Profile"]) {
@@ -56,6 +58,9 @@ describe("product navigation", () => {
       screen.getByRole("button", { name: "Games" }).getAttribute("aria-current"),
     ).toBe("page");
     const main = screen.getByRole("main");
+    expect(styleAtBreakpoint(main, 0, "margin-top")).toBe("162px");
+    expect(styleAtBreakpoint(main, 600, "margin-top")).toBe("194px");
+    expect(styleAtBreakpoint(main, 900, "margin-top")).toBe("210px");
     expect(styleAtBreakpoint(main, 0, "padding-bottom")).toBe("calc(88px + env(safe-area-inset-bottom))");
     expect(styleAtBreakpoint(main, 600, "padding-bottom")).toBe("18px");
     const nav = screen.getByTestId("mobile-navigation-shell");

@@ -1,13 +1,7 @@
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import { Box, Button, Stack, Typography } from "@mui/material";
 
-export function DashboardHero({
-  matchupCount,
-  modelVersions,
-}: {
-  matchupCount: number | null;
-  modelVersions: string[];
-}) {
+export function DashboardHero() {
   return (
     <Box
       component="section"
@@ -41,20 +35,6 @@ export function DashboardHero({
         >
           Explore picks
         </Button>
-        <Stack data-testid="dashboard-hero-metadata" direction="row" spacing={3} flexWrap="wrap" useFlexGap sx={{ display: { xs: "none", sm: "flex" }, pt: 1 }}>
-          <Box>
-            <Typography variant="caption" color="text.secondary">Upcoming matchups</Typography>
-            <Typography className="gk-data" data-testid="upcoming-matchup-count" sx={{ fontWeight: 700, fontSize: "1.15rem" }}>
-              {matchupCount == null ? "Unavailable" : matchupCount}
-            </Typography>
-          </Box>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography variant="caption" color="text.secondary">Reported model version</Typography>
-            <Typography className="gk-data" data-testid="reported-model-version" sx={{ fontWeight: 700, fontSize: "1rem", overflowWrap: "anywhere" }}>
-              {modelVersions.length ? modelVersions.join(" · ") : "Unavailable"}
-            </Typography>
-          </Box>
-        </Stack>
       </Stack>
       <Box sx={{ backgroundColor: "#060d14", minWidth: 0, display: "flex", justifyContent: "center", alignItems: "center" }}>
         <Box

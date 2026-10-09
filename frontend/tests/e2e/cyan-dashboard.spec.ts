@@ -62,18 +62,38 @@ async function previewApi(page: Page) {
 }
 
 for (const width of [320, 390, 430, 600, 900, 1200, 1440]) {
-  test(`cyan dashboard preserves data and responsive clearance at ${width}px`, async ({ page }) => {
+  test(`dashboard branding, data and responsive clearance at ${width}px`, async ({ page }) => {
     await previewApi(page);
     await page.setViewportSize({ width, height: 1000 });
     await page.goto("/dashboard");
     await expect(page.getByRole("heading", { name: "THE GAME. THE DATA. YOUR EDGE." })).toBeVisible();
-    await expect(page.getByTestId("upcoming-matchup-count")).toHaveText("1");
-    await expect(page.getByTestId("reported-model-version")).toHaveText("NPI-5.0");
-    const metadata = page.getByTestId("dashboard-hero-metadata");
+    await expect(page.getByText("Upcoming matchups", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Reported model version", { exact: true })).toHaveCount(0);
+    await expect(page.getByTestId("upcoming-matchup-count")).toHaveCount(0);
+    await expect(page.getByTestId("reported-model-version")).toHaveCount(0);
+    const brandArtwork = page.getByRole("img", { name: /Complete Bear A Hand Sports brand artwork/ });
+    await expect(brandArtwork).toBeVisible();
+    await expect(brandArtwork).toHaveAttribute("src", "/bear-a-hand-complete-brand.jpg");
+    expect(await brandArtwork.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(3000);
+    const bannerBox = (await page.getByTestId("brand-artwork-banner").boundingBox())!;
+    const artworkBox = (await brandArtwork.boundingBox())!;
+    const headerBox = (await page.getByTestId("fixed-brand-header").boundingBox())!;
+    const controlsBox = (await page.getByTestId("header-controls").boundingBox())!;
+    const mainBox = (await page.getByRole("main").boundingBox())!;
+    expect(artworkBox.width / artworkBox.height).toBeCloseTo(1.2, 1);
+    expect(artworkBox.width).toBeLessThanOrEqual(bannerBox.width);
+    expect(artworkBox.height).toBeLessThanOrEqual(bannerBox.height);
+    expect(controlsBox.y + controlsBox.height).toBeLessThanOrEqual(bannerBox.y);
+    expect(mainBox.y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height);
+    const wordmark = page.locator('img[alt="Bear A Hand Sports wordmark"]');
+    await expect(wordmark).toHaveAttribute("src", "/bear-a-hand-wordmark.png");
+    expect(await wordmark.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(1200);
     if (width < 600) {
-      await expect(metadata).toBeHidden();
+      await page.getByRole("button", { name: "Open navigation" }).click();
+      await expect(page.getByRole("img", { name: "Bear A Hand Sports wordmark" })).toBeVisible();
+      await page.keyboard.press("Escape");
     } else {
-      await expect(metadata).toBeVisible();
+      await expect(page.getByRole("img", { name: "Bear A Hand Sports wordmark" })).toBeVisible();
     }
     await expect(page.getByRole("heading", { name: "Model Outcomes" })).toBeVisible();
     const outcomes = page.getByTestId("dashboard-outcomes-placement");
@@ -121,6 +141,9 @@ for (const width of [320, 390, 430, 600, 900, 1200, 1440]) {
       const lastContent = await page.getByRole("main").locator("footer").boundingBox();
       const navigation = await page.getByTestId("mobile-navigation-shell").boundingBox();
       expect(lastContent!.y + lastContent!.height).toBeLessThan(navigation!.y);
+      await page.getByRole("button", { name: "Open navigation" }).click();
+      await expect(page.getByRole("img", { name: "Bear A Hand Sports wordmark" }).last()).toBeVisible();
+      await page.keyboard.press("Escape");
     }
     if (width === 390 || width === 430 || width === 1440) {
       await page.evaluate(() => {
