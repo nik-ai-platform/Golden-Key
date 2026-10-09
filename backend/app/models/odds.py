@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -58,3 +58,12 @@ class Odds(Base):
         "Game",
         back_populates="odds"
     )
+
+
+Index(
+    "ix_odds_game_book_created_id",
+    Odds.game_id,
+    Odds.sportsbook,
+    Odds.created_at,
+    Odds.id,
+)

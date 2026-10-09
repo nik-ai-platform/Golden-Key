@@ -1,7 +1,55 @@
+import importlib.util
+from pathlib import Path
 from unittest.mock import MagicMock
+
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
+from sqlalchemy import create_engine, inspect, text
 
 from app.models.odds import Odds
 from app.repositories import odds_repository
+
+
+def test_latest_odds_lookup_index_migration_upgrades_and_downgrades():
+    migration_path = (
+        Path(__file__).parents[1]
+        / "migrations"
+        / "versions"
+        / "c0f4a3b8d921_index_latest_odds_lookup.py"
+    )
+    spec = importlib.util.spec_from_file_location("latest_odds_index", migration_path)
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    engine = create_engine("sqlite://")
+
+    with engine.begin() as connection:
+        connection.execute(text(
+            "CREATE TABLE odds (id INTEGER PRIMARY KEY, game_id INTEGER, "
+            "sportsbook VARCHAR, created_at DATETIME)"
+        ))
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+        indexes = inspect(connection).get_indexes("odds")
+        assert any(index["name"] == migration.INDEX_NAME for index in indexes)
+
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+        assert not any(
+            index["name"] == migration.INDEX_NAME
+            for index in inspect(connection).get_indexes("odds")
+        )
+
+
+def test_odds_model_declares_latest_snapshot_lookup_index():
+    index = next(
+        index
+        for index in Odds.__table__.indexes
+        if index.name == "ix_odds_game_book_created_id"
+    )
+
+    assert [column.name for column in index.columns] == [
+        "game_id", "sportsbook", "created_at", "id",
+    ]
 
 
 class _FakeExpr:
