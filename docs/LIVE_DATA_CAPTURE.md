@@ -36,11 +36,11 @@ Historical CFBD observation policy is outside this change.
 The read-only team-scoring validator reports candidate-margin rejections by
 sport and chronological evaluation period, separates margin availability from
 cover-probability calibration availability, compares candidate and baselines on
-the same forecastable games, and summarizes frozen-price coverage by snapshot
-vintage. Its observation inventory distinguishes valid known-site and
-unknown-site final receipts and checks provider identity coverage against the
-team IDs used by observed games. It uses no source update time or kickoff as a
-substitute for a receipt timestamp.
+the same forecastable games, and summarizes frozen-price coverage by daily
+vintage and since the first captured paired quote per sport. Its observation
+inventory distinguishes valid known-site and unknown-site final receipts and
+checks provider identity coverage against the team IDs used by observed games.
+It uses no source update time or kickoff as a substitute for a receipt timestamp.
 
 Existing settlement still runs after score capture. Previously settled picks
 are not automatically regraded when scores change.

@@ -13,6 +13,8 @@ from app.models.odds import Odds  # noqa: F401
 from app.models.prediction_record import Prediction
 from app.models.prediction_result import PredictionResult
 from app.models.team import Team  # noqa: F401
+from app.models.team_alias import TeamAlias
+from app.models.team_provider_identity import TeamProviderIdentity
 from app.models.user import User
 from app.models.user_prediction import UserPrediction
 from app.services.live_data_service import LiveDataService
@@ -21,6 +23,7 @@ from app.services.odds_service import NoCompleteOddsSnapshotError
 from app.services.prediction_engine import PredictionEngine
 from app.services.v1_read_service import V1ReadService
 from app.workers.game_importer import GameOddsImporter
+from scripts.validate_team_scoring_forecast import _target_team_identity_coverage
 
 
 def _session():
@@ -189,6 +192,62 @@ def test_game_importer_captures_only_explicit_neutral_site_metadata():
     importer.import_games("NCAAF")
     db.refresh(game)
     assert game.neutral_site is True
+
+
+def test_target_team_identity_coverage_flags_missing_cross_sport_provider_mapping():
+    db = _session()
+    home = Team(name="Mapped Home", sport="NCAAF", league="NCAAF")
+    away = Team(name="Mapped Away", sport="NCAAF", league="NCAAF")
+    db.add_all((home, away))
+    db.flush()
+    db.add_all(
+        (
+            TeamProviderIdentity(
+                team_id=home.id,
+                provider="cfbd",
+                sport="NCAAF",
+                provider_team_id="home-1",
+                provider_name="Mapped Home",
+            ),
+            TeamProviderIdentity(
+                team_id=away.id,
+                provider="other",
+                sport="NBA",
+                provider_team_id="away-1",
+                provider_name="Mapped Away",
+            ),
+            TeamAlias(
+                team_id=home.id,
+                provider="cfbd",
+                alias_name="Home Alias",
+                normalized_alias="homealias",
+            ),
+        )
+    )
+    db.commit()
+
+    report = _target_team_identity_coverage(
+        db,
+        [
+            {
+                "sport": "NCAAF",
+                "home_team_id": home.id,
+                "away_team_id": away.id,
+            }
+        ],
+    )
+
+    assert report == [
+        {
+            "sport": "NCAAF",
+            "unique_target_team_ids": 2,
+            "team_ids_missing_from_team_table": 0,
+            "team_ids_with_matching_sport": 2,
+            "team_ids_with_provider_identity": 1,
+            "team_ids_with_alias": 1,
+            "team_ids_with_cross_sport_identity": 1,
+        }
+    ]
 
 
 def test_incomplete_legacy_set_is_preserved_and_corrected_version_is_generated():

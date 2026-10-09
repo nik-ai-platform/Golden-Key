@@ -27,7 +27,10 @@ from app.services.odds_importer import OddsImporter
 from app.services.odds_normalizer_service import OddsNormalizerService
 from app.services.paired_market_prices import paired_market_prices_with_diagnostics
 from app.services.odds_service import OddsService, create_odds_snapshot
-from scripts.validate_team_scoring_forecast import _snapshot_price_coverage
+from scripts.validate_team_scoring_forecast import (
+    _price_coverage_since_first_pair,
+    _snapshot_price_coverage,
+)
 
 
 @pytest.fixture(params=["sqlite", "postgres"])
@@ -213,6 +216,45 @@ def test_snapshot_price_coverage_reports_missing_and_paired_vintages(capture_db)
 
     assert by_day["2026-10-01"]["both_spread_prices"] == 1
     assert by_day["2026-09-01"]["complementary_lines_without_prices"] == 1
+
+
+def test_price_coverage_since_first_pair_exposes_current_collection_gaps(capture_db):
+    game = seed(capture_db)
+    capture_db.add_all(
+        [
+            Odds(
+                game_id=game.id,
+                sportsbook="First priced",
+                spread_home=-4.5,
+                spread_away=4.5,
+                spread_home_price=-110,
+                spread_away_price=-110,
+                created_at=datetime(2026, 10, 1, 10),
+            ),
+            Odds(
+                game_id=game.id,
+                sportsbook="Later missing",
+                spread_home=-4.5,
+                spread_away=4.5,
+                created_at=datetime(2026, 10, 1, 11),
+            ),
+        ]
+    )
+    capture_db.commit()
+
+    report = _price_coverage_since_first_pair(capture_db)
+
+    assert report == [
+        {
+            "sport": "WNBA",
+            "first_paired_snapshot_at": "2026-10-01T10:00:00",
+            "first_snapshot_in_window": "2026-10-01T10:00:00",
+            "last_snapshot_in_window": "2026-10-01T11:00:00",
+            "snapshots_since_first_pair": 2,
+            "paired_snapshots_since_first_pair": 1,
+            "unpaired_snapshots_since_first_pair": 1,
+        }
+    ]
 
 
 @pytest.mark.parametrize("change", ["spread", "total", "missing", "invalid", "duplicate"])

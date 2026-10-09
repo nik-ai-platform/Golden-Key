@@ -730,6 +730,122 @@ def _snapshot_price_coverage(db) -> list[dict]:
     ]
 
 
+def _price_coverage_since_first_pair(db) -> list[dict]:
+    paired_condition = (
+        Odds.spread_home_price.isnot(None)
+        & Odds.spread_away_price.isnot(None)
+        & Odds.spread_home.isnot(None)
+        & Odds.spread_away.isnot(None)
+        & (func.abs(Odds.spread_home + Odds.spread_away) < 0.000001)
+    )
+    first_pair = (
+        db.query(
+            Game.sport.label("sport"),
+            func.min(Odds.created_at).label("first_paired_snapshot_at"),
+        )
+        .join(Game, Game.id == Odds.game_id)
+        .filter(paired_condition)
+        .group_by(Game.sport)
+        .subquery()
+    )
+    rows = (
+        db.query(
+            Game.sport,
+            first_pair.c.first_paired_snapshot_at,
+            func.count(Odds.id).label("snapshots_since_first_pair"),
+            func.sum(
+                case((paired_condition, 1), else_=0)
+            ).label("paired_snapshots_since_first_pair"),
+            func.min(Odds.created_at).label("first_snapshot_in_window"),
+            func.max(Odds.created_at).label("last_snapshot_in_window"),
+        )
+        .join(Game, Game.id == Odds.game_id)
+        .join(first_pair, first_pair.c.sport == Game.sport)
+        .filter(Odds.created_at >= first_pair.c.first_paired_snapshot_at)
+        .group_by(Game.sport, first_pair.c.first_paired_snapshot_at)
+        .order_by(Game.sport)
+        .all()
+    )
+    return [
+        {
+            "sport": (sport or "UNKNOWN").upper(),
+            "first_paired_snapshot_at": first_pair_at.isoformat(),
+            "first_snapshot_in_window": first_snapshot.isoformat(),
+            "last_snapshot_in_window": last_snapshot.isoformat(),
+            "snapshots_since_first_pair": int(snapshot_count or 0),
+            "paired_snapshots_since_first_pair": int(paired_count or 0),
+            "unpaired_snapshots_since_first_pair": int(
+                (snapshot_count or 0) - (paired_count or 0)
+            ),
+        }
+        for (
+            sport,
+            first_pair_at,
+            snapshot_count,
+            paired_count,
+            first_snapshot,
+            last_snapshot,
+        ) in rows
+    ]
+
+
+def _target_team_identity_coverage(db, targets: list[dict]) -> list[dict]:
+    teams_by_sport: dict[str, set[int]] = defaultdict(set)
+    for target in targets:
+        teams_by_sport[target["sport"]].update(
+            (target["home_team_id"], target["away_team_id"])
+        )
+    team_ids = set().union(*teams_by_sport.values()) if teams_by_sport else set()
+    if not team_ids:
+        return []
+
+    team_sports = {
+        team_id: (sport or "UNKNOWN").upper()
+        for team_id, sport in db.query(Team.id, Team.sport)
+        .filter(Team.id.in_(team_ids))
+        .all()
+    }
+    identity_pairs = {
+        (team_id, (sport or "UNKNOWN").upper())
+        for team_id, sport in db.query(
+            TeamProviderIdentity.team_id,
+            TeamProviderIdentity.sport,
+        )
+        .filter(TeamProviderIdentity.team_id.in_(team_ids))
+        .all()
+    }
+    alias_team_ids = {
+        team_id
+        for (team_id,) in db.query(TeamAlias.team_id.distinct())
+        .filter(TeamAlias.team_id.in_(team_ids))
+        .all()
+    }
+    return [
+        {
+            "sport": sport,
+            "unique_target_team_ids": len(ids),
+            "team_ids_missing_from_team_table": sum(
+                team_id not in team_sports for team_id in ids
+            ),
+            "team_ids_with_matching_sport": sum(
+                team_sports.get(team_id) == sport for team_id in ids
+            ),
+            "team_ids_with_provider_identity": sum(
+                (team_id, sport) in identity_pairs for team_id in ids
+            ),
+            "team_ids_with_alias": sum(team_id in alias_team_ids for team_id in ids),
+            "team_ids_with_cross_sport_identity": sum(
+                any(
+                    identity_team_id == team_id and identity_sport != sport
+                    for identity_team_id, identity_sport in identity_pairs
+                )
+                for team_id in ids
+            ),
+        }
+        for sport, ids in sorted(teams_by_sport.items())
+    ]
+
+
 def _split_and_evaluate(targets: list[dict]) -> dict:
     periods_by_sport = {
         sport: split_games_chronologically(
@@ -806,6 +922,7 @@ def _split_and_evaluate(targets: list[dict]) -> dict:
     ]
 
     test_cases_by_group: dict[tuple[str, str, str, str], list[ScoringForecastCase]] = defaultdict(list)
+    test_cases_by_sport_model: dict[tuple[str, str], list[ScoringForecastCase]] = defaultdict(list)
     test_coverage = Counter()
     test_calibration_counts: dict[str, list[int]] = defaultdict(list)
     for target in test_rows:
@@ -844,6 +961,9 @@ def _split_and_evaluate(targets: list[dict]) -> dict:
                 f"test_candidate_probability_calibration_ready_{target['sport']}"
             ] += 1
         case = _make_case(target, candidate_errors, incumbent_errors)
+        test_cases_by_sport_model[
+            (target["sport"], target["model_version"])
+        ].append(case)
         pick_type = _picked_side_type(target["selection"], target["spread_home"])
         band_value = (
             abs(float(target["line_value"]))
@@ -872,6 +992,14 @@ def _split_and_evaluate(targets: list[dict]) -> dict:
         },
         "period_game_totals": {name: len(values) for name, values in periods.items()},
         "final_test_results_by_sport_model_pick_and_line_band": reports,
+        "final_test_results_by_sport_and_model": [
+            {
+                "sport": sport,
+                "model_version": version,
+                "metrics": evaluate_forecasts(cases),
+            }
+            for (sport, version), cases in sorted(test_cases_by_sport_model.items())
+        ],
         "candidate_margin_coverage_by_sport_period": margin_coverage_report,
         "candidate_probability_calibration_coverage_by_test_sport": {
             sport: {
@@ -932,6 +1060,8 @@ def build_report(db) -> dict:
         "candidate_coverage": dict(sorted(forecast_counts.items())),
         "frozen_quote_coverage_by_vintage": _quote_coverage(targets),
         "stored_spread_price_coverage_by_sport_day": _snapshot_price_coverage(db),
+        "stored_spread_price_coverage_since_first_pair": _price_coverage_since_first_pair(db),
+        "target_team_identity_coverage": _target_team_identity_coverage(db, targets),
         "split_and_final_test": split_report,
         "limitations": [
             "Target predictions are grouped by game before chronological split; no game can cross periods.",
