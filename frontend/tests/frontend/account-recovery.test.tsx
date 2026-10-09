@@ -194,7 +194,7 @@ describe("account recovery", () => {
     expect(screen.getByRole("link", { name: /Contact support/ }).getAttribute("href")).toBe(
       "mailto:owner@bearahandllc.com",
     );
-    expect(screen.getByRole("button", { name: "Switch to dark mode" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeTruthy();
   });
 
   it("requires explicit email confirmation rather than consuming a token on page load", async () => {

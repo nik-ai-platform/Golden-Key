@@ -25,15 +25,15 @@ describe("theme mode", () => {
     localStorage.clear();
   });
 
-  it("defaults to light and persists a dark selection", () => {
+  it("defaults to dark and persists a light selection", () => {
     renderTheme();
 
-    expect(screen.getByTestId("theme-mode").textContent).toBe("light");
-    fireEvent.click(screen.getByRole("button", { name: "Switch to dark mode" }));
-
     expect(screen.getByTestId("theme-mode").textContent).toBe("dark");
-    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark");
-    expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Switch to light mode" }));
+
+    expect(screen.getByTestId("theme-mode").textContent).toBe("light");
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("light");
+    expect(screen.getByRole("button", { name: "Switch to dark mode" })).toBeTruthy();
   });
 
   it("restores a saved dark preference on provider initialization", () => {
@@ -43,14 +43,21 @@ describe("theme mode", () => {
     expect(screen.getByTestId("theme-mode").textContent).toBe("dark");
     expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeTruthy();
     const rootStyles = getComputedStyle(document.documentElement);
-    expect(rootStyles.getPropertyValue("--gk-bg").trim()).toBe("#0b0d10");
-    expect(rootStyles.getPropertyValue("--gk-text").trim()).toBe("#f3eee3");
-    expect(rootStyles.getPropertyValue("--gk-gold").trim()).toBe("#c6a15b");
-    expect(rootStyles.getPropertyValue("--gk-analytics").trim()).toBe("#22c58b");
-    expect(rootStyles.getPropertyValue("--gk-premium").trim()).toBe("#8b7cf6");
+    expect(rootStyles.getPropertyValue("--gk-bg").trim()).toBe("#060d14");
+    expect(rootStyles.getPropertyValue("--gk-text").trim()).toBe("#edf4fa");
+    expect(rootStyles.getPropertyValue("--gk-gold").trim()).toBe("#00d4ff");
+    expect(rootStyles.getPropertyValue("--gk-analytics").trim()).toBe("#a4ef18");
+    expect(rootStyles.getPropertyValue("--gk-premium").trim()).toBe("#00d4ff");
     expect(rootStyles.getPropertyValue("--gk-motion-normal").trim()).toBe("180ms");
     expect(rootStyles.getPropertyValue("--gk-font-editorial")).toContain("Newsreader Variable");
     expect(rootStyles.getPropertyValue("--gk-font-sans")).toContain("Manrope Variable");
     expect(rootStyles.getPropertyValue("--gk-font-mono")).toContain("IBM Plex Mono");
+  });
+
+  it("preserves a saved light preference", () => {
+    localStorage.setItem(THEME_STORAGE_KEY, "light");
+    renderTheme();
+    expect(screen.getByTestId("theme-mode").textContent).toBe("light");
+    expect(screen.getByRole("button", { name: "Switch to dark mode" })).toBeTruthy();
   });
 });

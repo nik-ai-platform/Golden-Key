@@ -41,11 +41,11 @@ describe("product navigation", () => {
         .getAttribute("aria-current"),
       ).toBe("page");
     expect(screen.getByRole("button", { name: "Open navigation" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Switch to dark mode" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Sign Out" })).toBeTruthy();
     const title = screen.getByTestId("sports-intelligence-title");
     expect(getComputedStyle(title).color).toBe("var(--gk-shell-text)");
-    expect(getComputedStyle(document.documentElement).getPropertyValue("--gk-shell-text").trim()).toBe("#f3eee3");
+    expect(getComputedStyle(document.documentElement).getPropertyValue("--gk-shell-text").trim()).toBe("#edf4fa");
     expect(title.classList.contains("gk-editorial")).toBe(true);
     expect(screen.queryByText(/Product API/)).toBeNull();
 

@@ -34,7 +34,7 @@ export function MobileNav() {
         bottom: 0,
         zIndex: (theme) => theme.zIndex.appBar,
         borderTop: "1px solid var(--gk-border-strong)",
-        backgroundColor: "rgba(11, 13, 16, 0.97)",
+        backgroundColor: "var(--gk-shell)",
         paddingBottom: "env(safe-area-inset-bottom)",
       }}
     >
@@ -67,7 +67,9 @@ export function MobileNav() {
               flexShrink: 0,
               minHeight: 58,
               borderTop: "2px solid transparent",
+              color: "var(--gk-shell-text-secondary)",
               "&.Mui-selected": {
+                color: "var(--gk-cyan)",
                 backgroundColor: "var(--gk-gold-soft)",
                 borderTopColor: "var(--gk-gold)",
               },

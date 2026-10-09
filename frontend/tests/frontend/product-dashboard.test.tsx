@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProductDashboardPage } from "../../src/pages/ProductDashboardPage";
 import { SportsbookGamesBoard } from "../../src/components/SportsbookGamesBoard";
-import { getTeamIdentity, hexToRgbChannels } from "../../src/utils/teamIdentity";
 import { styleAtBreakpoint } from "./responsiveStyles";
 import type { DailyCardPick, DailyCardResponse, Prediction, UpcomingPredictionsResponse } from "../../src/types/product";
 
@@ -207,7 +206,9 @@ function mockQueries(
     const queryKey = (options as { queryKey: unknown[] }).queryKey;
     return queryKey[1] === "daily-card"
       ? queryResult(dailyCard, dailyCardError)
-      : predictionsResult(predictions);
+      : queryKey[1] === "performance"
+        ? { data: { wins: 12, losses: 8, pushes: 2, recent_results: [] }, isLoading: false, isError: false, refetch: vi.fn() } as ReturnType<typeof useQuery>
+        : predictionsResult(predictions);
   });
 }
 
@@ -447,11 +448,18 @@ describe("daily card dashboard", () => {
     expect(getComputedStyle(selected).gridTemplateColumns).toBe("repeat(2, minmax(0, 1fr))");
     for (const [sideName, team] of [["home", "Buffalo Bills"], ["away", "Miami Dolphins"]]) {
       const row = screen.getByTestId(`game-10-${sideName}-team-row`);
-      const indicator = row.querySelector('[aria-hidden="true"]')!;
-      expect(getComputedStyle(indicator).backgroundColor).toBe(
-        `rgb(${hexToRgbChannels(getTeamIdentity("NFL", team).primary)})`,
-      );
+      const badge = within(row).getByTestId("team-abbreviation-badge");
+      expect(badge.textContent).toBe(team === "Buffalo Bills" ? "BUF" : "MIA");
+      expect(getComputedStyle(badge).fontFamily).toBe("var(--gk-font-mono)");
     }
+  });
+
+  it("reports unique upcoming matchups and actual model versions rather than pick count", () => {
+    renderDashboard();
+    expect(screen.getByTestId("upcoming-matchup-count").textContent).toBe("2");
+    expect(screen.getByTestId("reported-model-version").textContent).toBe("NPI-4.0");
+    expect(screen.getByRole("heading", { name: "Model Outcomes" })).toBeTruthy();
+    expect(screen.getAllByRole("link", { name: /Read spread reasoning/ }).length).toBeGreaterThan(0);
   });
 
   it("keeps a long moneyline in Moneyline Value instead of Best Bet", () => {
@@ -534,9 +542,40 @@ describe("daily card dashboard", () => {
   });
 
   it("renders a friendly API error", () => {
-    mockQueries(undefined, [], true);
+    mockQueries(undefined, gamePredictions, true);
     renderDashboard();
 
     expect(screen.getByText("Unable to load today's card right now.")).toBeTruthy();
+    expect(screen.getByTestId("sportsbook-games-board")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Model Outcomes" })).toBeTruthy();
+  });
+
+  it.each(["loading", "error"] as const)("keeps the card and outcomes available while upcoming games are %s", (state) => {
+    const original = vi.mocked(useQuery).getMockImplementation()!;
+    vi.mocked(useQuery).mockImplementation((options) =>
+      options.queryKey[1] === "predictions"
+        ? { data: undefined, isLoading: state === "loading", isError: state === "error", refetch: vi.fn() } as ReturnType<typeof useQuery>
+        : original(options),
+    );
+    renderDashboard();
+    expect(screen.getByTestId("daily-card-best-bet")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Model Outcomes" })).toBeTruthy();
+    expect(screen.getByTestId("upcoming-matchup-count").textContent).toBe("Unavailable");
+    expect(screen.getByTestId("reported-model-version").textContent).toBe("Unavailable");
+    expect(screen.getByText(state === "loading" ? "Loading upcoming matchups..." : "Unable to load upcoming matchups.")).toBeTruthy();
+  });
+
+  it("keeps the board and outcomes available while the daily card is loading", () => {
+    const original = vi.mocked(useQuery).getMockImplementation()!;
+    vi.mocked(useQuery).mockImplementation((options) =>
+      options.queryKey[1] === "daily-card"
+        ? { isLoading: true, data: undefined, isError: false } as ReturnType<typeof useQuery>
+        : original(options),
+    );
+    renderDashboard();
+    expect(screen.getByText("Building today's card...")).toBeTruthy();
+    expect(screen.getByTestId("sportsbook-games-board")).toBeTruthy();
+    expect(screen.getByTestId("upcoming-matchup-count").textContent).toBe("2");
+    expect(screen.getByRole("heading", { name: "Model Outcomes" })).toBeTruthy();
   });
 });

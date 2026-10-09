@@ -12,6 +12,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { DailyCardPickCard } from "../components/DailyCardPickCard";
+import { DashboardHero } from "../components/DashboardHero";
+import { DashboardOutcomes } from "../components/DashboardOutcomes";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { LoadingState } from "../components/LoadingState";
@@ -87,21 +89,11 @@ export function ProductDashboardPage() {
     queryFn: () => getUpcomingPredictions(sport === "All" ? undefined : sport),
   });
 
-  if (query.isLoading) {
-    return <LoadingState message="Building today's card..." />;
-  }
-
-  if (query.isError) {
-    return (
-      <ErrorState
-        kind="network"
-        detail="Unable to load today's card right now."
-        onRetry={() => void query.refetch()}
-      />
-    );
-  }
-
   const card = query.data;
+  const upcoming = gamesQuery.data?.predictions ?? [];
+  const matchupCount = gamesQuery.isLoading || gamesQuery.isError || !gamesQuery.data
+    ? null : new Set(upcoming.map((prediction) => prediction.game_id)).size;
+  const modelVersions = [...new Set(upcoming.map((prediction) => prediction.model_version).filter(Boolean))].sort();
   const allPicks = card
     ? [card.best_bet, ...card.featured_picks, ...card.next_best].filter(
         (pick): pick is DailyCardPick => pick != null,
@@ -122,6 +114,9 @@ export function ProductDashboardPage() {
   const averageConfidence = finiteAverage(uniquePicks.map((pick) => pick.prediction.confidence_score));
   return (
     <Stack spacing={{ xs: 2, md: 2 }} data-testid="intelligence-dashboard">
+      <DashboardHero matchupCount={matchupCount} modelVersions={gamesQuery.isError ? [] : modelVersions} />
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(0, 1fr) 290px" }, gap: 2, alignItems: "start" }}>
+      <Stack spacing={2} sx={{ minWidth: 0 }}>
       <Stack
         direction={{ xs: "column", md: "row" }}
         alignItems={{ xs: "stretch", md: "center" }}
@@ -165,7 +160,9 @@ export function ProductDashboardPage() {
         </ToggleButtonGroup>
       </Stack>
 
-      {!card || card.count === 0 ? (
+      {query.isLoading ? <LoadingState message="Building today's card..." /> : query.isError ? (
+        <ErrorState kind="network" detail="Unable to load today's card right now." onRetry={() => void query.refetch()} />
+      ) : !card || card.count === 0 ? (
         <EmptyState title="No upcoming predictions are currently available." />
       ) : (
         <>
@@ -269,18 +266,22 @@ export function ProductDashboardPage() {
                 </Card>
           </Box>
 
-          {gamesQuery.data && gamesQuery.data.predictions.length > 0 ? (
-            <Box component="section" aria-labelledby="upcoming-games-heading" sx={panelSx}>
-              <SectionHeading id="upcoming-games-heading">Upcoming Games</SectionHeading>
-              <SportsbookGamesBoard
-                predictions={gamesQuery.data.predictions}
-                recommendedPredictionIds={recommendedPredictionIds}
-                maxGames={8}
-              />
-            </Box>
-          ) : null}
         </>
       )}
+      <Box component="section" aria-labelledby="upcoming-games-heading" sx={{ ...panelSx, scrollMarginTop: 80 }}>
+        <SectionHeading id="upcoming-games-heading">Upcoming Games</SectionHeading>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
+          Selected-side prices reported by the model. A dash means unavailable; opposing odds are never inferred.
+        </Typography>
+        {gamesQuery.isLoading ? <LoadingState message="Loading upcoming matchups..." /> : gamesQuery.isError ? (
+          <ErrorState kind="network" detail="Unable to load upcoming matchups." onRetry={() => void gamesQuery.refetch()} />
+        ) : upcoming.length === 0 ? <EmptyState title="No upcoming matchups are currently available." /> : (
+          <SportsbookGamesBoard predictions={upcoming} recommendedPredictionIds={recommendedPredictionIds} />
+        )}
+      </Box>
+      </Stack>
+      <DashboardOutcomes />
+      </Box>
     </Stack>
   );
 }

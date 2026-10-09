@@ -5,7 +5,7 @@ import { NEUTRAL_TEAM_IDENTITY } from "../data/teamIdentity";
 import type { GameDetail, Prediction } from "../types/product";
 import { formatAmericanOdds, formatProductTime, parseProductDate } from "../utils/productFormat";
 import { getPredictionTeam, getTeamIdentity } from "../utils/teamIdentity";
-import { TeamAccent } from "./TeamAccent";
+import { TeamBadge } from "./TeamBadge";
 
 const MARKET_KEYS = ["spread", "moneyline", "total"] as const;
 type MarketKey = (typeof MARKET_KEYS)[number];
@@ -74,16 +74,21 @@ function MarketValue({
         display: "flex",
         alignItems: "center",
         border: "1px solid",
-        borderColor: recommended ? "rgba(214, 173, 69, 0.72)" : "transparent",
-        backgroundColor: recommended ? "rgba(214, 173, 69, 0.09)" : "transparent",
-        color: recommended ? "var(--gk-gold-bright)" : "text.primary",
+        borderColor: recommended ? "var(--gk-analytics)" : "transparent",
+        backgroundColor: recommended ? "var(--gk-analytics-soft)" : "transparent",
+        color: recommended ? "var(--gk-analytics)" : "text.primary",
       }}
     >
       <Typography
-        component="span"
+        component={prediction ? RouterLink : "span"}
+        {...(prediction ? { to: `/games/${gameId}`, "aria-label": `Read ${market} reasoning for ${prediction.away_team} at ${prediction.home_team}` } : {})}
         fontFamily="var(--gk-font-mono)"
         fontWeight={recommended ? 900 : 700}
-        sx={{ overflowWrap: "anywhere", fontSize: { xs: "0.78rem", md: "0.84rem" } }}
+        sx={{
+          overflowWrap: "anywhere", fontSize: { xs: "0.78rem", md: "0.84rem" },
+          color: "inherit", textDecoration: prediction ? "underline" : "none", textUnderlineOffset: "3px",
+          "&:focus-visible": { outline: "2px solid var(--gk-cyan)", outlineOffset: 3 },
+        }}
       >
         {marketValue(prediction, market)}
       </Typography>
@@ -94,7 +99,7 @@ function MarketValue({
 function TeamRow({ prediction, team, score }: { prediction: Prediction; team: string; score?: number | null }) {
   return (
     <Stack direction="row" alignItems="center" spacing={1} sx={{ minHeight: { xs: 28, md: 31 }, minWidth: 0 }}>
-      <TeamAccent identity={getTeamIdentity(prediction.sport, team)} variant="bar" />
+      <TeamBadge sport={prediction.sport} team={team} />
       <Typography fontWeight={750} sx={{ overflowWrap: "anywhere", fontSize: { xs: "0.84rem", md: "0.9rem" } }}>{team}</Typography>
       {score != null ? <Typography fontFamily="var(--gk-font-mono)" fontWeight={700}>{score}</Typography> : null}
     </Stack>

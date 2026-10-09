@@ -36,7 +36,7 @@ describe("login page", () => {
     expect((screen.getByLabelText(/^Password/) as HTMLInputElement).type).toBe("password");
     expect(screen.queryByText(/admin@nik\.ai/i)).toBeNull();
     expect(screen.queryByText(/preset password|demo password|default credentials/i)).toBeNull();
-    expect(screen.getByRole("button", { name: "Switch to dark mode" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Forgot password?" }).getAttribute("href")).toBe("/forgot-password");
     expect(screen.getByRole("link", { name: "Forgot email?" }).getAttribute("href")).toBe("/forgot-email");
   });

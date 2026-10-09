@@ -8,7 +8,7 @@ import { THEME_STORAGE_KEY, ThemeModeContext } from "./ThemeModeContext";
 
 function initialMode(): PaletteMode {
   const storedMode = localStorage.getItem(THEME_STORAGE_KEY);
-  return storedMode === "dark" || storedMode === "light" ? storedMode : "light";
+  return storedMode === "dark" || storedMode === "light" ? storedMode : "dark";
 }
 
 export function ThemeModeProvider({ children }: PropsWithChildren) {

@@ -2,15 +2,15 @@ import { createTheme } from "@mui/material";
 import type { PaletteMode } from "@mui/material";
 
 const darkTokens = {
-  "--gk-bg": "#0b0d10",
-  "--gk-surface": "#12161b",
-  "--gk-surface-raised": "#171c22",
-  "--gk-surface-soft": "#1b2027",
-  "--gk-text": "#f3eee3",
-  "--gk-text-secondary": "#98a1ae",
-  "--gk-text-muted": "#717b88",
-  "--gk-border": "rgba(243, 238, 227, 0.08)",
-  "--gk-border-strong": "rgba(243, 238, 227, 0.16)",
+  "--gk-bg": "#060d14",
+  "--gk-surface": "#0b1823",
+  "--gk-surface-raised": "#102232",
+  "--gk-surface-soft": "#0e2030",
+  "--gk-text": "#edf4fa",
+  "--gk-text-secondary": "#a9bccb",
+  "--gk-text-muted": "#91a8ba",
+  "--gk-border": "rgba(0, 212, 255, 0.18)",
+  "--gk-border-strong": "rgba(0, 212, 255, 0.36)",
 };
 
 const lightTokens = {
@@ -26,25 +26,27 @@ const lightTokens = {
 };
 
 const brandTokens = {
-  "--gk-shell": "#0b0d10",
-  "--gk-shell-raised": "#12161b",
-  "--gk-shell-text": "#f3eee3",
-  "--gk-shell-text-secondary": "#98a1ae",
-  "--gk-gold": "#c6a15b",
-  "--gk-gold-bright": "#d8b875",
-  "--gk-gold-soft": "rgba(198, 161, 91, 0.12)",
-  "--gk-analytics": "#22c58b",
-  "--gk-analytics-soft": "rgba(34, 197, 139, 0.11)",
-  "--gk-premium": "#8b7cf6",
-  "--gk-premium-soft": "rgba(139, 124, 246, 0.12)",
-  "--gk-win": "#22c58b",
+  "--gk-shell": "#060d14",
+  "--gk-shell-raised": "#0b1823",
+  "--gk-shell-text": "#edf4fa",
+  "--gk-shell-text-secondary": "#a9bccb",
+  "--gk-cyan": "#00d4ff",
+  "--gk-lime": "#a4ef18",
+  "--gk-gold": "#00d4ff",
+  "--gk-gold-bright": "#00d4ff",
+  "--gk-gold-soft": "rgba(0, 212, 255, 0.10)",
+  "--gk-analytics": "#a4ef18",
+  "--gk-analytics-soft": "rgba(164, 239, 24, 0.10)",
+  "--gk-premium": "#00d4ff",
+  "--gk-premium-soft": "rgba(0, 212, 255, 0.10)",
+  "--gk-win": "#a4ef18",
   "--gk-loss": "#f05d68",
   "--gk-warning": "#f2b84b",
-  "--gk-radius-sm": "12px",
-  "--gk-radius-md": "14px",
-  "--gk-radius-lg": "16px",
-  "--gk-shadow-sm": "0 8px 24px rgba(0, 0, 0, 0.18)",
-  "--gk-shadow-md": "0 18px 44px rgba(0, 0, 0, 0.24)",
+  "--gk-radius-sm": "8px",
+  "--gk-radius-md": "10px",
+  "--gk-radius-lg": "12px",
+  "--gk-shadow-sm": "0 0 20px rgba(0, 212, 255, 0.06)",
+  "--gk-shadow-md": "0 0 32px rgba(0, 212, 255, 0.10)",
   "--gk-motion-fast": "150ms",
   "--gk-motion-normal": "180ms",
   "--gk-motion-slow": "220ms",
@@ -56,22 +58,26 @@ const brandTokens = {
 
 export function createAppTheme(mode: PaletteMode) {
   const modeTokens = mode === "dark" ? darkTokens : lightTokens;
+  const accentTokens = mode === "dark" ? {} : {
+    "--gk-gold": "#00677d", "--gk-gold-bright": "#00677d",
+    "--gk-analytics": "#466800", "--gk-premium": "#00677d",
+  };
 
   return createTheme({
     palette: {
       mode,
       primary: {
-        main: mode === "dark" ? "#c6a15b" : "#80601f",
-        contrastText: mode === "dark" ? "#0b0d10" : "#ffffff",
+        main: mode === "dark" ? "#00d4ff" : "#00677d",
+        contrastText: mode === "dark" ? "#060d14" : "#ffffff",
       },
       secondary: {
-        main: mode === "dark" ? "#8b7cf6" : "#6555d9",
+        main: mode === "dark" ? "#a4ef18" : "#466800",
       },
       info: {
-        main: mode === "dark" ? "#22c58b" : "#087f69",
+        main: mode === "dark" ? "#00d4ff" : "#00677d",
       },
       success: {
-        main: mode === "dark" ? "#22c58b" : "#16875c",
+        main: mode === "dark" ? "#a4ef18" : "#466800",
       },
       error: {
         main: mode === "dark" ? "#f05d68" : "#c83b49",
@@ -121,6 +127,7 @@ export function createAppTheme(mode: PaletteMode) {
           ":root": {
             ...brandTokens,
             ...modeTokens,
+            ...accentTokens,
             colorScheme: mode,
           },
           body: {
@@ -128,7 +135,7 @@ export function createAppTheme(mode: PaletteMode) {
             color: "var(--gk-text)",
             fontVariantNumeric: "tabular-nums",
           },
-          ".gk-editorial": {
+          ".gk-editorial, .gk-editorial.MuiTypography-root": {
             fontFamily: "var(--gk-font-editorial)",
           },
           ".gk-data, .gk-data.MuiTypography-root": {
@@ -182,6 +189,11 @@ export function createAppTheme(mode: PaletteMode) {
           root: {
             minHeight: 34,
             padding: "5px 12px",
+            "&.Mui-selected": {
+              color: mode === "dark" ? "#a4ef18" : "#466800",
+              borderColor: mode === "dark" ? "#a4ef18" : "#466800",
+              backgroundColor: "rgba(164, 239, 24, 0.10)",
+            },
             transition: "color var(--gk-motion-fast) var(--gk-ease), background-color var(--gk-motion-fast) var(--gk-ease), border-color var(--gk-motion-fast) var(--gk-ease)",
           },
         },
@@ -191,6 +203,13 @@ export function createAppTheme(mode: PaletteMode) {
           disableElevation: true,
         },
         styleOverrides: {
+          containedPrimary: {
+            background: mode === "dark"
+              ? "linear-gradient(110deg, #00d4ff, #48a8ff)"
+              : "linear-gradient(110deg, #00677d, #1859a1)",
+            "&:hover": { filter: "brightness(1.08)" },
+            "&.Mui-disabled": { background: "none", filter: "none" },
+          },
           root: {
             borderRadius: "var(--gk-radius-sm)",
             transition: "transform var(--gk-motion-fast) var(--gk-ease), color var(--gk-motion-fast) var(--gk-ease), background-color var(--gk-motion-fast) var(--gk-ease), border-color var(--gk-motion-fast) var(--gk-ease)",

@@ -55,7 +55,7 @@ export function AppLayout() {
       <>
         <Toolbar sx={{ px: 2.25, minHeight: "64px !important" }}>
           <Stack direction="row" spacing={1} alignItems="center">
-            <DirectionsRunOutlinedIcon color="primary" fontSize="small" />
+            <DirectionsRunOutlinedIcon sx={{ color: "var(--gk-cyan)" }} fontSize="small" />
             <Typography className="gk-editorial" variant="subtitle1" fontWeight={650} color="var(--gk-shell-text)">
               Bear A Hand Sports
             </Typography>
@@ -80,12 +80,12 @@ export function AppLayout() {
                 color: "var(--gk-shell-text-secondary)",
                 border: "1px solid transparent",
                 "&.Mui-selected": {
-                  color: "var(--gk-gold-bright)",
+                  color: "var(--gk-cyan)",
                   backgroundColor: "var(--gk-gold-soft)",
-                  borderColor: "rgba(198, 161, 91, 0.28)",
+                  borderColor: "rgba(0, 212, 255, 0.28)",
                 },
                 "&.Mui-selected:hover": {
-                  backgroundColor: "rgba(198, 161, 91, 0.16)",
+                  backgroundColor: "rgba(0, 212, 255, 0.16)",
                 },
                 "&:hover": {
                   color: "var(--gk-shell-text)",
@@ -113,15 +113,14 @@ export function AppLayout() {
           ml: { sm: `${drawerWidth}px` },
           borderBottom: "1px solid",
           borderBottomColor: "divider",
-          backgroundColor: "rgba(11, 13, 16, 0.96)",
+          backgroundColor: "var(--gk-shell)",
           color: "var(--gk-shell-text)",
-          backdropFilter: "blur(12px)",
-          boxShadow: "0 8px 28px rgba(0, 0, 0, 0.18)",
+          boxShadow: "none",
         }}
       >
         <Toolbar sx={{ minHeight: "56px !important", px: { xs: 1.5, sm: 2.25 }, justifyContent: "space-between" }}>
           <Stack direction="row" spacing={1.2} alignItems="center">
-            <IconButton aria-label="Open navigation" sx={{ display: { sm: "none" } }} onClick={() => setMobileOpen((value) => !value)} color="primary">
+            <IconButton aria-label="Open navigation" sx={{ display: { sm: "none" }, color: "var(--gk-cyan)" }} onClick={() => setMobileOpen((value) => !value)}>
               <MenuOutlinedIcon />
             </IconButton>
             <Stack>
@@ -131,7 +130,7 @@ export function AppLayout() {
           </Stack>
           <Stack direction="row" spacing={0.5} alignItems="center">
             <ThemeToggleButton />
-            <IconButton aria-label="Sign Out" onClick={logout} color="primary">
+            <IconButton aria-label="Sign Out" onClick={logout} sx={{ color: "var(--gk-cyan)" }}>
               <LogoutOutlinedIcon />
             </IconButton>
           </Stack>
