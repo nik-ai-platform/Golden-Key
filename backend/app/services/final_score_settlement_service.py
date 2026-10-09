@@ -1,17 +1,17 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
-import logging
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from app.models.game import Game
+from app.models.game_result_observation import GameResultObservation
+from app.services.odds_provider_client import safe_sync_error
 from app.services.result_settlement_service import ResultSettlementService
 from app.services.sport_mapping_service import CompetitionSource, SportMappingService
-from app.services.odds_provider_client import safe_sync_error
-
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +85,7 @@ class FinalScoreSettlementService:
             source.provider_key,
             days_from=days_from,
         )
+        received_at = datetime.now(UTC).replace(tzinfo=None)
         summary = FinalScoreSyncSummary(
             sport=internal_sport,
             fetched=len(score_rows),
@@ -128,6 +129,7 @@ class FinalScoreSettlementService:
                         Game.provider_game_id == provider_game_id,
                         Game.sport == internal_sport,
                     )
+                    .populate_existing().with_for_update()
                     .one_or_none()
                 )
                 if game is None:
@@ -148,6 +150,27 @@ class FinalScoreSettlementService:
                     raise ValueError("Completed provider event has invalid or missing scores")
 
                 home_score, away_score = parsed
+                latest_observation = (
+                    db.query(GameResultObservation)
+                    .filter(
+                        GameResultObservation.game_id == game.id,
+                        GameResultObservation.provider == "odds_api",
+                    )
+                    .order_by(GameResultObservation.id.desc())
+                    .first()
+                )
+                if (
+                    latest_observation is None
+                    or latest_observation.status != "final"
+                    or latest_observation.home_score != home_score
+                    or latest_observation.away_score != away_score
+                ):
+                    db.add(GameResultObservation(
+                        game_id=game.id, provider="odds_api", status="final",
+                        home_score=home_score, away_score=away_score,
+                        observed_at=received_at,
+                        source_updated_at=self._source_updated_at(row),
+                    ))
                 winner_team_id = (
                     game.home_team_id
                     if home_score > away_score
@@ -255,6 +278,29 @@ class FinalScoreSettlementService:
         home_value = FinalScoreSettlementService._score_for_team(row, home_team)
         away_value = FinalScoreSettlementService._score_for_team(row, away_team)
         try:
-            return int(home_value), int(away_value)
-        except (TypeError, ValueError):
+            values = (home_value, away_value)
+            if any(isinstance(value, bool) for value in values):
+                return None
+            parsed = (int(home_value), int(away_value))
+            if any(value < 0 or value != float(raw) for value, raw in zip(parsed, values)):
+                return None
+            return parsed
+        except (TypeError, ValueError, OverflowError):
+            return None
+
+    @staticmethod
+    def _source_updated_at(row: dict[str, Any]) -> datetime | None:
+        value = row.get("last_update")
+        if value is None:
+            return None
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                raise ValueError("Provider timestamp must include a timezone")
+            return parsed.astimezone(UTC).replace(tzinfo=None)
+        except (AttributeError, TypeError, ValueError):
+            logger.warning(
+                "Invalid final score source timestamp provider_event_id=%s",
+                row.get("id"),
+            )
             return None

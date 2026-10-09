@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.services.paired_market_prices import paired_market_prices
+
 
 class OddsNormalizerService:
 
@@ -67,4 +69,8 @@ class OddsNormalizerService:
             "moneyline_home": moneyline_home,
             "moneyline_away": moneyline_away,
             "total": total,
+            **paired_market_prices(
+                bookmaker, home_team, away_team,
+                spread_home=spread_home, spread_away=spread_away, total=total,
+            ),
         }

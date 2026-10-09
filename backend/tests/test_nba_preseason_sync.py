@@ -162,7 +162,7 @@ def test_import_normalizes_phase_exact_ids_refresh_counts_and_odds(db):
     second = service.import_games("NBA")
     assert [g.id for g in second] == original_ids
     assert db.query(Game).count() == 2
-    assert db.query(Odds).count() == 4  # Existing snapshot history remains append-only.
+    assert db.query(Odds).count() == 2
     assert [(s.created, s.refreshed) for s in service.source_imports] == [(0, 1), (0, 1)]
     assert all(s.game_date_min == s.game_date_max for s in service.source_imports)
     for odds in db.query(Odds).all():
@@ -207,7 +207,7 @@ def test_odds_source_failure_does_not_suppress_other_source(db, caplog, failed_k
 
 
 @pytest.mark.parametrize("league_key", [*KEYS, "NCAAF"])
-def test_new_identical_snapshot_honors_current_profile_and_new_provenance(db, league_key):
+def test_reused_identical_snapshot_honors_current_profile(db, league_key):
     sport = "NBA" if league_key in KEYS else league_key
     rows = {league_key: [event("nba-event")]}
     service = importer(db, rows)
@@ -231,13 +231,13 @@ def test_new_identical_snapshot_honors_current_profile_and_new_provenance(db, le
     service.import_games(sport)
     repeated = engine.analyze_markets(db=db, game_id=game.id, persist=True)
     assert [p.id for p in repeated] != first_ids
-    assert [p.odds_snapshot_id for p in repeated] != first_snapshots
+    assert [p.odds_snapshot_id for p in repeated] == first_snapshots
     assert first[0].npi_score == 97.25
     assert repeated[0].npi_score == 69.5
     latest = db.query(Odds).order_by(Odds.id.desc()).first()
     assert all(p.odds_snapshot_id == latest.id and p.odds_observed_at == latest.created_at for p in repeated)
     assert db.query(Prediction).count() == 6
-    assert db.query(Odds).count() == 2
+    assert db.query(Odds).count() == 1
     for outcome in rows[league_key][0]["bookmakers"][0]["markets"][2]["outcomes"]:
         outcome["point"] = 220.5
     service.import_games(sport)

@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.models.odds import Odds
+from app.repositories.odds_repository import SNAPSHOT_FIELDS, save_odds
 
 
 class OddsImporter:
@@ -17,43 +18,15 @@ class OddsImporter:
 
         for item in odds_data:
 
-            existing = (
-                db.query(Odds)
-                .filter(
-                    Odds.game_id == item["game_id"],
-                    Odds.sportsbook == item["sportsbook"],
-                )
-                .first()
-            )
-
-            if existing:
-                existing.spread_home = item["spread_home"]
-                existing.spread_away = item["spread_away"]
-                existing.moneyline_home = item["moneyline_home"]
-                existing.moneyline_away = item["moneyline_away"]
-                existing.total = item["total"]
-
-                db.commit()
-                db.refresh(existing)
-                imported.append(existing)
-                continue
-
             odds = Odds(
                 game_id=item["game_id"],
                 sportsbook=item["sportsbook"],
-                spread_home=item["spread_home"],
-                spread_away=item["spread_away"],
-                moneyline_home=item["moneyline_home"],
-                moneyline_away=item["moneyline_away"],
-                total=item["total"],
+                **{
+                    name: item[name] if name in SNAPSHOT_FIELDS[:5] else item.get(name)
+                    for name in SNAPSHOT_FIELDS
+                },
             )
 
-            db.add(odds)
-
-            db.commit()
-
-            db.refresh(odds)
-
-            imported.append(odds)
+            imported.append(save_odds(db, odds))
 
         return imported

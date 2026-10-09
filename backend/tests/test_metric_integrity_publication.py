@@ -755,7 +755,7 @@ def postgres_engine():
         Base.metadata.create_all(engine, tables=[
             Base.metadata.tables[name] for name in (
                 "teams", "games", "odds", "predictions", "prediction_results",
-                "ncaaf_rule_intelligence",
+                "ncaaf_rule_intelligence", "import_runs", "game_result_observations",
             )
         ])
         yield engine

@@ -43,6 +43,11 @@ class Odds(Base):
         Float
     )
 
+    spread_home_price = Column(Integer, nullable=True)
+    spread_away_price = Column(Integer, nullable=True)
+    total_over_price = Column(Integer, nullable=True)
+    total_under_price = Column(Integer, nullable=True)
+
     created_at = Column(
         DateTime,
         nullable=False,

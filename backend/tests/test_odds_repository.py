@@ -1,3 +1,6 @@
+from unittest.mock import MagicMock
+
+from app.models.odds import Odds
 from app.repositories import odds_repository
 
 
@@ -90,12 +93,16 @@ def test_get_odds_history_returns_all_rows(monkeypatch):
 
 
 def test_save_odds_persists_model_instance():
-    odds = object()
-    db = _FakeDB()
+    odds = Odds(game_id=1, sportsbook="Book")
+    db = MagicMock()
+    game_query, odds_query = MagicMock(), MagicMock()
+    game_query.filter.return_value.populate_existing.return_value.with_for_update.return_value.first.return_value = object()
+    odds_query.filter.return_value.order_by.return_value.populate_existing.return_value.first.return_value = None
+    db.query.side_effect = [game_query, odds_query]
 
     result = odds_repository.save_odds(db, odds)
 
     assert result is odds
-    assert db.added == [odds]
-    assert db.committed is True
-    assert db.refreshed == [odds]
+    db.add.assert_called_once_with(odds)
+    db.commit.assert_called_once_with()
+    db.refresh.assert_called_once_with(odds)

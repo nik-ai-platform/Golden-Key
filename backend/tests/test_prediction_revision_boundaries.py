@@ -67,7 +67,8 @@ def alembic_config(connection=None):
 
 def test_single_head_preserves_both_prior_branches():
     script = ScriptDirectory.from_config(alembic_config())
-    assert script.get_heads() == ["a9b2e4d7c031"]
+    assert script.get_heads() == ["b0c3f5e8d142"]
+    assert script.get_revision("b0c3f5e8d142").down_revision == "a9b2e4d7c031"
     assert script.get_revision("a9b2e4d7c031").down_revision == "f8a1d3c6b920"
     assert script.get_revision("f8a1d3c6b920").down_revision == "e7b4c2d9a610"
     assert script.get_revision("e7b4c2d9a610").down_revision == "c8d2f6a109b4"

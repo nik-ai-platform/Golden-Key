@@ -114,7 +114,7 @@ def test_two_worker_syncs_are_idempotent_for_every_sport(db, monkeypatch, sport,
     assert first["predictions_generated"] == second["predictions_generated"] == 3
     assert [row.id for row in db.query(Prediction).order_by(Prediction.id)] == ids
     assert db.query(Prediction).count() == 3
-    assert db.query(Odds).count() == 2
+    assert db.query(Odds).count() == 1
 
 
 @pytest.mark.parametrize("sport,source", SPORTS)

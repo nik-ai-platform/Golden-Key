@@ -224,7 +224,7 @@ def test_upcoming_real_business_idempotency_source_identity_and_sequence(databas
         assert telemetry.enabled
     assert first == second == baseline
     assert business_db.query(Game).count() == 2
-    assert business_db.query(Odds).count() == 6
+    assert business_db.query(Odds).count() == 2
     assert [row.id for row in business_db.query(Prediction)] == baseline_predictions
     assert all(service.live_data.fetch_games is fetch for service, fetch in zip(services, fetches))
     assert all(fetch.call_count == 2 for fetch in fetches)

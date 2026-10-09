@@ -611,5 +611,6 @@ def test_single_new_migration_head():
     config = Config()
     config.set_main_option("script_location", str(Path(__file__).parents[1] / "migrations"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["a9b2e4d7c031"]
+    assert script.get_heads() == ["b0c3f5e8d142"]
+    assert script.get_revision("b0c3f5e8d142").down_revision == "a9b2e4d7c031"
     assert script.get_revision("e7b4c2d9a610").down_revision == "c8d2f6a109b4"

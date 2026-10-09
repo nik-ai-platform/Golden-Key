@@ -4,6 +4,7 @@ from app.models.game import Game
 from app.models.odds import Odds
 from app.repositories import odds_repository
 from app.services.monitoring_service import MonitoringService
+from app.services.paired_market_prices import paired_market_prices
 
 
 class NoCompleteOddsSnapshotError(ValueError):
@@ -145,7 +146,11 @@ def create_odds_snapshot(
 
         moneyline_away=moneyline_away,
 
-        total=total
+        total=total,
+        **paired_market_prices(
+            bookmaker, game.home_team.name, game.away_team.name,
+            spread_home=spread_home, spread_away=spread_away, total=total,
+        ),
     )
 
     monitor.log_import(

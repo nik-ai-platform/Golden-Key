@@ -32,18 +32,10 @@ def test_game_import_returns_existing_provider_game():
     db.add.assert_not_called()
 
 
-def test_odds_import_updates_existing_sportsbook_row():
-    existing = SimpleNamespace(
-        spread_home=-3.0,
-        spread_away=3.0,
-        moneyline_home=-150,
-        moneyline_away=130,
-        total=220.0,
-    )
-    query = MagicMock()
-    query.filter.return_value.first.return_value = existing
+def test_odds_import_delegates_append_only_snapshot_persistence(monkeypatch):
+    save = MagicMock(side_effect=lambda db, odds: odds)
+    monkeypatch.setattr("app.services.odds_importer.save_odds", save)
     db = MagicMock()
-    db.query.return_value = query
 
     result = OddsImporter().import_odds(
         db=db,
@@ -60,13 +52,11 @@ def test_odds_import_updates_existing_sportsbook_row():
         ],
     )
 
-    assert result == [existing]
-    assert existing.spread_home == -4.5
-    assert existing.moneyline_away == 155
-    assert existing.total == 224.5
+    assert result[0].spread_home == -4.5
+    assert result[0].moneyline_away == 155
+    assert result[0].total == 224.5
+    save.assert_called_once_with(db, result[0])
     db.add.assert_not_called()
-    db.commit.assert_called_once_with()
-    db.refresh.assert_called_once_with(existing)
 
 
 @pytest.mark.parametrize("version", ["NPI-4.1", "NPI-5.0"])
