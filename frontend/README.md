@@ -254,6 +254,9 @@ No sample picks, performance charts, opposing odds, or model metrics are invente
 excluded; the bear and globe are brand artwork, not prediction evidence.
 Team badges are original abbreviation treatments, not team emblems.
 
+The nginx image explicitly makes built static files readable and directories
+traversable, including artwork copied from a protected source checkout.
+
 The design does not change routing, access gates, billing, daily-card rankings,
 metric definitions, prediction formulas, model flags, or backend contracts.
 
