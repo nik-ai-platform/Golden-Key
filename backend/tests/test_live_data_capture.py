@@ -40,10 +40,7 @@ def capture_db(request):
         if not target:
             pytest.skip("Disposable PostgreSQL URL not supplied")
         url = make_url(target)
-        assert (
-            url.host in {"127.0.0.1", "localhost"}
-            and url.database == "metric_integrity_test"
-        )
+        assert url.host in {"127.0.0.1", "localhost"} and url.database == "metric_integrity_test"
         schema = "capture_" + uuid4().hex
         admin = create_engine(url)
         with admin.begin() as conn:
@@ -51,24 +48,15 @@ def capture_db(request):
         engine = create_engine(url, connect_args={"options": f"-csearch_path={schema}"})
     else:
         engine = create_engine(
-            "sqlite://",
-            poolclass=StaticPool,
-            connect_args={"check_same_thread": False},
+            "sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False},
         )
     try:
         with engine.begin() as conn:
             conn.execute(text("CREATE TABLE import_runs (id INTEGER PRIMARY KEY)"))
-        Base.metadata.create_all(
-            engine,
-            tables=[
-                Team.__table__,
-                Game.__table__,
-                Odds.__table__,
-                GameResultObservation.__table__,
-                TeamAlias.__table__,
-                TeamProviderIdentity.__table__,
-            ],
-        )
+        Base.metadata.create_all(engine, tables=[
+            Team.__table__, Game.__table__, Odds.__table__, GameResultObservation.__table__,
+            TeamAlias.__table__, TeamProviderIdentity.__table__,
+        ])
         with sessionmaker(bind=engine)() as db:
             yield db
     finally:
@@ -80,19 +68,12 @@ def capture_db(request):
 
 
 def seed(db):
-    home, away = (
-        Team(name="Home", sport="WNBA", league="WNBA"),
-        Team(name="Away", sport="WNBA", league="WNBA"),
-    )
+    home, away = Team(name="Home", sport="WNBA", league="WNBA"), Team(name="Away", sport="WNBA", league="WNBA")
     db.add_all([home, away])
     db.flush()
     game = Game(
-        home_team_id=home.id,
-        away_team_id=away.id,
-        provider_game_id="live-capture",
-        sport="WNBA",
-        league="WNBA",
-        game_date=datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1),
+        home_team_id=home.id, away_team_id=away.id, provider_game_id="live-capture",
+        sport="WNBA", league="WNBA", game_date=datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1),
     )
     db.add(game)
     db.commit()
@@ -100,40 +81,24 @@ def seed(db):
 
 
 def quote():
-    return {
-        "title": "Book",
-        "markets": [
-            {
-                "key": "spreads",
-                "outcomes": [
-                    {"name": "Away", "point": 4.5, "price": 105},
-                    {"name": "Home", "point": -4.5, "price": -125},
-                ],
-            },
-            {
-                "key": "totals",
-                "outcomes": [
-                    {"name": "Under", "point": 170.5, "price": -115},
-                    {"name": "Over", "point": 170.5, "price": -105},
-                ],
-            },
-            {
-                "key": "h2h",
-                "outcomes": [
-                    {"name": "Away", "price": 155},
-                    {"name": "Home", "price": -180},
-                ],
-            },
-        ],
-    }
+    return {"title": "Book", "markets": [
+        {"key": "spreads", "outcomes": [
+            {"name": "Away", "point": 4.5, "price": 105},
+            {"name": "Home", "point": -4.5, "price": -125},
+        ]},
+        {"key": "totals", "outcomes": [
+            {"name": "Under", "point": 170.5, "price": -115},
+            {"name": "Over", "point": 170.5, "price": -105},
+        ]},
+        {"key": "h2h", "outcomes": [
+            {"name": "Away", "price": 155}, {"name": "Home", "price": -180},
+        ]},
+    ]}
 
 
 def final(home=90, away=80, **extra):
     return {
-        "id": "live-capture",
-        "completed": True,
-        "home_team": "Home",
-        "away_team": "Away",
+        "id": "live-capture", "completed": True, "home_team": "Home", "away_team": "Away",
         "scores": [{"name": "Away", "score": away}, {"name": "Home", "score": home}],
         **extra,
     }
@@ -156,8 +121,7 @@ def test_prices_survive_import_and_changed_quotes_append(capture_db, path):
         if path == "worker":
             return create_odds_snapshot(db, game.id, bookmaker, monitor=Mock())
         values = OddsNormalizerService().normalize_bookmaker(
-            {"home_team": "Home", "away_team": "Away"},
-            bookmaker,
+            {"home_team": "Home", "away_team": "Away"}, bookmaker,
         )
         return OddsImporter().import_odds(db, [{"game_id": game.id, **values}])[0]
 
@@ -290,25 +254,19 @@ def test_coverage_report_includes_quote_identity_and_explicit_site_status(captur
         "both_prices_missing_or_invalid": 1,
         "noncomplementary_line_snapshots": 0,
     }
-    assert (
-        row["spread_since_first_paired_capture"]["quote_snapshots_since_first_pair"]
-        == 2
-    )
-    assert (
-        row["spread_since_first_paired_capture"][
-            "paired_price_snapshots_since_first_pair"
-        ]
-        == 1
-    )
+    assert row["spread_since_first_paired_capture"][
+        "quote_snapshots_since_first_pair"
+    ] == 2
+    assert row["spread_since_first_paired_capture"][
+        "paired_price_snapshots_since_first_pair"
+    ] == 1
     assert row["neutral_site_unknown"] == 1
     assert row["games_with_explicit_venue"] == 1
     assert row["team_ids_with_matching_sport_provider_identity"] == 1
     assert row["team_ids_with_alias"] == 1
 
 
-@pytest.mark.parametrize(
-    "change", ["spread", "total", "missing", "invalid", "duplicate"]
-)
+@pytest.mark.parametrize("change", ["spread", "total", "missing", "invalid", "duplicate"])
 def test_mismatched_or_invalid_pairs_keep_lines_but_no_prices(change):
     bookmaker = quote()
     if change == "spread":
@@ -322,15 +280,10 @@ def test_mismatched_or_invalid_pairs_keep_lines_but_no_prices(change):
         bookmaker["markets"][0]["outcomes"][0]["price"] = float("nan")
         bookmaker["markets"][1]["outcomes"][0]["price"] = True
     else:
-        bookmaker["markets"][0]["outcomes"].append(
-            dict(bookmaker["markets"][0]["outcomes"][0])
-        )
-        bookmaker["markets"][1]["outcomes"].append(
-            dict(bookmaker["markets"][1]["outcomes"][0])
-        )
+        bookmaker["markets"][0]["outcomes"].append(dict(bookmaker["markets"][0]["outcomes"][0]))
+        bookmaker["markets"][1]["outcomes"].append(dict(bookmaker["markets"][1]["outcomes"][0]))
     result = OddsNormalizerService().normalize_bookmaker(
-        {"home_team": "Home", "away_team": "Away"},
-        bookmaker,
+        {"home_team": "Home", "away_team": "Away"}, bookmaker,
     )
     assert result["spread_home"] == -4.5 and result["total"] == 170.5
     assert (result["moneyline_home"], result["moneyline_away"]) == (-180, 155)
@@ -339,10 +292,7 @@ def test_mismatched_or_invalid_pairs_keep_lines_but_no_prices(change):
     if change != "spread":
         assert result["total_over_price"] is result["total_under_price"] is None
     assert OddsService().extract_market_values(bookmaker, "Home", "Away") == (
-        -4.5,
-        5.5 if change == "spread" else 4.5,
-        -180,
-        155,
+        -4.5, 5.5 if change == "spread" else 4.5, -180, 155,
         171.5 if change == "total" else 170.5,
     )
 
@@ -356,9 +306,7 @@ def test_final_receipts_idempotent_corrections_and_reversions(capture_db):
     assert sync.sync_sport(db, "WNBA").errors == 0
     first = db.query(GameResultObservation).one()
     assert before <= first.observed_at <= datetime.now(UTC).replace(tzinfo=None)
-    assert first.source_updated_at == datetime(2020, 1, 1, tzinfo=UTC).replace(
-        tzinfo=None
-    )
+    assert first.source_updated_at == datetime(2020, 1, 1, tzinfo=UTC).replace(tzinfo=None)
     sync.provider_client.rows = [final(last_update="2026-10-08T01:00:00Z")]
     sync.sync_sport(db, "WNBA")
     assert db.query(GameResultObservation).count() == 1
@@ -369,16 +317,12 @@ def test_final_receipts_idempotent_corrections_and_reversions(capture_db):
     rows = db.query(GameResultObservation).order_by(GameResultObservation.id).all()
     assert [r.home_score for r in rows] == [90, 70, 90]
     assert rows[0].observed_at <= rows[1].observed_at <= rows[2].observed_at
-    assert rows[0].source_updated_at == datetime(2020, 1, 1, tzinfo=UTC).replace(
-        tzinfo=None
-    )
+    assert rows[0].source_updated_at == datetime(2020, 1, 1, tzinfo=UTC).replace(tzinfo=None)
     db.refresh(game)
     assert (game.status, game.home_score, game.away_score) == ("final", 90, 80)
 
 
-@pytest.mark.parametrize(
-    "value", [-1, None, "bad", float("inf"), float("nan"), True, 90.5]
-)
+@pytest.mark.parametrize("value", [-1, None, "bad", float("inf"), float("nan"), True, 90.5])
 def test_invalid_finals_create_no_observations(capture_db, value):
     db = capture_db
     game = seed(db)
@@ -423,8 +367,7 @@ def test_each_changed_field_appends_and_unchanged_reuses(capture_db, field):
     values = {
         "game_id": game.id,
         **OddsNormalizerService().normalize_bookmaker(
-            {"home_team": "Home", "away_team": "Away"},
-            quote(),
+            {"home_team": "Home", "away_team": "Away"}, quote(),
         ),
     }
     importer = OddsImporter()
@@ -465,25 +408,19 @@ def test_price_migration_preserves_legacy_rows_and_downgrades(capture_db):
     game = seed(db)
     db.add(Odds(game_id=game.id, sportsbook="Legacy", spread_home=-4.5, total=170.5))
     db.commit()
-    migration = importlib.import_module(
-        "migrations.versions.b0c3f5e8d142_capture_paired_market_prices"
-    )
+    migration = importlib.import_module("migrations.versions.b0c3f5e8d142_capture_paired_market_prices")
     with db.bind.begin() as connection:
         with Operations.context(MigrationContext.configure(connection)):
             migration.downgrade()
             migration.upgrade()
-        legacy = connection.execute(
-            text(
-                "SELECT spread_home, total, spread_home_price, spread_away_price, "
-                "total_over_price, total_under_price FROM odds"
-            )
-        ).one()
+        legacy = connection.execute(text(
+            "SELECT spread_home, total, spread_home_price, spread_away_price, "
+            "total_over_price, total_under_price FROM odds"
+        )).one()
         assert tuple(legacy) == (-4.5, 170.5, None, None, None, None)
         with Operations.context(MigrationContext.configure(connection)):
             migration.downgrade()
-        assert not set(migration.PRICE_COLUMNS) & {
-            c["name"] for c in inspect(connection).get_columns("odds")
-        }
+        assert not set(migration.PRICE_COLUMNS) & {c["name"] for c in inspect(connection).get_columns("odds")}
         assert connection.execute(text("SELECT count(*) FROM odds")).scalar_one() == 1
 
 
@@ -492,16 +429,10 @@ def test_live_correction_does_not_regrade_settled_pick():
 
     with _session() as db:
         game = seed(db)
-        db.add(
-            Prediction(
-                game_id=game.id,
-                market="moneyline",
-                selection="HOME",
-                american_odds=-180,
-                model_version="NPI-5.0",
-                npi_score=100,
-            )
-        )
+        db.add(Prediction(
+            game_id=game.id, market="moneyline", selection="HOME",
+            american_odds=-180, model_version="NPI-5.0", npi_score=100,
+        ))
         db.commit()
         provider = FakeScoreClient([final()])
         sync = FinalScoreSettlementService(provider_client=provider)
