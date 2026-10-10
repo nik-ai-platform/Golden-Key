@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="680" viewBox="0 0 1200 680" fill="none">
+  <defs>
+    <linearGradient id="sky" x1="600" y1="0" x2="600" y2="680" gradientUnits="userSpaceOnUse"><stop stop-color="#0c2034"/><stop offset=".42" stop-color="#24465b"/><stop offset="1" stop-color="#07131b"/></linearGradient>
+    <linearGradient id="grass" x1="600" y1="290" x2="600" y2="680" gradientUnits="userSpaceOnUse"><stop stop-color="#3f8259"/><stop offset="1" stop-color="#164c32"/></linearGradient>
+    <radialGradient id="light"><stop stop-color="#effcff" stop-opacity=".95"/><stop offset=".12" stop-color="#caefff" stop-opacity=".55"/><stop offset=".4" stop-color="#66c5ef" stop-opacity=".16"/><stop offset="1" stop-color="#66c5ef" stop-opacity="0"/></radialGradient>
+    <pattern id="seats" width="15" height="11" patternUnits="userSpaceOnUse"><rect x="1" y="3" width="5" height="3" rx="1" fill="#c9dce5" fill-opacity=".4"/><rect x="9" y="8" width="4" height="2" rx="1" fill="#74a8c0" fill-opacity=".6"/></pattern>
+    <pattern id="lamps" width="13" height="12" patternUnits="userSpaceOnUse"><rect x="2" y="2" width="8" height="7" rx="2" fill="#effcff"/></pattern>
+    <clipPath id="field"><path d="M360 295h480l360 385H0z"/></clipPath>
+  </defs>
+  <path fill="url(#sky)" d="M0 0h1200v680H0z"/>
+  <path fill="#0a1725" d="M0 80q300 190 600 170Q900 270 1200 80v250H0z"/>
+  <path fill="#244355" d="M0 126q600 310 1200 0v184q-600 85-1200 0z"/>
+  <path fill="url(#seats)" d="M0 126q600 310 1200 0v184q-600 85-1200 0z"/>
+  <g stroke="#638da4" stroke-width="3" stroke-opacity=".65">
+    <path d="M0 154q600 285 1200 0M0 192q600 236 1200 0M0 230q600 186 1200 0M0 270q600 120 1200 0"/>
+    <path d="m150 190 40 130m200-45 14 60m406-60-14 60m254-145-40 130" stroke="#071621" stroke-width="10"/>
+  </g>
+  <path stroke="#c0eaff" stroke-opacity=".7" stroke-width="4" d="M0 310q600 85 1200 0"/>
+  <ellipse cx="180" cy="119" rx="225" ry="170" fill="url(#light)"/>
+  <ellipse cx="1020" cy="119" rx="225" ry="170" fill="url(#light)"/>
+  <g fill="url(#lamps)" stroke="#97cfe7" stroke-width="2">
+    <rect x="108" y="95" width="145" height="44" rx="4"/>
+    <rect x="947" y="95" width="145" height="44" rx="4"/>
+  </g>
+  <path fill="url(#grass)" d="M360 295h480l360 385H0z"/>
+  <g clip-path="url(#field)">
+    <path fill="#95bc78" fill-opacity=".2" d="M0 315h1200v25H0zm0 58h1200v35H0zm0 80h1200v45H0zm0 108h1200v58H0z"/>
+    <g stroke="#eff5e5" stroke-opacity=".8" stroke-width="3">
+      <path d="M360 295 0 680m840-385 360 385M340 315h520M316 340h568M285 373h630M252 408h696M210 453h780M168 498h864M109 561h982M55 619h1090"/>
+      <path d="m509 315-88 365m270-365 88 365" stroke-width="5" stroke-dasharray="2 12"/>
+    </g>
+    <g fill="#e6f0dc" fill-opacity=".62" font-family="sans-serif" font-weight="700" font-size="30" text-anchor="middle">
+      <text x="321" y="443" transform="rotate(-10 321 443)">30</text><text x="879" y="443" transform="rotate(10 879 443)">30</text>
+      <text x="265" y="548" transform="rotate(-13 265 548)">40</text><text x="935" y="548" transform="rotate(13 935 548)">40</text>
+      <text x="193" y="666" transform="rotate(-16 193 666)">50</text><text x="1007" y="666" transform="rotate(16 1007 666)">50</text>
+    </g>
+  </g>
+  <path stroke="#f6db88" stroke-width="5" stroke-linecap="round" d="M780 305v-74m-42-42v42h84v-42"/>
+</svg>

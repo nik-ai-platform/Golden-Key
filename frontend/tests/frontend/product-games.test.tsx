@@ -4,10 +4,11 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProductGamesPage } from "../../src/pages/ProductGamesPage";
-import { getUpcomingPredictions } from "../../src/services/productApi";
-import type { Prediction, UpcomingPredictionsResponse } from "../../src/types/product";
+import { getPerformance, getUpcomingPredictions } from "../../src/services/productApi";
+import type { Performance, Prediction, UpcomingPredictionsResponse } from "../../src/types/product";
 
 vi.mock("../../src/services/productApi", () => ({
+  getPerformance: vi.fn(),
   getUpcomingPredictions: vi.fn(),
 }));
 
@@ -40,6 +41,8 @@ function prediction(overrides: Partial<Prediction>): Prediction {
     recommendation_eligible: true,
     recommendation_tier: null,
     recommendation_designation: null,
+    sportsbook: "DraftKings",
+    odds_observed_at: "2026-09-06T18:00:00Z",
     ...overrides,
   };
 }
@@ -113,6 +116,61 @@ function response(items: Prediction[]): UpcomingPredictionsResponse {
   };
 }
 
+const performance: Performance = {
+  total_predictions: 3,
+  wins: 1,
+  losses: 1,
+  pushes: 1,
+  accuracy: 50,
+  profit_loss: 0,
+  market_performance: [],
+  sport_performance: [],
+  recent_results: [
+    {
+      prediction_id: 301,
+      game_id: 31,
+      sport: "NFL",
+      game_date: "2026-09-05T18:00:00Z",
+      home_team: "Seattle Seahawks",
+      away_team: "New England Patriots",
+      market: "spread",
+      display_selection: "Seattle Seahawks -3.5",
+      npi_score: 130,
+      outcome: "WIN",
+      home_score: 24,
+      away_score: 17,
+    },
+    {
+      prediction_id: 302,
+      game_id: 32,
+      sport: "NBA",
+      game_date: "2026-09-04T18:00:00Z",
+      home_team: "Boston Celtics",
+      away_team: "Miami Heat",
+      market: "moneyline",
+      display_selection: "Boston Celtics ML",
+      npi_score: 112,
+      outcome: "LOSS",
+      home_score: 99,
+      away_score: 102,
+    },
+    {
+      prediction_id: 303,
+      game_id: 33,
+      sport: "NCAAF",
+      game_date: "2026-09-03T18:00:00Z",
+      home_team: "Alabama Crimson Tide",
+      away_team: "Georgia Bulldogs",
+      market: "total",
+      display_selection: "UNDER 45.5",
+      npi_score: 106,
+      outcome: "PUSH",
+      home_score: 24,
+      away_score: 21,
+    },
+  ],
+};
+
 function renderPage() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -128,6 +186,7 @@ function renderPage() {
 
 describe("Games decision screen", () => {
   beforeEach(() => {
+    vi.mocked(getPerformance).mockResolvedValue(performance);
     vi.mocked(getUpcomingPredictions).mockImplementation(async (sport) =>
       response(
         sport
@@ -153,46 +212,42 @@ describe("Games decision screen", () => {
 
     const nbaCard = cards[0];
     const nflCard = cards[1];
-    expect(within(nbaCard).getByText("New York Knicks @ Boston Celtics")).toBeTruthy();
-    expect(within(nflCard).getByText("New England Patriots @ Seattle Seahawks")).toBeTruthy();
-    expect(within(nflCard).getByText("NFL")).toBeTruthy();
+    expect(within(nbaCard).getByText("New York Knicks")).toBeTruthy();
+    expect(within(nbaCard).getByText("Boston Celtics")).toBeTruthy();
+    expect(within(nflCard).getByText("New England Patriots")).toBeTruthy();
+    expect(within(nflCard).getByText("Seattle Seahawks")).toBeTruthy();
+    expect(within(nflCard).getByText("NFL", { selector: ".MuiChip-label" })).toBeTruthy();
     expect(within(nbaCard).getByText("Sun, Sep 6 • 8:30 PM EDT")).toBeTruthy();
     expect(within(nflCard).getByText("Mon, Sep 7 • 12:00 AM EDT")).toBeTruthy();
     expect(within(cards[2]).getByText("Sat, Sep 12 • 3:30 PM EDT")).toBeTruthy();
 
-    for (const market of ["Spread", "Moneyline", "Total"]) {
-      expect(within(nflCard).getByText(market)).toBeTruthy();
-    }
-    expect(within(nbaCard).queryByText("Total")).toBeNull();
-    expect(within(nflCard).getByText("Seattle Seahawks -3.5")).toBeTruthy();
-    expect(within(nflCard).getByText("New England Patriots ML")).toBeTruthy();
-    expect(within(nflCard).getByText("OVER 44.5")).toBeTruthy();
-    expect(screen.queryByText("HOME")).toBeNull();
-    expect(screen.queryByText("AWAY")).toBeNull();
-    expect(within(nflCard).getByText("Odds +125")).toBeTruthy();
-    expect(within(nflCard).getByText("180.0")).toBeTruthy();
-    expect(within(nflCard).getAllByText("83.0")).toHaveLength(3);
-    expect(within(nflCard).getAllByText("Bear A Hand Sports Best Pick")).toHaveLength(1);
-    expect(within(nbaCard).getAllByText("Bear A Hand Sports Best Pick")).toHaveLength(1);
-    expect(within(nflCard).getAllByTestId("market-prediction-card").filter(
-      (marketCard) => marketCard.getAttribute("data-best-pick") === "true",
-    )).toHaveLength(1);
-    expect(
-      within(nflCard).getByRole("link", { name: /view game analysis/i })
-        .classList.contains("MuiButton-contained"),
-    ).toBe(true);
+    expect(within(nflCard).getByTestId("team-badge-away").textContent).toBe("NE");
+    expect(within(nflCard).getByTestId("team-badge-home").textContent).toBe("SEA");
+    expect(within(nflCard).getByTestId("market-tile-spread").textContent).toContain("SEA -3.5");
+    expect(within(nflCard).getByTestId("market-tile-moneyline").textContent).toContain("NE +125");
+    expect(within(nflCard).getByTestId("market-tile-total").textContent).toContain("OVER 44.5");
+    expect(within(nflCard).getByTestId("market-tile-spread").textContent).toContain("DraftKings");
+    const observedOdds = within(within(nflCard).getByTestId("market-tile-spread"))
+      .getByLabelText(/Odds observed/);
+    expect(observedOdds.textContent).toContain("Sep 6");
+    expect(within(nflCard).getByRole("link", { name: /View Game Analysis for New England Patriots at Seattle Seahawks/i }).textContent)
+      .toContain("View pick analysis");
+    expect(within(nflCard).getAllByRole("button", { name: /save pick/i })).toHaveLength(3);
+    expect(within(nflCard).getByTestId("view-pick-analysis").classList.contains("MuiButton-contained")).toBe(true);
     expect(screen.queryByText(/Nik AI/i)).toBeNull();
-    expect(within(nbaCard).getByText("High Probability — Low Betting Value")).toBeTruthy();
-    expect(within(nbaCard).getByText("Odds -1000")).toBeTruthy();
-    expect(
-      within(nbaCard).getByText("Boston Celtics -2.5").parentElement?.textContent,
-    ).toContain("Bear A Hand Sports Best Pick");
+    expect(within(nbaCard).getByTestId("market-tile-moneyline").textContent).toContain("NYK -1000");
     expect(screen.getAllByRole("button", { name: /save pick/i })).toHaveLength(6);
     expect(
       within(nflCard)
         .getByRole("link", { name: /view game analysis/i })
         .getAttribute("href"),
     ).toBe("/games/1");
+    expect(screen.getAllByTestId("recent-model-result").map((chip) => chip.textContent)).toEqual([
+      "WIN",
+      "LOSS",
+      "PUSH",
+    ]);
+    expect(screen.queryByText("NO BET", { selector: ".MuiChip-label" })).toBeNull();
   });
 
   it("preserves every sport filter and updates the game list", async () => {
@@ -213,6 +268,47 @@ describe("Games decision screen", () => {
     });
     expect(screen.getByRole("button", { name: "NFL" }).getAttribute("aria-pressed")).toBe("true");
     expect(getUpcomingPredictions).toHaveBeenLastCalledWith("NFL");
+  });
+
+  it("uses a single league-filter row without duplicate sport-group controls", async () => {
+    renderPage();
+    await screen.findAllByTestId("game-card");
+
+    expect(screen.queryByRole("button", { name: "Football games" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Basketball games" })).toBeNull();
+    for (const league of ["All", "NFL", "NBA", "NCAAF", "NCAAB", "WNBA"]) {
+      expect(screen.getByRole("button", { name: league })).toBeTruthy();
+    }
+
+    fireEvent.click(screen.getByTestId("sport-filter-nba"));
+    await waitFor(() => {
+      expect(getUpcomingPredictions).toHaveBeenLastCalledWith("NBA");
+      expect(screen.getAllByTestId("game-card").map((card) => card.getAttribute("data-game-id")))
+        .toEqual(["2"]);
+    });
+  });
+
+  it("keeps PASS as NO BET and reserves PUSH for settled model results", async () => {
+    vi.mocked(getUpcomingPredictions).mockResolvedValue(response([
+      prediction({
+        prediction_id: 77,
+        game_id: 77,
+        market: "moneyline",
+        selection: "PASS",
+        display_selection: "PASS",
+        line_value: null,
+        american_odds: null,
+        recommendation_eligible: false,
+        result_status: "NO_BET",
+      }),
+    ]));
+    renderPage();
+
+    const card = await screen.findByTestId("game-card");
+    expect(within(card).getByTestId("market-tile-moneyline").textContent).toContain("NO BET");
+    expect(within(card).queryByRole("button", { name: /save pick/i })).toBeNull();
+    expect(screen.getAllByTestId("recent-model-result").map((chip) => chip.textContent))
+      .toEqual(["WIN", "LOSS", "PUSH"]);
   });
 
   it("shows the loading state", () => {

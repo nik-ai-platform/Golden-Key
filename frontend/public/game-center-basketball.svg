@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none">
+  <defs>
+    <linearGradient id="arena" x2="0" y2="560" gradientUnits="userSpaceOnUse"><stop stop-color="#162434"/><stop offset="1" stop-color="#0a1724"/></linearGradient>
+    <linearGradient id="wood" x1="600" y1="245" x2="600" y2="560" gradientUnits="userSpaceOnUse"><stop stop-color="#b57e48"/><stop offset="1" stop-color="#714b2d"/></linearGradient>
+    <pattern id="planks" width="80" height="22" patternUnits="userSpaceOnUse"><path d="M0 0h80M0 22h80M40 0v22" stroke="#f8c98a" stroke-opacity=".22"/><path d="M3 8h31m12 6h29" stroke="#472b18" stroke-opacity=".2"/></pattern>
+    <pattern id="seats" width="22" height="15" patternUnits="userSpaceOnUse"><rect x="3" y="4" width="7" height="4" rx="1" fill="#7c94aa" fill-opacity=".5"/><circle cx="17" cy="11" r="1.4" fill="#e3c592" fill-opacity=".55"/></pattern>
+    <radialGradient id="light"><stop stop-color="#ffe3ab" stop-opacity=".6"/><stop offset="1" stop-color="#ffd48a" stop-opacity="0"/></radialGradient>
+  </defs>
+  <path fill="url(#arena)" d="M0 0h1200v560H0z"/>
+  <path fill="#25344a" d="M0 105Q600 215 1200 105v165H0z"/>
+  <path fill="url(#seats)" d="M0 105Q600 215 1200 105v165H0z"/>
+  <path stroke="#688da9" stroke-opacity=".5" stroke-width="3" d="M0 125Q600 235 1200 125M0 165Q600 258 1200 165M0 210Q600 285 1200 210"/>
+  <ellipse cx="240" cy="65" rx="225" ry="170" fill="url(#light)"/>
+  <ellipse cx="960" cy="65" rx="225" ry="170" fill="url(#light)"/>
+  <g fill="#ffecc9"><path d="M171 60h138v9H171zm-16 20h170v8H155zM891 60h138v9H891zm-16 20h170v8H875z"/></g>
+  <path fill="url(#wood)" d="M120 250h960l120 310H0z"/>
+  <path fill="url(#planks)" d="M120 250h960l120 310H0z"/>
+  <path fill="#184357" fill-opacity=".75" d="M135 305h200v115H90zm930 0H865v115h245z"/>
+  <g stroke="#ffedcc" stroke-opacity=".88" stroke-width="3">
+    <path d="M140 270h920l105 270H35zM600 270v270"/>
+    <ellipse cx="600" cy="400" rx="74" ry="49"/>
+    <path d="M130 305h205v115H85m985-115H865v115h250"/>
+    <ellipse cx="335" cy="362" rx="40" ry="57"/>
+    <ellipse cx="865" cy="362" rx="40" ry="57"/>
+    <path d="M141 275c305 0 305 255-102 255m1020-255c-305 0-305 255 102 255"/>
+  </g>
+  <path stroke="#b7d8ed" stroke-width="6" d="M600 260v-94"/>
+  <rect x="548" y="130" width="104" height="62" rx="3" fill="#112437" fill-opacity=".6" stroke="#e6f6ff" stroke-width="3"/>
+  <rect x="578" y="154" width="44" height="27" stroke="#eef7fb" stroke-width="2"/>
+  <ellipse cx="600" cy="192" rx="24" ry="6" stroke="#ffa456" stroke-width="4"/>
+  <path stroke="#fff4df" stroke-opacity=".8" stroke-width="2" d="m578 195 8 25h28l8-25m-37 2 5 23m10-22v22m15-23-5 23m-27-11h35"/>
+</svg>
