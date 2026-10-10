@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly CFBD shadow score refresh
+
+[Timer]
+OnCalendar=Sun *-*-* 03:17:00 UTC
+Persistent=true
+AccuracySec=1min
+Unit=team-scoring-cfbd-import.service
+
+[Install]
+WantedBy=timers.target

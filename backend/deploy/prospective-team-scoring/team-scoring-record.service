@@ -1,0 +1,20 @@
+[Unit]
+Description=Record an isolated prospective team-scoring attempt
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/flock -n /run/lock/prospective-team-scoring.lock /opt/golden-key/prospective-team-scoring/run-job.sh record
+TimeoutStartSec=15min
+MemoryMax=1400M
+CPUQuota=100%
+TasksMax=64
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ReadWritePaths=/run/lock /opt/golden-key/backups/collection-a9a6b10-20261009T234233Z/prospective-output

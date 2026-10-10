@@ -1,4 +1,5 @@
 import importlib
+import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
@@ -27,8 +28,8 @@ from app.repositories.odds_repository import SNAPSHOT_FIELDS
 from app.services.final_score_settlement_service import FinalScoreSettlementService
 from app.services.odds_importer import OddsImporter
 from app.services.odds_normalizer_service import OddsNormalizerService
-from app.services.paired_market_prices import paired_market_prices_with_diagnostics
 from app.services.odds_service import OddsService, create_odds_snapshot
+from app.services.paired_market_prices import paired_market_prices_with_diagnostics
 from scripts.report_odds_capture_coverage import build_report
 
 
@@ -218,6 +219,14 @@ def test_coverage_report_includes_quote_identity_and_explicit_site_status(captur
         [
             Odds(
                 game_id=game.id,
+                sportsbook="Legacy",
+                spread_home=-4.5,
+                spread_away=4.5,
+                total=170.5,
+                created_at=datetime(2026, 10, 1, 10, tzinfo=UTC),
+            ),
+            Odds(
+                game_id=game.id,
                 sportsbook="Paired",
                 spread_home=-4.5,
                 spread_away=4.5,
@@ -226,21 +235,14 @@ def test_coverage_report_includes_quote_identity_and_explicit_site_status(captur
                 total=170.5,
                 total_over_price=-105,
                 total_under_price=-115,
-                created_at=datetime(2026, 10, 1, 10),
-            ),
-            Odds(
-                game_id=game.id,
-                sportsbook="Legacy",
-                spread_home=-4.5,
-                spread_away=4.5,
-                total=170.5,
-                created_at=datetime(2026, 10, 1, 11),
+                created_at=datetime(2026, 10, 1, 10, tzinfo=UTC),
             ),
         ]
     )
     capture_db.commit()
 
     report = build_report(capture_db)
+    json.dumps(report)
     row = next(sport for sport in report["sports"] if sport["sport"] == "WNBA")
 
     assert report["read_only"] is True
