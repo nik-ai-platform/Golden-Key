@@ -57,6 +57,12 @@ run_container() {
         --security-opt=no-new-privileges \
         --network "$NETWORK" \
         --env-file "$ENV_FILE" \
+        --env "ENVIRONMENT=production" \
+        --env "SECRET_KEY=shadow-evaluation-not-used" \
+        --env "JWT_SECRET=shadow-evaluation-not-used" \
+        --env "ODDS_API_KEY=shadow-evaluation-not-used" \
+        --env "AUTH_DEMO_EMAIL=shadow-evaluation@invalid" \
+        --env "AUTH_DEMO_PASSWORD=shadow-evaluation-not-used" \
         --env "TEAM_SCORING_JOB=${container_job}" \
         --env "TEAM_SCORING_RUN_ID=${run_id}" \
         --env "TEAM_SCORING_EVAL_DIR=/evaluation" \

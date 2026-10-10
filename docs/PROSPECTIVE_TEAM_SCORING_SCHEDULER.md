@@ -19,7 +19,11 @@ The recording, import, settlement, and coverage units share a nonblocking
 runs in an ephemeral, read-only-root Docker container with dropped Linux
 capabilities; only the protected evaluation directory is writable. Failures
 produce a nonzero unit result and a journal entry, and the runner appends a
-protected run-status record. No secrets are logged.
+protected run-status record. The environment file contains only the database
+URL and CFBD key; application-required auth and Odds API settings are
+non-secret placeholders because this image never serves requests or calls
+those providers. No production auth or Odds API credentials are mounted or
+logged.
 
 The evaluator uses a PostgreSQL repeatable-read, read-only transaction. Its
 attempts, CFBD score receipts, settlement evidence, daily reports, and
