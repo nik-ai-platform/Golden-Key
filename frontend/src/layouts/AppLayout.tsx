@@ -1,5 +1,6 @@
 import BookmarkBorderOutlinedIcon from "@mui/icons-material/BookmarkBorderOutlined";
 import CasinoOutlinedIcon from "@mui/icons-material/CasinoOutlined";
+import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
 import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
@@ -47,12 +48,18 @@ export function AppLayout() {
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  function navigation() {
+  function navigation(label: string, mobile = false) {
     const availableItems = navItems.filter((item) => user && item.roles.includes(user.role));
 
     return (
-      <>
-        <Toolbar sx={{ px: 2.25, minHeight: "64px !important", justifyContent: "center" }}>
+      <Box component="nav" aria-label={label} sx={{ height: "100%", overflowY: "auto" }}>
+        <Toolbar
+          sx={{
+            px: 2.25,
+            minHeight: mobile ? "72px !important" : "64px !important",
+            justifyContent: mobile ? "space-between" : "center",
+          }}
+        >
           <Box
             component="img"
             src="/Bear_A_Hand_Sports_Wordmark.png"
@@ -61,45 +68,78 @@ export function AppLayout() {
             height={38}
             sx={{ display: "block", width: "100%", maxWidth: 168, height: "auto", objectFit: "contain" }}
           />
-        </Toolbar>
-        <Divider />
-        <List sx={{ px: 1.25, py: 1.75 }}>
-          {availableItems.map((item) => (
-            <ListItemButton
-              key={item.path}
-              component={RouterLink}
-              to={item.path}
-              selected={location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)}
-              aria-current={location.pathname === item.path || location.pathname.startsWith(`${item.path}/`) ? "page" : undefined}
+          {mobile ? (
+            <IconButton
+              aria-label="Close navigation"
               onClick={() => setMobileOpen(false)}
               sx={{
-                minHeight: 42,
-                px: 1.5,
-                py: 0.75,
-                mb: 0.75,
-                borderRadius: "var(--gk-radius-sm)",
-                color: "var(--gk-shell-text-secondary)",
-                border: "1px solid transparent",
-                "&.Mui-selected": {
-                  color: "var(--gk-cyan)",
-                  backgroundColor: "var(--gk-gold-soft)",
-                  borderColor: "rgba(0, 212, 255, 0.28)",
-                },
-                "&.Mui-selected:hover": {
-                  backgroundColor: "rgba(0, 212, 255, 0.16)",
-                },
-                "&:hover": {
-                  color: "var(--gk-shell-text)",
-                  backgroundColor: "rgba(243, 238, 227, 0.04)",
-                },
+                color: "var(--gk-shell-text)",
+                "&:focus-visible": { outline: "2px solid var(--gk-cyan)", outlineOffset: 2 },
               }}
             >
-              <ListItemIcon sx={{ color: "inherit", minWidth: 32, "& .MuiSvgIcon-root": { fontSize: 19 } }}>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.label} primaryTypographyProps={{ variant: "body2", fontWeight: 750 }} />
-            </ListItemButton>
-          ))}
+              <CloseOutlinedIcon />
+            </IconButton>
+          ) : null}
+        </Toolbar>
+        <Divider sx={{ borderColor: "rgba(0, 212, 255, 0.16)" }} />
+        <List sx={{ px: 1.5, py: 2 }}>
+          {availableItems.map((item) => {
+            const selected =
+              location.pathname === item.path ||
+              location.pathname.startsWith(`${item.path}/`);
+            return (
+              <ListItemButton
+                key={item.path}
+                component={RouterLink}
+                to={item.path}
+                selected={selected}
+                aria-current={selected ? "page" : undefined}
+                onClick={() => setMobileOpen(false)}
+                sx={{
+                  minHeight: mobile ? 46 : 42,
+                  px: 1.5,
+                  py: mobile ? 0.9 : 0.75,
+                  mb: 0.75,
+                  borderRadius: mobile ? "12px" : "var(--gk-radius-sm)",
+                  border: mobile ? 0 : "1px solid transparent",
+                  color: "var(--gk-shell-text-secondary)",
+                  "&.Mui-selected": {
+                    color: mobile ? "#06111b" : "var(--gk-cyan)",
+                    backgroundColor: mobile ? "var(--gk-cyan)" : "var(--gk-gold-soft)",
+                    border: mobile ? 0 : "1px solid rgba(0, 212, 255, 0.28)",
+                    boxShadow: mobile ? "0 5px 20px rgba(0, 212, 255, 0.2)" : "none",
+                  },
+                  "&.Mui-selected:hover": {
+                    backgroundColor: mobile ? "#36ddff" : "rgba(0, 212, 255, 0.16)",
+                  },
+                  "&.Mui-focusVisible": {
+                    outline: "2px solid var(--gk-cyan)",
+                    outlineOffset: 2,
+                  },
+                  "&:hover": {
+                    color: "var(--gk-shell-text)",
+                    backgroundColor: mobile ? "rgba(0, 212, 255, 0.09)" : "rgba(243, 238, 227, 0.04)",
+                  },
+                }}
+              >
+                <ListItemIcon
+                  sx={{
+                    color: "inherit",
+                    minWidth: 34,
+                    "& .MuiSvgIcon-root": { fontSize: 19 },
+                  }}
+                >
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText
+                  primary={item.label}
+                  primaryTypographyProps={{ variant: "body2", fontWeight: 750 }}
+                />
+              </ListItemButton>
+            );
+          })}
         </List>
-      </>
+      </Box>
     );
   }
 
@@ -122,7 +162,7 @@ export function AppLayout() {
       >
         <Toolbar data-testid="header-controls" sx={{ minHeight: "56px !important", px: { xs: 1.5, sm: 2.25 }, justifyContent: "space-between" }}>
           <Stack direction="row" spacing={1.2} alignItems="center">
-            <IconButton aria-label="Open navigation" sx={{ display: { sm: "none" }, color: "var(--gk-cyan)" }} onClick={() => setMobileOpen((value) => !value)}>
+            <IconButton aria-label="Open navigation" aria-expanded={mobileOpen} sx={{ display: { sm: "none" }, color: "var(--gk-cyan)" }} onClick={() => setMobileOpen((value) => !value)}>
               <MenuOutlinedIcon />
             </IconButton>
           </Stack>
@@ -169,16 +209,26 @@ export function AppLayout() {
         onClose={() => setMobileOpen(false)}
         sx={{
           display: { xs: "block", sm: "none" },
+          "& .MuiBackdrop-root": {
+            backgroundColor: "rgba(2, 8, 15, 0.72)",
+          },
           [`& .MuiDrawer-paper`]: {
-            width: drawerWidth,
+            width: "min(84vw, 336px)",
             boxSizing: "border-box",
             backgroundColor: "var(--gk-shell)",
             color: "var(--gk-shell-text)",
-            boxShadow: "var(--gk-shadow-md)",
+            top: 12,
+            bottom: 12,
+            left: 12,
+            height: "auto",
+            border: "1px solid rgba(0, 212, 255, 0.18)",
+            borderRadius: "22px",
+            overflow: "hidden",
+            boxShadow: "0 28px 72px rgba(0, 0, 0, 0.58), 0 0 30px rgba(0, 212, 255, 0.11), inset 0 1px 0 rgba(255,255,255,0.04)",
           },
         }}
       >
-        {navigation()}
+        {navigation("Mobile navigation", true)}
       </Drawer>
 
       <Drawer
@@ -197,7 +247,7 @@ export function AppLayout() {
           },
         }}
       >
-        {navigation()}
+        {navigation("Primary navigation")}
       </Drawer>
 
       <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, sm: 2.25 }, pb: { xs: "calc(88px + env(safe-area-inset-bottom))", sm: 2.25 }, mt: { xs: "146px", sm: "170px", md: "246px" } }}>

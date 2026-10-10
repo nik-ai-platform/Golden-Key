@@ -27,6 +27,38 @@ export interface Prediction {
   recommendation_eligible?: boolean;
   recommendation_tier?: "PREFERRED" | "LOWER_PRIORITY" | "LOW_VALUE_HEAVY_FAVORITE" | null;
   recommendation_designation?: string | null;
+  signal_breakdown?: PredictionSignalBreakdown | null;
+}
+
+export interface PredictionSignalBreakdown {
+  model_version: string;
+  prediction_recorded_at: string | null;
+  factors: PredictionFactorRecord[];
+  frozen_odds: FrozenOddsRecord | null;
+  recorded_explanation?: string | null;
+}
+
+export interface PredictionFactorRecord {
+  factor_name: string;
+  weight: number | null;
+  factor_score: number | null;
+  predicted_side: string | null;
+  recorded_at: string | null;
+}
+
+export interface FrozenOddsRecord {
+  snapshot_id: number;
+  sportsbook: string | null;
+  spread_home: number | null;
+  spread_away: number | null;
+  spread_home_price: number | null;
+  spread_away_price: number | null;
+  moneyline_home: number | null;
+  moneyline_away: number | null;
+  total: number | null;
+  total_over_price: number | null;
+  total_under_price: number | null;
+  recorded_at: string | null;
 }
 
 export interface TodayPredictionsResponse {

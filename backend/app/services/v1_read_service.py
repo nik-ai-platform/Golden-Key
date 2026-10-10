@@ -5,6 +5,8 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session, aliased
 
 from app.models.game import Game
+from app.models.npi_factor_result import NPIFactorResult
+from app.models.odds import Odds
 from app.models.prediction_record import Prediction
 from app.models.prediction_result import PredictionResult
 from app.services.performance_scope import regular_season_games
@@ -520,6 +522,10 @@ class V1ReadService:
         for result in results:
             prediction = selected_by_id[result.prediction_id]
             result_statuses[result.prediction_id] = _result_status(prediction, result)
+        signal_breakdowns = {
+            prediction.id: self._signal_breakdown(db, prediction)
+            for prediction in selected_predictions
+        }
         return {
             "game_id": game.id,
             "sport": game.sport,
@@ -542,9 +548,66 @@ class V1ReadService:
                     ),
                     "outcome": outcomes.get(prediction.id),
                     "result_status": result_statuses.get(prediction.id),
+                    "signal_breakdown": signal_breakdowns[prediction.id],
                 }
                 for prediction in selected_predictions
             ],
+        }
+
+    def _signal_breakdown(self, db: Session, prediction: Prediction) -> dict | None:
+        factors = (
+            db.query(NPIFactorResult)
+            .filter(NPIFactorResult.prediction_id == prediction.id)
+            .order_by(NPIFactorResult.id)
+            .all()
+        )
+        if not factors:
+            return None
+
+        frozen_odds = None
+        if prediction.odds_snapshot_id is not None:
+            odds = (
+                db.query(Odds)
+                .filter(
+                    Odds.id == prediction.odds_snapshot_id,
+                    Odds.game_id == prediction.game_id,
+                )
+                .first()
+            )
+            if odds is not None:
+                frozen_odds = {
+                    "snapshot_id": odds.id,
+                    "sportsbook": historical_text(odds.sportsbook),
+                    "spread_home": finite_metric(odds.spread_home),
+                    "spread_away": finite_metric(odds.spread_away),
+                    "spread_home_price": historical_price(odds.spread_home_price),
+                    "spread_away_price": historical_price(odds.spread_away_price),
+                    "moneyline_home": historical_price(odds.moneyline_home),
+                    "moneyline_away": historical_price(odds.moneyline_away),
+                    "total": finite_metric(odds.total),
+                    "total_over_price": historical_price(odds.total_over_price),
+                    "total_under_price": historical_price(odds.total_under_price),
+                    "recorded_at": _utc_iso(odds.created_at),
+                }
+
+        return {
+            "model_version": historical_text(
+                prediction.model_version,
+                fallback="unknown",
+            ),
+            "prediction_recorded_at": _utc_iso(prediction.created_at),
+            "recorded_explanation": historical_text(prediction.reasoning),
+            "factors": [
+                {
+                    "factor_name": historical_text(factor.factor_name, fallback="unavailable"),
+                    "weight": finite_metric(factor.weight),
+                    "factor_score": finite_metric(factor.factor_score),
+                    "predicted_side": historical_text(factor.predicted_side),
+                    "recorded_at": _utc_iso(factor.created_at),
+                }
+                for factor in factors
+            ],
+            "frozen_odds": frozen_odds,
         }
 
     def get_saved_picks(

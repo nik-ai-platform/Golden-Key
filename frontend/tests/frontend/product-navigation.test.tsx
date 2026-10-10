@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
@@ -70,5 +70,68 @@ describe("product navigation", () => {
     const nav = screen.getByTestId("mobile-navigation-shell");
     expect(nav.dataset.safeArea).toBe("bottom");
     expect(88).toBeGreaterThan(Number.parseFloat(getComputedStyle(screen.getByRole("button", { name: "Games" })).minHeight));
+  });
+
+  it("opens an accessible floating mobile drawer with role-filtered destinations", () => {
+    render(
+      <ThemeModeProvider>
+        <AuthContext.Provider value={auth}>
+          <MemoryRouter initialEntries={["/games/101"]}>
+            <Routes>
+              <Route element={<AppLayout />}>
+                <Route path="/games/:gameId" element={<div>Game detail</div>} />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </ThemeModeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+    const mobileNavigation = screen.getByRole("navigation", { name: "Mobile navigation" });
+    const closeButton = screen.getByRole("button", { name: "Close navigation" });
+    expect(document.body.style.overflow).toBe("hidden");
+    expect(within(mobileNavigation).getByRole("img", { name: "Bear A Hand Sports wordmark" })).toBeTruthy();
+    expect(within(mobileNavigation).getByRole("link", { name: "Games" }).getAttribute("aria-current")).toBe("page");
+    expect(within(mobileNavigation).getByRole("link", { name: "How It Works" })).toBeTruthy();
+    expect(within(mobileNavigation).queryByRole("link", { name: "Worker Health" })).toBeNull();
+    expect(within(mobileNavigation).queryByText(/NFL|NBA|NCAAF/)).toBeNull();
+    expect(within(mobileNavigation).getAllByRole("img")).toHaveLength(1);
+
+    fireEvent.keyDown(closeButton, { key: "Escape" });
+    expect(screen.queryByRole("navigation", { name: "Mobile navigation" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+    const backdrop = document.querySelector(".MuiBackdrop-root");
+    expect(backdrop).toBeTruthy();
+    fireEvent.click(backdrop!);
+    expect(screen.queryByRole("navigation", { name: "Mobile navigation" })).toBeNull();
+  });
+
+  it("keeps Worker Health in the mobile drawer admin-only", () => {
+    const adminAuth = {
+      ...auth,
+      user: { ...auth.user, role: "admin" as const },
+    };
+    render(
+      <ThemeModeProvider>
+        <AuthContext.Provider value={adminAuth}>
+          <MemoryRouter initialEntries={["/games"]}>
+            <Routes>
+              <Route element={<AppLayout />}>
+                <Route path="/games" element={<div>Games</div>} />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </ThemeModeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+    expect(
+      within(screen.getByRole("navigation", { name: "Mobile navigation" }))
+        .getByRole("link", { name: "Worker Health" })
+        .getAttribute("href"),
+    ).toBe("/admin/workers");
   });
 });

@@ -1,6 +1,37 @@
 from pydantic import BaseModel, Field
 
 
+class PredictionFactorRecord(BaseModel):
+    factor_name: str
+    weight: float | None = None
+    factor_score: float | None = None
+    predicted_side: str | None = None
+    recorded_at: str | None = None
+
+
+class FrozenOddsRecord(BaseModel):
+    snapshot_id: int
+    sportsbook: str | None = None
+    spread_home: float | None = None
+    spread_away: float | None = None
+    spread_home_price: int | None = None
+    spread_away_price: int | None = None
+    moneyline_home: int | None = None
+    moneyline_away: int | None = None
+    total: float | None = None
+    total_over_price: int | None = None
+    total_under_price: int | None = None
+    recorded_at: str | None = None
+
+
+class PredictionSignalBreakdown(BaseModel):
+    model_version: str
+    prediction_recorded_at: str | None = None
+    factors: list[PredictionFactorRecord]
+    frozen_odds: FrozenOddsRecord | None = None
+    recorded_explanation: str | None = None
+
+
 class TodayPredictionItem(BaseModel):
     prediction_id: int
     game_id: int
@@ -64,6 +95,10 @@ class DailyCardResponse(BaseModel):
     next_best: list[DailyCardPick]
 
 
+class GameDetailPredictionItem(TodayPredictionItem):
+    signal_breakdown: PredictionSignalBreakdown | None = None
+
+
 class GameDetailResponse(BaseModel):
     game_id: int
     sport: str
@@ -72,7 +107,7 @@ class GameDetailResponse(BaseModel):
     game_date: str
     home_score: float | None = None
     away_score: float | None = None
-    predictions: list[TodayPredictionItem]
+    predictions: list[GameDetailPredictionItem]
 
 
 class SavedPickItem(BaseModel):

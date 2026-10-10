@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { useQuery } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -136,26 +136,25 @@ describe("Game Analysis", () => {
   it("renders the complete settled three-market decision view", () => {
     renderPage();
 
-    expect(screen.getByText("New England Patriots @ Seattle Seahawks")).toBeTruthy();
+    expect(screen.getAllByText("New England Patriots @ Seattle Seahawks").length).toBeGreaterThan(0);
     expect(screen.getByText("NFL")).toBeTruthy();
     expect(screen.getByText(formatProductDate(game.game_date))).toBeTruthy();
     expect(screen.getByText("Final: New England Patriots 21 · Seattle Seahawks 24")).toBeTruthy();
 
     for (const label of ["Spread", "Moneyline", "Total"]) {
-      expect(screen.getByText(label)).toBeTruthy();
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
     expect(screen.getByText("Seattle Seahawks -3.5")).toBeTruthy();
     expect(screen.getByText("New England Patriots ML")).toBeTruthy();
     expect(screen.getByText("OVER 44.5")).toBeTruthy();
     expect(screen.queryByText("HOME")).toBeNull();
     expect(screen.queryByText("AWAY")).toBeNull();
-    expect(screen.getAllByText("American odds -110")).toHaveLength(2);
-    expect(screen.getByText("American odds -1000")).toBeTruthy();
-    expect(screen.getAllByText("Sportsbook: DraftKings")).toHaveLength(3);
+    expect(screen.getAllByText(/Quoted odds -110 · DraftKings/)).toHaveLength(2);
+    expect(screen.getByText(/Quoted odds -1000 · DraftKings/)).toBeTruthy();
     expect(
-      screen.getAllByText(
-        `Observed: ${new Date("2026-09-01T20:32:00Z").toLocaleString()}`,
-      ),
+      screen.getAllByText(new RegExp(
+        `observed ${new Date("2026-09-01T20:32:00Z").toLocaleString()}`,
+      )),
     ).toHaveLength(3);
     const spreadEducation = screen.getByRole("region", { name: "Understanding this spread pick" });
     const moneylineEducation = screen.getByRole("region", { name: "Understanding this moneyline pick" });
@@ -164,31 +163,104 @@ describe("Game Analysis", () => {
     expect(within(spreadEducation).getByText("175.0")).toBeTruthy();
     expect(within(spreadEducation).getByText("83.0")).toBeTruthy();
     expect(within(spreadEducation).getByText("61.0%")).toBeTruthy();
-    expect(spreadEducation.textContent).toContain("Risk assessment: Low");
-    expect(within(spreadEducation).getByText(/^Projected Edge$/i)).toBeTruthy();
+    expect(spreadEducation.textContent).toContain("New England Patriots @ Seattle Seahawks");
+    expect(spreadEducation.textContent).toContain("Seattle Seahawks -3.5");
+    expect(spreadEducation.textContent).toContain("Main uncertainty");
     expect(within(spreadEducation).queryByText("+8.5 pp")).toBeNull();
     expect(within(moneylineEducation).queryByText("+5.0 pp")).toBeNull();
     expect(within(totalEducation).queryByText("+3.5 pts")).toBeNull();
-    expect(within(totalEducation).queryByText(/projected total/i)).toBeNull();
     expect(screen.getAllByTestId("pick-metrics")).toHaveLength(3);
-    expect(screen.getAllByText("Confidence Rating")).toHaveLength(6);
-    expect(screen.getAllByText("Model Probability")).toHaveLength(6);
-    expect(spreadEducation.textContent).toContain("selected team covering the spread");
-    expect(moneylineEducation.textContent).toContain("selected team winning");
-    expect(totalEducation.textContent).toContain("selected OVER/UNDER outcome");
-    expect(totalEducation.textContent).toContain("heuristic, not a simulation");
-    expect(screen.getAllByText("Low")).toHaveLength(4);
+    expect(screen.getAllByText("Confidence Rating")).toHaveLength(3);
+    expect(screen.getAllByText("Model Probability")).toHaveLength(3);
+    expect(spreadEducation.textContent).toContain("Seattle owns the stronger matchup profile.");
+    expect(screen.getAllByRole("button", { name: "Learn about NPI" })).toHaveLength(3);
+    expect(screen.getAllByText("Low")).toHaveLength(2);
     expect(screen.queryByText("LOW")).toBeNull();
     expect(screen.getAllByText("Bear A Hand Sports Best Pick")).toHaveLength(1);
     expect(screen.getByText("High Probability — Low Betting Value")).toBeTruthy();
-    expect(screen.getByText("NPI Score: 175. Seattle owns the stronger matchup profile.")).toBeTruthy();
     expect(screen.queryByText(/projected market edge/i)).toBeNull();
-    expect(screen.getAllByText("Model Reasoning")).toHaveLength(2);
+    expect(screen.getAllByText("Detailed breakdown unavailable for this pick.")).toHaveLength(3);
     expect(screen.getAllByRole("button", { name: /save pick/i })).toHaveLength(3);
     for (const outcome of ["WIN", "LOSS", "PUSH"]) {
       expect(screen.getByText(outcome)).toBeTruthy();
     }
     expect(screen.getByRole("link", { name: /back to games/i }).getAttribute("href")).toBe("/games");
+  });
+
+  it("shows only the historical model factor and frozen quote records for the exact pick", () => {
+    vi.mocked(useQuery).mockReturnValue(queryResult({
+      data: {
+        ...game,
+        home_score: null,
+        away_score: null,
+        predictions: [prediction({
+          model_version: "NPI-5.0",
+          selection: "AWAY",
+          display_selection: "New England Patriots +3.5",
+          line_value: 3.5,
+          signal_breakdown: {
+            model_version: "NPI-5.0",
+            prediction_recorded_at: "2026-09-01T20:30:00Z",
+            factors: [{
+              factor_name: "Historical Rule Engine",
+              weight: 80,
+              factor_score: 20,
+              predicted_side: "AWAY",
+              recorded_at: "2026-09-01T20:30:01Z",
+            }],
+            frozen_odds: {
+              snapshot_id: 9001,
+              sportsbook: "DraftKings",
+              spread_home: -3.5,
+              spread_away: 3.5,
+              spread_home_price: -110,
+              spread_away_price: -110,
+              moneyline_home: -165,
+              moneyline_away: 145,
+              total: 44.5,
+              total_over_price: -110,
+              total_under_price: -110,
+              recorded_at: "2026-09-01T20:32:00Z",
+            },
+            recorded_explanation:
+              "Spread model. Key Advantages: Recorded away-side rule. Risk Factors: No historical rule matched.",
+          },
+        })],
+      },
+    }));
+
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "View signal breakdown" }));
+
+    expect(screen.getByText("Recorded model factors · NPI-5.0")).toBeTruthy();
+    expect(screen.getByText("Historical Rule Engine")).toBeTruthy();
+    expect(screen.getByText("20 / 80")).toBeTruthy();
+    expect(screen.getByText(/Recorded side:\s*AWAY/)).toBeTruthy();
+    expect(screen.getByText(/Recorded away-side rule/)).toBeTruthy();
+    expect(screen.getByText(/Spread home\/away: -3\.5 \/ 3\.5/)).toBeTruthy();
+    expect(screen.getByText(/Snapshot 9001 · DraftKings/)).toBeTruthy();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+  });
+
+  it("treats PASS as no selection and does not present stored text as a pick reason", () => {
+    vi.mocked(useQuery).mockReturnValue(queryResult({
+      data: {
+        ...game,
+        home_score: null,
+        away_score: null,
+        predictions: [prediction({
+          selection: "PASS",
+          display_selection: "PASS",
+          reasoning: "PASS. No selection recommended.",
+        })],
+      },
+    }));
+    renderPage();
+
+    const brief = screen.getByRole("region", { name: "Understanding this spread pick" });
+    expect(within(brief).getByText("No selection recorded (PASS)")).toBeTruthy();
+    expect(within(brief).getByText("No pick-specific supporting reasons were recorded.")).toBeTruthy();
+    expect(within(brief).queryByText("No selection recommended.")).toBeNull();
   });
 
   it("omits a missing market safely", () => {
@@ -197,8 +269,8 @@ describe("Game Analysis", () => {
     );
     renderPage();
 
-    expect(screen.getByText("Spread")).toBeTruthy();
-    expect(screen.getByText("Moneyline")).toBeTruthy();
+    expect(screen.getAllByText("Spread").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Moneyline").length).toBeGreaterThan(0);
     expect(screen.queryByText("Total")).toBeNull();
     expect(screen.queryByText(/^Final:/)).toBeNull();
   });
@@ -225,7 +297,7 @@ describe("Game Analysis", () => {
     );
     renderPage();
 
-    expect(screen.getByText("New England Patriots @ Seattle Seahawks")).toBeTruthy();
+    expect(screen.getAllByText("New England Patriots @ Seattle Seahawks").length).toBeGreaterThan(0);
     expect(screen.getByText("No Bear A Hand Sports predictions are available for this game yet.")).toBeTruthy();
   });
 });
