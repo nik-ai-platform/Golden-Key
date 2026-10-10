@@ -5,7 +5,7 @@ import math
 from collections import Counter, defaultdict
 from datetime import UTC, datetime
 
-from sqlalchemy import text
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from app.database.session import SessionLocal
@@ -21,65 +21,91 @@ def _valid_price(value: int | None) -> bool:
     return value is not None and not isinstance(value, bool) and abs(value) >= 100
 
 
-def _valid_pair(row: Odds, market: str) -> bool:
-    if market == "spread":
-        return (
-            row.spread_home is not None
-            and row.spread_away is not None
-            and math.isclose(
-                row.spread_home,
-                -row.spread_away,
-                rel_tol=0,
-                abs_tol=1e-6,
-            )
-            and _valid_price(row.spread_home_price)
-            and _valid_price(row.spread_away_price)
-        )
-    return (
-        row.total is not None
-        and _valid_price(row.total_over_price)
-        and _valid_price(row.total_under_price)
-    )
-
-
-def _capture_counts(rows: list[Odds], market: str) -> dict:
-    if market == "spread":
-        has_line = lambda row: (
-            row.spread_home is not None or row.spread_away is not None
-        )
-        complementary = lambda row: (
-            row.spread_home is not None
-            and row.spread_away is not None
-            and math.isclose(
-                row.spread_home,
-                -row.spread_away,
-                rel_tol=0,
-                abs_tol=1e-6,
-            )
-        )
-        price_fields = ("spread_home_price", "spread_away_price")
-    else:
-        has_line = lambda row: row.total is not None
-        complementary = has_line
-        price_fields = ("total_over_price", "total_under_price")
-
-    quotes = [row for row in rows if has_line(row)]
-    paired = [row for row in quotes if _valid_pair(row, market)]
-    complement_lines = [row for row in quotes if complementary(row)]
-    unpaired = [row for row in complement_lines if row not in paired]
+def _new_market_counts() -> dict:
     return {
-        "quote_snapshots": len(quotes),
-        "complementary_line_snapshots": len(complement_lines),
-        "paired_price_snapshots": len(paired),
-        "one_price_missing_or_invalid": sum(
-            sum(not _valid_price(getattr(row, field)) for field in price_fields) == 1
-            for row in unpaired
+        "quote_snapshots": 0,
+        "complementary_line_snapshots": 0,
+        "paired_price_snapshots": 0,
+        "one_price_missing_or_invalid": 0,
+        "both_prices_missing_or_invalid": 0,
+        "noncomplementary_line_snapshots": 0,
+        "first_paired_snapshot_at": None,
+        "quote_snapshots_since_first_pair": 0,
+        "paired_price_snapshots_since_first_pair": 0,
+        "_tie_timestamp": None,
+        "_tie_quotes": 0,
+    }
+
+
+def _add_market_snapshot(
+    counts: dict,
+    *,
+    created_at: datetime,
+    has_line: bool,
+    complementary_line: bool,
+    prices: tuple[int | None, int | None],
+) -> None:
+    if (
+        counts["first_paired_snapshot_at"] is None
+        and counts["_tie_timestamp"] != created_at
+    ):
+        counts["_tie_timestamp"] = created_at
+        counts["_tie_quotes"] = 0
+    if has_line:
+        counts["quote_snapshots"] += 1
+        if counts["first_paired_snapshot_at"] is None:
+            counts["_tie_quotes"] += 1
+        elif created_at >= counts["first_paired_snapshot_at"]:
+            counts["quote_snapshots_since_first_pair"] += 1
+    if not has_line:
+        return
+    if complementary_line:
+        counts["complementary_line_snapshots"] += 1
+    else:
+        counts["noncomplementary_line_snapshots"] += 1
+        return
+
+    valid_prices = tuple(_valid_price(price) for price in prices)
+    if not all(valid_prices):
+        if sum(not valid for valid in valid_prices) == 1:
+            counts["one_price_missing_or_invalid"] += 1
+        else:
+            counts["both_prices_missing_or_invalid"] += 1
+        return
+
+    counts["paired_price_snapshots"] += 1
+    if counts["first_paired_snapshot_at"] is None:
+        counts["first_paired_snapshot_at"] = created_at
+        counts["quote_snapshots_since_first_pair"] = counts["_tie_quotes"]
+        counts["paired_price_snapshots_since_first_pair"] = 1
+    elif created_at >= counts["first_paired_snapshot_at"]:
+        counts["paired_price_snapshots_since_first_pair"] += 1
+
+
+def _market_report(counts: dict) -> dict:
+    return {
+        key: value.isoformat() if isinstance(value, datetime) else value
+        for key, value in counts.items()
+        if not key.startswith("_")
+        and key
+        not in {
+            "first_paired_snapshot_at",
+            "quote_snapshots_since_first_pair",
+            "paired_price_snapshots_since_first_pair",
+        }
+    }
+
+
+def _market_since_report(counts: dict) -> dict:
+    first_pair_at = counts["first_paired_snapshot_at"]
+    return {
+        "first_paired_snapshot_at": (
+            first_pair_at.isoformat() if first_pair_at else None
         ),
-        "both_prices_missing_or_invalid": sum(
-            all(not _valid_price(getattr(row, field)) for field in price_fields)
-            for row in unpaired
-        ),
-        "noncomplementary_line_snapshots": len(quotes) - len(complement_lines),
+        "quote_snapshots_since_first_pair": counts["quote_snapshots_since_first_pair"],
+        "paired_price_snapshots_since_first_pair": counts[
+            "paired_price_snapshots_since_first_pair"
+        ],
     }
 
 
@@ -88,122 +114,210 @@ def build_report(db: Session) -> dict:
         db.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"))
         db.execute(text("SET TRANSACTION READ ONLY"))
 
-    odds_by_sport: dict[str, list[Odds]] = defaultdict(list)
-    for odds, sport in (
-        db.query(Odds, Game.sport)
-        .join(Game, Game.id == Odds.game_id)
-        .order_by(Odds.created_at, Odds.id)
-        .all()
-    ):
-        odds_by_sport[sport.upper()].append(odds)
-
-    games_by_sport: dict[str, list[Game]] = defaultdict(list)
-    for game in db.query(Game).all():
-        games_by_sport[game.sport.upper()].append(game)
-
-    scores_by_sport: dict[str, list[tuple[GameResultObservation, Game]]] = defaultdict(
-        list
+    odds_by_sport: dict[str, dict] = defaultdict(
+        lambda: {
+            "odds_snapshots": 0,
+            "spread": _new_market_counts(),
+            "total": _new_market_counts(),
+        }
     )
-    for observation, game in (
-        db.query(GameResultObservation, Game)
-        .join(Game, Game.id == GameResultObservation.game_id)
-        .order_by(GameResultObservation.observed_at, GameResultObservation.id)
-        .all()
-    ):
-        scores_by_sport[game.sport.upper()].append((observation, game))
+    odds_query = (
+        db.query(
+            Odds.spread_home,
+            Odds.spread_away,
+            Odds.spread_home_price,
+            Odds.spread_away_price,
+            Odds.total,
+            Odds.total_over_price,
+            Odds.total_under_price,
+            Odds.created_at,
+            Game.sport,
+        )
+        .join(Game, Game.id == Odds.game_id)
+        .order_by(func.upper(Game.sport), Odds.created_at, Odds.id)
+        .yield_per(2000)
+    )
+    for (
+        spread_home,
+        spread_away,
+        spread_home_price,
+        spread_away_price,
+        total_line,
+        total_over_price,
+        total_under_price,
+        created_at,
+        sport_value,
+    ) in odds_query:
+        sport = (sport_value or "").upper()
+        sport_counts = odds_by_sport[sport]
+        sport_counts["odds_snapshots"] += 1
+        _add_market_snapshot(
+            sport_counts["spread"],
+            created_at=created_at,
+            has_line=spread_home is not None or spread_away is not None,
+            complementary_line=(
+                spread_home is not None
+                and spread_away is not None
+                and math.isclose(
+                    spread_home,
+                    -spread_away,
+                    rel_tol=0,
+                    abs_tol=1e-6,
+                )
+            ),
+            prices=(spread_home_price, spread_away_price),
+        )
+        _add_market_snapshot(
+            sport_counts["total"],
+            created_at=created_at,
+            has_line=total_line is not None,
+            complementary_line=total_line is not None,
+            prices=(total_over_price, total_under_price),
+        )
 
-    teams = db.query(Team.id, Team.sport).all()
-    team_sport = {team_id: (sport or "").upper() for team_id, sport in teams}
+    game_counts: dict[str, Counter] = defaultdict(Counter)
+    for sport_value, neutral_site, venue_name, venue_city, venue_state in (
+        db.query(
+            Game.sport,
+            Game.neutral_site,
+            Game.venue_name,
+            Game.venue_city,
+            Game.venue_state,
+        )
+        .order_by(Game.id)
+        .yield_per(2000)
+    ):
+        sport = (sport_value or "").upper()
+        counts = game_counts[sport]
+        counts["games"] += 1
+        counts["neutral_site_true"] += neutral_site is True
+        counts["neutral_site_false"] += neutral_site is False
+        counts["neutral_site_unknown"] += neutral_site is None
+        counts["games_with_explicit_venue"] += any(
+            isinstance(value, str) and value.strip()
+            for value in (venue_name, venue_city, venue_state)
+        )
+
+    team_counts: Counter = Counter()
+    team_sports: dict[int, str] = {}
+    for team_id, sport_value in db.query(Team.id, Team.sport).yield_per(2000):
+        sport = (sport_value or "").upper()
+        team_sports[team_id] = sport
+        team_counts[sport] += 1
     identities: dict[int, set[str]] = defaultdict(set)
-    for team_id, sport in db.query(
+    for team_id, sport_value in db.query(
         TeamProviderIdentity.team_id,
         TeamProviderIdentity.sport,
-    ).all():
-        identities[team_id].add((sport or "").upper())
+    ).yield_per(2000):
+        identities[team_id].add((sport_value or "").upper())
     alias_team_ids = {
-        team_id for (team_id,) in db.query(TeamAlias.team_id).distinct().all()
+        team_id for (team_id,) in db.query(TeamAlias.team_id).distinct().yield_per(2000)
     }
+    team_identity_counts: dict[str, Counter] = defaultdict(Counter)
+    for team_id, sport in team_sports.items():
+        identity_sports = identities.get(team_id, set())
+        team_identity_counts[sport][
+            "team_ids_with_matching_sport_provider_identity"
+        ] += sport in identity_sports
+        team_identity_counts[sport]["team_ids_with_alias"] += team_id in alias_team_ids
+        team_identity_counts[sport]["team_ids_with_cross_sport_provider_identity"] += (
+            bool(identity_sports - {sport})
+        )
+
+    score_counts: dict[str, Counter] = defaultdict(Counter)
+    for sport_value, observation_count, unique_games, latest_receipt in (
+        db.query(
+            Game.sport,
+            func.count(GameResultObservation.id),
+            func.count(func.distinct(GameResultObservation.game_id)),
+            func.max(GameResultObservation.observed_at),
+        )
+        .join(Game, Game.id == GameResultObservation.game_id)
+        .group_by(Game.sport)
+        .all()
+    ):
+        sport = (sport_value or "").upper()
+        score_counts[sport]["observations"] = observation_count
+        score_counts[sport]["unique_games_with_observations"] = unique_games
+        score_counts[sport]["latest_receipt_at"] = (
+            latest_receipt.isoformat() if latest_receipt else None
+        )
+    provider_counts: dict[str, Counter] = defaultdict(Counter)
+    for sport_value, provider, count in (
+        db.query(
+            Game.sport,
+            GameResultObservation.provider,
+            func.count(GameResultObservation.id),
+        )
+        .join(Game, Game.id == GameResultObservation.game_id)
+        .group_by(Game.sport, GameResultObservation.provider)
+        .all()
+    ):
+        provider_counts[(sport_value or "").upper()][provider or "unknown"] = count
+    for sport_value, home_score, away_score in (
+        db.query(
+            Game.sport,
+            GameResultObservation.home_score,
+            GameResultObservation.away_score,
+        )
+        .join(Game, Game.id == GameResultObservation.game_id)
+        .filter(
+            func.lower(GameResultObservation.status).in_(("final", "completed")),
+            GameResultObservation.home_score.is_not(None),
+            GameResultObservation.away_score.is_not(None),
+            GameResultObservation.home_score >= 0,
+            GameResultObservation.away_score >= 0,
+        )
+        .yield_per(2000)
+    ):
+        if math.isfinite(float(home_score)) and math.isfinite(float(away_score)):
+            score_counts[(sport_value or "").upper()][
+                "valid_final_score_observations"
+            ] += 1
 
     sports = sorted(
-        set(odds_by_sport)
-        | set(games_by_sport)
-        | set(scores_by_sport)
-        | set(team_sport.values())
+        set(odds_by_sport) | set(game_counts) | set(score_counts) | set(team_counts)
     )
     coverage = []
     for sport in sports:
-        rows = odds_by_sport[sport]
-        games = games_by_sport[sport]
-        ids = {
-            team_id for team_id, team_value in team_sport.items() if team_value == sport
-        }
-        score_rows = scores_by_sport[sport]
-        matched = {
-            team_id for team_id in ids if sport in identities.get(team_id, set())
-        }
-        cross_sport = {
-            team_id for team_id in ids if identities.get(team_id, set()) - {sport}
-        }
-        spread = _capture_counts(rows, "spread")
-        total = _capture_counts(rows, "total")
+        score_counts[sport].setdefault("observations", 0)
+        score_counts[sport].setdefault("unique_games_with_observations", 0)
+        score_counts[sport].setdefault("valid_final_score_observations", 0)
+        score_counts[sport].setdefault("latest_receipt_at", None)
+        team_identity_counts[sport].setdefault(
+            "team_ids_with_matching_sport_provider_identity", 0
+        )
+        team_identity_counts[sport].setdefault("team_ids_with_alias", 0)
+        team_identity_counts[sport].setdefault(
+            "team_ids_with_cross_sport_provider_identity", 0
+        )
         coverage.append(
             {
                 "sport": sport,
-                "odds_snapshots": len(rows),
-                "spread": spread,
-                "total": total,
-                "spread_since_first_paired_capture": _since_first_pair(rows, "spread"),
-                "total_since_first_paired_capture": _since_first_pair(rows, "total"),
-                "games": len(games),
-                "neutral_site_true": sum(game.neutral_site is True for game in games),
-                "neutral_site_false": sum(game.neutral_site is False for game in games),
-                "neutral_site_unknown": sum(
-                    game.neutral_site is None for game in games
+                "odds_snapshots": odds_by_sport[sport]["odds_snapshots"],
+                "spread": _market_report(odds_by_sport[sport]["spread"]),
+                "total": _market_report(odds_by_sport[sport]["total"]),
+                "spread_since_first_paired_capture": _market_since_report(
+                    odds_by_sport[sport]["spread"]
                 ),
-                "games_with_explicit_venue": sum(
-                    any(
-                        isinstance(value, str) and value.strip()
-                        for value in (
-                            game.venue_name,
-                            game.venue_city,
-                            game.venue_state,
-                        )
+                "total_since_first_paired_capture": _market_since_report(
+                    odds_by_sport[sport]["total"]
+                ),
+                **{
+                    key: game_counts[sport][key]
+                    for key in (
+                        "games",
+                        "neutral_site_true",
+                        "neutral_site_false",
+                        "neutral_site_unknown",
+                        "games_with_explicit_venue",
                     )
-                    for game in games
-                ),
-                "team_ids": len(ids),
-                "team_ids_with_matching_sport_provider_identity": len(matched),
-                "team_ids_with_alias": len(ids & alias_team_ids),
-                "team_ids_with_cross_sport_provider_identity": len(cross_sport),
+                },
+                "team_ids": team_counts[sport],
+                **team_identity_counts[sport],
                 "score_history": {
-                    "observations": len(score_rows),
-                    "unique_games_with_observations": len(
-                        {observation.game_id for observation, _ in score_rows}
-                    ),
-                    "valid_final_score_observations": sum(
-                        observation.status.strip().lower() in {"final", "completed"}
-                        and observation.home_score is not None
-                        and observation.away_score is not None
-                        and math.isfinite(float(observation.home_score))
-                        and math.isfinite(float(observation.away_score))
-                        and observation.home_score >= 0
-                        and observation.away_score >= 0
-                        for observation, _ in score_rows
-                    ),
-                    "latest_receipt_at": (
-                        max(
-                            observation.observed_at for observation, _ in score_rows
-                        ).isoformat()
-                        if score_rows
-                        else None
-                    ),
-                    "providers": dict(
-                        sorted(
-                            Counter(
-                                observation.provider for observation, _ in score_rows
-                            ).items()
-                        )
-                    ),
+                    **score_counts[sport],
+                    "providers": dict(sorted(provider_counts[sport].items())),
                 },
             }
         )
@@ -212,31 +326,6 @@ def build_report(db: Session) -> dict:
         "generated_at": datetime.now(UTC).isoformat(),
         "read_only": True,
         "sports": coverage,
-    }
-
-
-def _since_first_pair(rows: list[Odds], market: str) -> dict:
-    paired_rows = [row for row in rows if _valid_pair(row, market)]
-    if not paired_rows:
-        return {
-            "first_paired_snapshot_at": None,
-            "quote_snapshots_since_first_pair": 0,
-            "paired_price_snapshots_since_first_pair": 0,
-        }
-    first_pair_at = min(row.created_at for row in paired_rows)
-    if market == "spread":
-        has_line = lambda row: (
-            row.spread_home is not None or row.spread_away is not None
-        )
-    else:
-        has_line = lambda row: row.total is not None
-    since = [row for row in rows if row.created_at >= first_pair_at and has_line(row)]
-    return {
-        "first_paired_snapshot_at": first_pair_at.isoformat(),
-        "quote_snapshots_since_first_pair": len(since),
-        "paired_price_snapshots_since_first_pair": sum(
-            _valid_pair(row, market) for row in since
-        ),
     }
 
 
