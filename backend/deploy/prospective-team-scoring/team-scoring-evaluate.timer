@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily prospective team-scoring evaluation
+
+[Timer]
+OnCalendar=*-*-* 00:47:00 UTC
+OnActiveSec=60s
+Persistent=true
+AccuracySec=1s
+Unit=team-scoring-evaluate.service
+
+[Install]
+WantedBy=timers.target

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import math
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import UTC, datetime
 
 from sqlalchemy import text
@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.database.session import SessionLocal
 from app.models.game import Game
+from app.models.game_result_observation import GameResultObservation
 from app.models.odds import Odds
 from app.models.team import Team
 from app.models.team_alias import TeamAlias
@@ -43,7 +44,9 @@ def _valid_pair(row: Odds, market: str) -> bool:
 
 def _capture_counts(rows: list[Odds], market: str) -> dict:
     if market == "spread":
-        has_line = lambda row: row.spread_home is not None or row.spread_away is not None
+        has_line = lambda row: (
+            row.spread_home is not None or row.spread_away is not None
+        )
         complementary = lambda row: (
             row.spread_home is not None
             and row.spread_away is not None
@@ -69,18 +72,11 @@ def _capture_counts(rows: list[Odds], market: str) -> dict:
         "complementary_line_snapshots": len(complement_lines),
         "paired_price_snapshots": len(paired),
         "one_price_missing_or_invalid": sum(
-            sum(
-                not _valid_price(getattr(row, field))
-                for field in price_fields
-            )
-            == 1
+            sum(not _valid_price(getattr(row, field)) for field in price_fields) == 1
             for row in unpaired
         ),
         "both_prices_missing_or_invalid": sum(
-            all(
-                not _valid_price(getattr(row, field))
-                for field in price_fields
-            )
+            all(not _valid_price(getattr(row, field)) for field in price_fields)
             for row in unpaired
         ),
         "noncomplementary_line_snapshots": len(quotes) - len(complement_lines),
@@ -105,6 +101,17 @@ def build_report(db: Session) -> dict:
     for game in db.query(Game).all():
         games_by_sport[game.sport.upper()].append(game)
 
+    scores_by_sport: dict[str, list[tuple[GameResultObservation, Game]]] = defaultdict(
+        list
+    )
+    for observation, game in (
+        db.query(GameResultObservation, Game)
+        .join(Game, Game.id == GameResultObservation.game_id)
+        .order_by(GameResultObservation.observed_at, GameResultObservation.id)
+        .all()
+    ):
+        scores_by_sport[game.sport.upper()].append((observation, game))
+
     teams = db.query(Team.id, Team.sport).all()
     team_sport = {team_id: (sport or "").upper() for team_id, sport in teams}
     identities: dict[int, set[str]] = defaultdict(set)
@@ -118,22 +125,24 @@ def build_report(db: Session) -> dict:
     }
 
     sports = sorted(
-        set(odds_by_sport) | set(games_by_sport) | set(team_sport.values())
+        set(odds_by_sport)
+        | set(games_by_sport)
+        | set(scores_by_sport)
+        | set(team_sport.values())
     )
     coverage = []
     for sport in sports:
         rows = odds_by_sport[sport]
         games = games_by_sport[sport]
-        ids = {team_id for team_id, team_value in team_sport.items() if team_value == sport}
+        ids = {
+            team_id for team_id, team_value in team_sport.items() if team_value == sport
+        }
+        score_rows = scores_by_sport[sport]
         matched = {
-            team_id
-            for team_id in ids
-            if sport in identities.get(team_id, set())
+            team_id for team_id in ids if sport in identities.get(team_id, set())
         }
         cross_sport = {
-            team_id
-            for team_id in ids
-            if identities.get(team_id, set()) - {sport}
+            team_id for team_id in ids if identities.get(team_id, set()) - {sport}
         }
         spread = _capture_counts(rows, "spread")
         total = _capture_counts(rows, "total")
@@ -143,16 +152,14 @@ def build_report(db: Session) -> dict:
                 "odds_snapshots": len(rows),
                 "spread": spread,
                 "total": total,
-                "spread_since_first_paired_capture": _since_first_pair(
-                    rows, "spread"
-                ),
-                "total_since_first_paired_capture": _since_first_pair(
-                    rows, "total"
-                ),
+                "spread_since_first_paired_capture": _since_first_pair(rows, "spread"),
+                "total_since_first_paired_capture": _since_first_pair(rows, "total"),
                 "games": len(games),
                 "neutral_site_true": sum(game.neutral_site is True for game in games),
                 "neutral_site_false": sum(game.neutral_site is False for game in games),
-                "neutral_site_unknown": sum(game.neutral_site is None for game in games),
+                "neutral_site_unknown": sum(
+                    game.neutral_site is None for game in games
+                ),
                 "games_with_explicit_venue": sum(
                     any(
                         isinstance(value, str) and value.strip()
@@ -168,6 +175,36 @@ def build_report(db: Session) -> dict:
                 "team_ids_with_matching_sport_provider_identity": len(matched),
                 "team_ids_with_alias": len(ids & alias_team_ids),
                 "team_ids_with_cross_sport_provider_identity": len(cross_sport),
+                "score_history": {
+                    "observations": len(score_rows),
+                    "unique_games_with_observations": len(
+                        {observation.game_id for observation, _ in score_rows}
+                    ),
+                    "valid_final_score_observations": sum(
+                        observation.status.strip().lower() in {"final", "completed"}
+                        and observation.home_score is not None
+                        and observation.away_score is not None
+                        and math.isfinite(float(observation.home_score))
+                        and math.isfinite(float(observation.away_score))
+                        and observation.home_score >= 0
+                        and observation.away_score >= 0
+                        for observation, _ in score_rows
+                    ),
+                    "latest_receipt_at": (
+                        max(
+                            observation.observed_at for observation, _ in score_rows
+                        ).isoformat()
+                        if score_rows
+                        else None
+                    ),
+                    "providers": dict(
+                        sorted(
+                            Counter(
+                                observation.provider for observation, _ in score_rows
+                            ).items()
+                        )
+                    ),
+                },
             }
         )
     return {
@@ -188,14 +225,12 @@ def _since_first_pair(rows: list[Odds], market: str) -> dict:
         }
     first_pair_at = min(row.created_at for row in paired_rows)
     if market == "spread":
-        has_line = lambda row: row.spread_home is not None or row.spread_away is not None
+        has_line = lambda row: (
+            row.spread_home is not None or row.spread_away is not None
+        )
     else:
         has_line = lambda row: row.total is not None
-    since = [
-        row
-        for row in rows
-        if row.created_at >= first_pair_at and has_line(row)
-    ]
+    since = [row for row in rows if row.created_at >= first_pair_at and has_line(row)]
     return {
         "first_paired_snapshot_at": first_pair_at.isoformat(),
         "quote_snapshots_since_first_pair": len(since),

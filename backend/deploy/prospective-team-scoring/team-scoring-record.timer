@@ -1,0 +1,12 @@
+[Unit]
+Description=Hourly prospective team-scoring recording
+
+[Timer]
+OnCalendar=*-*-* *:07:00 UTC
+OnActiveSec=30s
+Persistent=true
+AccuracySec=1s
+Unit=team-scoring-record.service
+
+[Install]
+WantedBy=timers.target
