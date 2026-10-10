@@ -80,6 +80,7 @@ def test_authenticated_product_reads_preserve_response_contracts(monkeypatch, au
         "risk_level": "LOW",
         "reasoning": None,
         "outcome": None,
+        "result_status": None,
         "recommendation_eligible": True,
         "recommendation_tier": None,
         "recommendation_designation": None,
@@ -120,6 +121,15 @@ def test_authenticated_product_reads_preserve_response_contracts(monkeypatch, au
         "home_score": None,
         "away_score": None,
         "predictions": [prediction],
+    }
+    game_detail_contract = {
+        **game,
+        "predictions": [
+            {
+                **prediction,
+                "signal_breakdown": None,
+            },
+        ],
     }
     performance = {
         "total_predictions": 3,
@@ -200,7 +210,7 @@ def test_authenticated_product_reads_preserve_response_contracts(monkeypatch, au
     assert daily_card_response.status_code == 200
     assert daily_card_response.json() == daily_card
     assert game_response.status_code == 200
-    assert game_response.json() == game
+    assert game_response.json() == game_detail_contract
     assert performance_response.status_code == 200
     assert performance_response.json() == performance
     assert performance_intelligence_response.status_code == 200

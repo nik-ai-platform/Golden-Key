@@ -126,7 +126,10 @@ test("mobile drawer is floating, keyboard-operable, scroll-locked, and role-filt
   await expect(navigation.getByRole("link", { name: "Games" })).toHaveAttribute("aria-current", "page");
   await expect(navigation.getByRole("link", { name: "How It Works" })).toBeVisible();
   await expect(navigation.getByRole("link", { name: "Worker Health" })).toHaveCount(0);
+  await expect(navigation.getByRole("link")).toHaveCount(7);
+  await expect(navigation.getByRole("link", { name: /NFL|NBA|WNBA|NCAAF|NCAAB/ })).toHaveCount(0);
   await expect(navigation.locator("img")).toHaveCount(1);
+  await expect(page.getByText("Analyst Desk", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Close navigation" })).toBeVisible();
   await expect.poll(async () => drawer.evaluate((element) => element.contains(document.activeElement))).toBe(true);
   expect(await page.evaluate(() => document.body.style.overflow)).toBe("hidden");
@@ -152,6 +155,8 @@ test("desktop pick brief expands exact-version evidence and frozen odds without 
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/games/101");
   const brief = page.getByRole("region", { name: "Understanding this spread pick" });
+  await expect(brief.getByText("Pick Brief", { exact: true })).toBeVisible();
+  await expect(page.getByText("Analyst Desk", { exact: true })).toHaveCount(0);
   await expect(brief.getByText("New England Patriots @ Seattle Seahawks")).toBeVisible();
   await expect(brief.getByText("Seattle Seahawks -3.5")).toBeVisible();
   await expect(brief.getByText(/Quoted odds -110 · DraftKings/)).toBeVisible();
