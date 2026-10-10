@@ -52,11 +52,20 @@ export function AppLayout() {
     const availableItems = navItems.filter((item) => user && item.roles.includes(user.role));
 
     return (
-      <Box component="nav" aria-label={label} sx={{ height: "100%", overflowY: "auto" }}>
+      <Box
+        component="nav"
+        aria-label={label}
+        sx={{
+          height: mobile ? "auto" : "100%",
+          maxHeight: mobile ? "calc(100dvh - 24px)" : undefined,
+          overflowY: "auto",
+          overscrollBehavior: "contain",
+        }}
+      >
         <Toolbar
           sx={{
-            px: 2.25,
-            minHeight: mobile ? "72px !important" : "64px !important",
+            px: mobile ? 2 : 2.25,
+            minHeight: mobile ? "66px !important" : "64px !important",
             justifyContent: mobile ? "space-between" : "center",
           }}
         >
@@ -73,8 +82,16 @@ export function AppLayout() {
               aria-label="Close navigation"
               onClick={() => setMobileOpen(false)}
               sx={{
-                color: "var(--gk-shell-text)",
-                "&:focus-visible": { outline: "2px solid var(--gk-cyan)", outlineOffset: 2 },
+                color: "#c4d4e0",
+                borderRadius: "10px",
+                "&:hover": {
+                  color: "#edf4fa",
+                  backgroundColor: "rgba(0, 212, 255, 0.09)",
+                },
+                "&:focus-visible": {
+                  outline: "2px solid var(--gk-cyan)",
+                  outlineOffset: 2,
+                },
               }}
             >
               <CloseOutlinedIcon />
@@ -82,7 +99,7 @@ export function AppLayout() {
           ) : null}
         </Toolbar>
         <Divider sx={{ borderColor: "rgba(0, 212, 255, 0.16)" }} />
-        <List sx={{ px: 1.5, py: 2 }}>
+        <List sx={{ px: 1.5, py: mobile ? 1.25 : 2 }}>
           {availableItems.map((item) => {
             const selected =
               location.pathname === item.path ||
@@ -96,10 +113,10 @@ export function AppLayout() {
                 aria-current={selected ? "page" : undefined}
                 onClick={() => setMobileOpen(false)}
                 sx={{
-                  minHeight: mobile ? 46 : 42,
+                  minHeight: mobile ? 44 : 42,
                   px: 1.5,
-                  py: mobile ? 0.9 : 0.75,
-                  mb: 0.75,
+                  py: mobile ? 0.7 : 0.75,
+                  mb: mobile ? 0.5 : 0.75,
                   borderRadius: mobile ? "12px" : "var(--gk-radius-sm)",
                   border: mobile ? 0 : "1px solid transparent",
                   color: "var(--gk-shell-text-secondary)",
@@ -107,7 +124,9 @@ export function AppLayout() {
                     color: mobile ? "#06111b" : "var(--gk-cyan)",
                     backgroundColor: mobile ? "var(--gk-cyan)" : "var(--gk-gold-soft)",
                     border: mobile ? 0 : "1px solid rgba(0, 212, 255, 0.28)",
-                    boxShadow: mobile ? "0 5px 20px rgba(0, 212, 255, 0.2)" : "none",
+                    boxShadow: mobile
+                      ? "0 4px 16px rgba(0, 212, 255, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.2)"
+                      : "none",
                   },
                   "&.Mui-selected:hover": {
                     backgroundColor: mobile ? "#36ddff" : "rgba(0, 212, 255, 0.16)",
@@ -125,15 +144,20 @@ export function AppLayout() {
                 <ListItemIcon
                   sx={{
                     color: "inherit",
-                    minWidth: 34,
-                    "& .MuiSvgIcon-root": { fontSize: 19 },
+                    minWidth: mobile ? 38 : 34,
+                    "& .MuiSvgIcon-root": { fontSize: mobile ? 20 : 19 },
                   }}
                 >
                   {item.icon}
                 </ListItemIcon>
                 <ListItemText
                   primary={item.label}
-                  primaryTypographyProps={{ variant: "body2", fontWeight: 750 }}
+                  primaryTypographyProps={{
+                    variant: "body2",
+                    fontWeight: mobile ? 650 : 750,
+                    letterSpacing: mobile ? "0.01em" : undefined,
+                    lineHeight: mobile ? 1.25 : undefined,
+                  }}
                 />
               </ListItemButton>
             );
@@ -210,21 +234,23 @@ export function AppLayout() {
         sx={{
           display: { xs: "block", sm: "none" },
           "& .MuiBackdrop-root": {
-            backgroundColor: "rgba(2, 8, 15, 0.72)",
+            backgroundColor: "rgba(6, 13, 20, 0.86)",
           },
           [`& .MuiDrawer-paper`]: {
             width: "min(84vw, 336px)",
             boxSizing: "border-box",
-            backgroundColor: "var(--gk-shell)",
+            background: "linear-gradient(155deg, #0b1823 0%, #091722 54%, #07131e 100%)",
             color: "var(--gk-shell-text)",
             top: 12,
-            bottom: 12,
+            bottom: "auto",
             left: 12,
             height: "auto",
-            border: "1px solid rgba(0, 212, 255, 0.18)",
-            borderRadius: "22px",
+            maxHeight: "calc(100dvh - 24px)",
+            border: "1px solid rgba(0, 212, 255, 0.24)",
+            borderRadius: "20px",
             overflow: "hidden",
-            boxShadow: "0 28px 72px rgba(0, 0, 0, 0.58), 0 0 30px rgba(0, 212, 255, 0.11), inset 0 1px 0 rgba(255,255,255,0.04)",
+            boxShadow:
+              "0 24px 64px rgba(0, 0, 0, 0.62), 0 0 0 1px rgba(0, 212, 255, 0.07), 0 0 28px rgba(0, 212, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
           },
         }}
       >
