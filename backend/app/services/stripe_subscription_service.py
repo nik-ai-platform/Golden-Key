@@ -230,10 +230,15 @@ def create_checkout_session(
     ):
         raise StripeEventProcessingError("Stripe test price does not match the approved offer")
 
+    subscriptions = get_user_provider_subscriptions(db, user.id)
+    trial_eligible = not any(
+        item.trial_end is not None or item.status == ProviderSubscriptionStatus.TRIALING.value
+        for item in subscriptions
+    )
     customer_id = next(
         (
             item.external_customer_id
-            for item in get_user_provider_subscriptions(db, user.id)
+            for item in subscriptions
             if item.provider == "stripe" and item.external_customer_id
         ),
         None,
@@ -245,6 +250,7 @@ def create_checkout_session(
         plan=plan,
         price_id=price_id,
         customer_id=customer_id,
+        trial_eligible=trial_eligible,
         success_url=f"{frontend_url}/profile?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{frontend_url}/profile?checkout=canceled",
     )

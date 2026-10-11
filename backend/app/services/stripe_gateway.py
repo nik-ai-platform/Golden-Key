@@ -42,12 +42,16 @@ class StripeGateway:
         success_url: str,
         cancel_url: str,
         customer_id: str | None = None,
+        trial_eligible: bool = True,
     ) -> Any:
         customer = {"customer": customer_id} if customer_id else {"customer_email": email}
         metadata = {
             "golden_key_user_id": str(user_id),
             "golden_key_plan": plan,
         }
+        subscription_data: dict[str, Any] = {"metadata": metadata}
+        if trial_eligible:
+            subscription_data["trial_period_days"] = LAUNCH_TRIAL_DAYS
         return self.client.v1.checkout.sessions.create(
             params={
                 "mode": "subscription",
@@ -56,10 +60,7 @@ class StripeGateway:
                 "success_url": success_url,
                 "cancel_url": cancel_url,
                 "metadata": metadata,
-                "subscription_data": {
-                    "metadata": metadata,
-                    "trial_period_days": LAUNCH_TRIAL_DAYS,
-                },
+                "subscription_data": subscription_data,
                 **customer,
             }
         )

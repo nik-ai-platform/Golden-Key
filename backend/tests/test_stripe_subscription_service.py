@@ -537,6 +537,28 @@ def test_checkout_sets_canonical_plan_metadata(database, monkeypatch, plan):
     }
 
 
+@pytest.mark.parametrize("plan", ("pro_monthly", "pro_annual"))
+@pytest.mark.parametrize("status", ("canceled", "expired", "past_due"))
+def test_previous_trial_allows_paid_checkout_without_another_trial(database, monkeypatch, plan, status):
+    db, _ = database
+    create_or_update_provider_subscription(
+        db, user_id=1, provider="stripe", external_customer_id="cus_test_previous",
+        external_subscription_id="sub_test_previous", plan=plan, status=status,
+        current_period_start=NOW - timedelta(days=14),
+        current_period_end=NOW - timedelta(days=7), trial_end=NOW - timedelta(days=7),
+    )
+    db.commit()
+    monkeypatch.setattr("app.services.stripe_gateway.stripe.StripeClient", RecordingStripeClient)
+    monkeypatch.setattr(settings, "STRIPE_PRICE_IDS", {plan: f"price_test_{plan}"})
+    gateway = StripeGateway("sk_test_local_only")
+    create_checkout_session(db, gateway, user=db.get(User, 1), plan=plan)
+
+    params, _ = gateway.client.checkout_calls[0]
+    assert params["customer"] == "cus_test_previous"
+    assert "trial_period_days" not in params["subscription_data"]
+    assert db.query(ApplicationEntitlement).count() == 0
+
+
 def test_gateway_prefers_customer_and_uses_client_for_portal_and_retrieval(monkeypatch):
     monkeypatch.setattr(
         "app.services.stripe_gateway.stripe.StripeClient",
