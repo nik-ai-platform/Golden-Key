@@ -173,6 +173,9 @@ def synchronize_stripe_subscription(db: Session, subscription: Any):
     trial_end = _timestamp(_get(subscription, "trial_end"))
     if stripe_status == "trialing" and trial_end is not None:
         period_end = min(period_end, trial_end) if period_end is not None else trial_end
+    cancel_at = _timestamp(_get(subscription, "cancel_at"))
+    if stripe_status in {"active", "trialing"} and cancel_at is not None:
+        period_end = min(period_end, cancel_at) if period_end is not None else cancel_at
     if stripe_status in {"active", "trialing"} and period_end is None:
         raise StripeEventProcessingError("Stripe subscription entitlement expiry is missing")
 
@@ -188,7 +191,7 @@ def synchronize_stripe_subscription(db: Session, subscription: Any):
         current_period_start=period_start,
         current_period_end=period_end,
         trial_end=trial_end,
-        cancel_at_period_end=bool(_get(subscription, "cancel_at_period_end", False)),
+        cancel_at_period_end=bool(_get(subscription, "cancel_at_period_end", False)) or cancel_at is not None,
         canceled_at=_timestamp(_get(subscription, "canceled_at")),
         ended_at=_timestamp(_get(subscription, "ended_at")),
     )

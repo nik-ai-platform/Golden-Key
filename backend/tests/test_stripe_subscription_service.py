@@ -62,6 +62,24 @@ def test_same_second_events_use_provider_current_state(database):
     assert db.query(ProviderSubscription).one().status == "canceled"
 
 
+@pytest.mark.parametrize("status", ("trialing", "active"))
+def test_explicit_cancel_at_synchronizes_scheduled_cancellation(database, status):
+    db, _ = database
+    cancel_at = int((NOW + timedelta(days=7)).timestamp())
+    subscription = _stripe_subscription(
+        status=status, cancel_at=cancel_at, cancel_at_period_end=False,
+        trial_end=cancel_at if status == "trialing" else None,
+    )
+    event = _stripe_event("evt_explicit_cancel_at", "customer.subscription.updated", subscription)
+    assert process_verified_stripe_event(db, FakeStripeGateway(), event) == ("processed", False)
+    persisted = db.query(ProviderSubscription).one()
+    assert persisted.cancel_at_period_end is True
+    assert persisted.current_period_end.replace(tzinfo=UTC) == datetime.fromtimestamp(cancel_at, UTC)
+    entitlement = db.query(ApplicationEntitlement).one()
+    assert entitlement.status == "active"
+    assert entitlement.ends_at.replace(tzinfo=UTC) == datetime.fromtimestamp(cancel_at, UTC)
+
+
 @pytest.mark.parametrize("status", ["trialing", "active", "past_due", "canceled", "incomplete_expired"])
 def test_invoice_events_reconcile_current_provider_status(database, status):
     db, _ = database
